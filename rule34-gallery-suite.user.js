@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.38
+// @version      0.8.39
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA gratis sin configurar nada) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -77,12 +77,7 @@
     tAlias: true,
     tShared: true,
     tAuto: false,
-    tAutoAI: false,
     fab: true,
-    tEngine: "local",
-    tEndpoint: "https://text.pollinations.ai/openai",
-    tModel: "openai",
-    tKey: "",
     tPromptFmt: "comas",
     tPromptArt: true,
     tPromptArtPos: "first",
@@ -102,8 +97,7 @@
     dlPages: "1",
     dlSkip: true,
     dlZip: false,
-    pdlAction: "ask",
-    tBridge: "https://perchance.org/userscript-maker"
+    pdlAction: "ask"
   };
 
   function readJSON(key) {
@@ -4892,175 +4886,89 @@
       event: "change"
     });
 
+    // La única IA que queda: la que redacta el prompt para otra app. Un solo motor, Gemini, con la
+    // clave del usuario guardada solo en este navegador. Sin desplegable de proveedor y sin cambio
+    // automático de motor: si Gemini falla, se ve el motivo y el prompt local sigue estando ahí.
     var engine = ui.section(
       panel,
-      "Motor de IA",
-      "El an\u00e1lisis base es local y no necesita internet. La IA es opcional y ya viene lista: no tienes que configurar nada ni pegar ninguna clave. Sirve para repartir mejor las etiquetas entre personajes y para redactar el prompt. Si la IA no responde, el an\u00e1lisis local sigue funcionando igual."
+      "Prompt con IA (Gemini)",
+      "El análisis de etiquetas es local y no necesita internet. La IA solo se usa para redactar el prompt: la pestaña «IA» del recuadro del prompt le pide el texto a Google (Gemini). Pega tu clave de Google AI Studio (es gratis y se saca en aistudio.google.com/apikey): se guarda solo en este navegador y nunca entra en el script que se publica."
     );
-    ui.seg({
-      section: engine,
-      key: "tEngine",
-      title: "Modo",
-      note: "El bot\u00f3n \u00abAnalizar con IA\u00bb funciona siempre. Este interruptor solo decide si el an\u00e1lisis autom\u00e1tico (el de abajo) puede usar la IA.",
-      options: [
-        { label: "Solo local", value: "local" },
-        { label: "IA externa", value: "ai" }
-      ]
-    });
-    ui.select({
-      section: engine,
-      title: "Proveedor",
-      note: "Elige uno y ya est\u00e1: solo se te pide rellenar lo que de verdad haga falta. Los que no piden nada lo dicen en su nombre.",
-      options: AI_PROVIDERS.map(function (p) {
-        return { label: p.label, value: p.value };
-      }),
-      get: function () {
-        return ai.config.provider;
-      },
-      set: function (v) {
-        ai.applyProvider(v);
-      }
-    });
-
-    // Aviso para los proveedores que no necesitan nada.
-    var freeHint = util.el("p", "r34g-note r34g-ai-free-hint");
-    engine.appendChild(freeHint);
-
-    // Solo se ense\u00f1an los campos que pide el proveedor elegido: con \u00abIA de Perchance\u00bb solo su
-    // direcci\u00f3n (ya rellena), con los gratuitos ninguno, y con los de clave, direcci\u00f3n y clave.
-    var bridgeRow = null;
-    if (ai.config.bridge.indexOf("userscript-maker") !== -1) {
-      ai.config.bridge = R.settings.tBridge || ai.config.bridge;
-      ai.save();
-    }
-    var bridgeInput = ui.text({
-      section: engine,
-      title: "Generador de Perchance",
-      note: "Solo para el proveedor \u00abIA de Perchance\u00bb: la direcci\u00f3n de este generador (el que compila el script). Si lo guardas con otro nombre, actual\u00edzala aqu\u00ed.",
-      mono: true,
-      placeholder: "https://perchance.org/tu-generador",
-      get: function () {
-        return ai.config.bridge;
-      },
-      set: function (v) {
-        ai.config.bridge = String(v).trim();
-        ai.save();
-      },
-      event: "change"
-    });
-    bridgeRow = bridgeInput.closest(".r34g-row");
-
-    var endpointInput = ui.text({
-      section: engine,
-      title: "Direcci\u00f3n del servicio",
-      note: "La rellena sola el proveedor; solo la cambias si usas uno tuyo.",
-      placeholder: "https://text.pollinations.ai/openai",
-      mono: true,
-      get: function () {
-        return ai.config.endpoint;
-      },
-      set: function (v) {
-        ai.config.endpoint = v;
-        ai.save();
-      },
-      event: "change"
-    });
-    var endpointRow = endpointInput.closest(".r34g-row");
-
-    var modelInput = ui.text({
-      section: engine,
-      title: "Modelo",
-      note: "Tambi\u00e9n viene puesto seg\u00fan el proveedor.",
-      placeholder: "openai",
-      get: function () {
-        return ai.config.model;
-      },
-      set: function (v) {
-        ai.config.model = v;
-        ai.save();
-      },
-      event: "change"
-    });
-    var modelRow = modelInput.closest(".r34g-row");
-
     var keyInput = ui.text({
       section: engine,
-      title: "Clave de API",
-      note: "Opcional. Se guarda solo en este navegador (localStorage).",
+      title: "Clave de Google AI Studio",
+      note: "Se guarda solo en este navegador (localStorage). Si la cambias, pégala aquí y dale a «Probar conexión».",
       password: true,
+      placeholder: "AIza…",
       get: function () {
         return ai.config.key;
       },
       set: function (v) {
-        ai.config.key = v;
+        ai.config.key = String(v).trim();
         ai.save();
       },
       event: "change"
     });
-    var keyRow = keyInput.closest(".r34g-row");
+
+    engine.appendChild(
+      util.el(
+        "p",
+        "r34g-note r34g-ai-model",
+        "Modelo: " + GEMINI.model + " (el Flash más nuevo de Google; el mismo para todo el mundo y sin desplegable a propósito)."
+      )
+    );
 
     var aiProbe = util.el("p", "r34g-note r34g-ai-probe");
-    aiProbe.textContent = ai.lastProvider
-      ? "\u00daltima conexi\u00f3n correcta: " + providerShort(ai.lastProvider) + "."
-      : "Sin probar todav\u00eda. El bot\u00f3n de abajo usa la misma cadena que \u00abAnalizar con IA\u00bb (el proveedor elegido y, si falla, los gratuitos).";
+    aiProbe.textContent = "Sin probar todavía. El botón de abajo manda una petición de verdad a Gemini con tu clave.";
     engine.appendChild(aiProbe);
 
-    // Qu\u00e9 proveedores piden clave y cu\u00e1les una direcci\u00f3n propia. Los que no, no ense\u00f1an nada.
-    var NEEDS_KEY = { groq: 1, gemini: 1, openrouter: 1, openai: 1, mistral: 1, custom: 1 };
-    var HAS_ENDPOINT = { groq: 1, gemini: 1, openrouter: 1, openai: 1, mistral: 1, ollama: 1, custom: 1 };
-    providerSync = function () {
-      var p = ai.config.provider;
-      var own = !!HAS_ENDPOINT[p];
-      var isBridge = p === "perchance";
-      if (bridgeRow) bridgeRow.hidden = !isBridge;
-      if (endpointRow) endpointRow.hidden = !own;
-      if (modelRow) modelRow.hidden = !own;
-      if (keyRow) keyRow.hidden = !NEEDS_KEY[p];
-      if (freeHint) {
-        freeHint.hidden = own;
-        freeHint.textContent = isBridge
-          ? "Gratis y sin clave: la direcci\u00f3n ya viene puesta, solo hay que darle a \u00abAnalizar con IA\u00bb."
-          : "Gratis y sin clave: no hay nada que rellenar, solo darle a \u00abAnalizar con IA\u00bb.";
-      }
-    };
-    providerSync();
+    if (ai.config.from) {
+      engine.appendChild(
+        util.el(
+          "p",
+          "r34g-note r34g-ai-from",
+          "Ojo: la clave que había guardada era de «" + ai.config.from + "» y esa no vale para Gemini. Pega la tuya de Google AI Studio."
+        )
+      );
+    }
 
-    ui.textarea({
+    ui.button({
       section: engine,
-      title: "Instrucci\u00f3n para la IA",
-      note: "D\u00e9jalo vac\u00edo para usar la instrucci\u00f3n recomendada (pide characters/shared/discard y un prompt en ingl\u00e9s). Si escribes la tuya, se respeta aunque la de f\u00e1brica cambie.",
-      rows: 6,
-      get: function () {
-        return ai.config.instruction === AI_DEFAULT_INSTRUCTION ? "" : ai.config.instruction;
-      },
-      set: function (v) {
-        var custom = v.trim();
-        ai.config.instruction = custom || AI_DEFAULT_INSTRUCTION;
-        ai.config.customInstruction = !!custom;
-        ai.save();
-      },
-      event: "change",
-      buttons: [
-        {
-          label: "Probar conexi\u00f3n",
-          onClick: function () {
-            util.toast("Probando\u2026 si el proveedor elegido falla, se prueba con los gratuitos", 2200);
-            ai.request([{ role: "user", content: "Responde solo con la palabra OK" }]).then(
-              function (t) {
-                var who = ai.lastProvider ? providerShort(ai.lastProvider) : typeof window.__r34gAIHook === "function" ? "la IA del editor" : "?";
-                if (aiProbe) aiProbe.textContent = "\u00daltima conexi\u00f3n correcta: " + who + " \u2014 " + String(t).replace(/\s+/g, " ").slice(0, 70);
-                var via = ai.lastProvider ? " con " + providerShort(ai.lastProvider) : "";
-                util.toast("Conectado" + via + ": " + String(t).replace(/\s+/g, " ").slice(0, 60), 5000);
-              },
-              function (e) {
-                if (aiProbe) aiProbe.textContent = "Sin conexi\u00f3n: " + (e && e.message ? e.message : e);
-                util.toast("No conect\u00f3 ning\u00fan proveedor. " + (e && e.message ? e.message : e), 8000);
-              }
-            );
+      title: "Comprueba que Gemini contesta con tu clave",
+      label: "Probar conexión",
+      onClick: function () {
+        aiProbe.textContent = "Probando Gemini…";
+        ai.probe().then(
+          function (text) {
+            var who = ai.model || GEMINI.model;
+            aiProbe.textContent = "Conectado ✓ (" + who + "): " + String(text).replace(/\s+/g, " ").slice(0, 70);
+            util.toast("Gemini conectado (" + who + ")", 5000);
+          },
+          function (e) {
+            aiProbe.textContent = "Sin conexión: " + (e && e.message ? e.message : e);
+            util.toast("Gemini no respondió: " + (e && e.message ? e.message : e), 8000);
           }
-        }
-      ]
+        );
+      }
     });
+
+    var cacheNote = util.el("span", "r34g-note");
+    ui.button({
+      section: engine,
+      title: "Los prompts de la IA se guardan por post para no gastar cuota al repetir",
+      label: "Borrar los prompts de IA guardados",
+      extra: cacheNote,
+      onClick: function () {
+        R.ai.cacheClear();
+        syncCache();
+        util.toast("Prompts de IA borrados");
+      }
+    });
+    function syncCache() {
+      var n = R.ai.cacheSize();
+      cacheNote.textContent = n ? n + (n === 1 ? " post guardado" : " posts guardados") : "vacío";
+    }
+    syncCache();
 
     var account = ui.section(
       panel,
@@ -5193,9 +5101,6 @@
     run: run,
     renderInto: renderInto,
     buildPagePanel: buildPagePanel,
-    applyAI: applyAI,
-    aiMessages: aiMessages,
-    extractJSON: extractJSON,
     buildOutput: buildOutput,
     promptTags: promptTags,
     promptText: promptText,
