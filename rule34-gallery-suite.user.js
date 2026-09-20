@@ -39,7 +39,7 @@
   if (R.core) return;
   R.core = true;
 
-  R.VERSION = "0.8.2";
+  R.VERSION = "0.8.3";
   R.NAME = "Rule34 Gallery Suite";
 
   var SETTINGS_KEY = "r34g.settings.v2";
@@ -2002,7 +2002,17 @@
   }
 
   function syncPostToolbar() {
-    if (document.querySelector("#post-view")) return false; // en un post ya está el bloque de siempre
+    if (document.querySelector("#post-view")) {
+      // En un post no hace falta barra: el bloque del analizador ya está en la página. Pero antes
+      // quedaba escondido del todo si el análisis automático estaba apagado (no había forma de
+      // abrirlo sin pasar por Ajustes), así que aquí solo aseguramos que se vean sus botones; los
+      // resultados siguen ocultos hasta pulsar «Analizar».
+      var p = document.getElementById("r34g-tags-panel");
+      if (!p) return false;
+      var body = p.querySelector("#r34g-tp-page");
+      if (p.hidden && !R.settings.tAuto && (!body || !body.textContent.trim())) p.hidden = false;
+      return true;
+    }
     var list = document.querySelector(".image-list");
     if (!list || !list.parentNode) return false;
     var panel = document.getElementById("r34g-tags-panel");
@@ -8372,6 +8382,11 @@
   var ui = R.ui;
 
   var NOTES = [
+    ["0.8.3", [
+      "El analizador de etiquetas sale de Ajustes y se pone en la propia p\u00e1gina: en las p\u00e1ginas de lista aparece una barra \u00abAn\u00e1lisis de etiquetas\u00bb justo encima de la barra de miniaturas, con los botones Analizar y Analizar con IA, y los resultados se despliegan ah\u00ed mismo (la barra se titula y se abre/cierra al pulsarla). Ya no hay que entrar en Ajustes para lanzar un an\u00e1lisis.",
+      "En un post, el bloque \u00abEtiquetas por personaje\u00bb ya estaba en la p\u00e1gina, pero quedaba escondido del todo si ten\u00edas apagado el an\u00e1lisis autom\u00e1tico: ahora se ve su barra de botones igualmente (los resultados siguen ocultos hasta que pulsas Analizar).",
+      "En Ajustes \u2192 Etiquetas se queda lo que son ajustes: las dos opciones del an\u00e1lisis autom\u00e1tico (en su propia secci\u00f3n), las reglas del an\u00e1lisis, el motor de IA y la cuenta de rule34."
+    ]],
     ["0.8.2", [
       "En el panel de etiquetas, cada etiqueta lleva ahora un \u00ab+\u00bb y un \u00ab\u2212\u00bb: el \u00ab+\u00bb la a\u00f1ade a la caja de b\u00fasqueda y el \u00ab\u2212\u00bb la excluye (le pone un menos delante). No busca al momento: la etiqueta queda marcada en verde si est\u00e1 en la consulta o en rojo tachada si est\u00e1 excluida, y lo que se ha escrito se ve en la caja de b\u00fasqueda, as\u00ed que puedes ir juntando varias etiquetas y revisar la b\u00fasqueda antes de lanzarla con Search.",
       "Volver a pulsar el \u00ab+\u00bb la quita de la consulta (y el \u00ab\u2212\u00bb tambi\u00e9n, si ya estaba excluida): no hace falta borrar nada a mano. Si escribes o pegas etiquetas en la caja, el panel se marca solo para que veas qu\u00e9 lleva la b\u00fasqueda.",
