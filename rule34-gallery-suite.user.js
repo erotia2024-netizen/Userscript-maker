@@ -4228,6 +4228,8 @@
     var ta = host.querySelector(".r34g-tp-output");
     if (ta) ta.value = result.output;
     paintPrompt(host, result);
+    var pnote = host.querySelector(".r34g-prompt-note");
+    if (pnote) pnote.textContent = promptNote(result);
     var counter = host.querySelector(".r34g-tp-count");
     if (counter) {
       counter.textContent =
