@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.36
+// @version      0.8.37
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA gratis sin configurar nada) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -3357,115 +3357,24 @@
     ["open mouth", "parted lips"]
   ];
 
-  var AI_DEFAULT_INSTRUCTION = [
-    "Eres un experto en etiquetado de imageboards (rule34). Recibes las etiquetas de un post y la lista de personajes detectados.",
-    "Haz tres cosas:",
-    "1) Reparte las etiquetas generales entre los personajes a los que describen realmente. Si una etiqueta describe a varios personajes o a la escena en general, ponla en \"shared\". Si describe a uno solo, ponla con ese personaje.",
-    "2) Detecta etiquetas redundantes (sinónimos, singular/plural, o una que ya queda cubierta por otra con más posts) y ponlas en \"discard\" indicando con \"kept\" la etiqueta que se queda. Las etiquetas que el mensaje marca como ya descartadas por las reglas locales no las incluyas en \"characters\" ni en \"shared\", y no las repitas en \"discard\".",
-    "3) Escribe en \"prompt\" un prompt en inglés de una sola línea, separado por comas, para pegar en una app de generación de imágenes: empieza por el artista (si lo hay, puesto delante es lo que más fija su estilo), después el sujeto y su apariencia, luego la escena y las acciones y al final la serie. No repitas etiquetas, no juntes sinónimos de lo mismo y deja fuera las etiquetas de medio o formato (video, webm, animated, sound, watermark).",
-    "No inventes etiquetas que no estén en la lista. Responde SOLO con JSON válido, sin texto adicional, con esta forma exacta:",
-    '{"characters":[{"tag":"tag_del_personaje","tags":["..."]}],"shared":["..."],"discard":[{"tag":"...","kept":"..."}],"prompt":"prompt en inglés separado por comas","notas":"..."}'
-  ].join(" ");
+  // ── IA: solo para redactar el prompt ──────────────────────────────────────────────
+  // La suite no analiza etiquetas con IA ni le pide que reparta nada: eso se quitó (fallaba
+  // demasiado y la IA cambiaba de motor sola). Lo único que queda es la pestaña «IA» del recuadro del
+  // prompt, que le pide el texto a Google (Gemini). Sin cadena de reserva y sin cambio automático de
+  // motor: si Gemini no contesta, se dice por qué y el prompt local sigue estando ahí.
+  //
+  // Modelo fijo: el alias «-latest» de Flash, que es siempre el Flash más nuevo de Google y el mismo
+  // para todo el mundo (hoy apunta a gemini-3.7-flash). No hay desplegable a propósito.
+  var GEMINI = {
+    endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    model: "gemini-flash-latest",
+    label: "Gemini Flash (el más nuevo)"
+  };
 
-  // Cualquier endpoint compatible con OpenAI sirve. Los dos primeros son gratis y no piden nada:
-  // el puente de Perchance (usa este generador de relevo) y Pollinations; los dem\u00e1s, si acaso, con
-  // su clave gratuita.
-  // El compilador sustituye "on" por "on" u "off" según el panel Proyecto.
-  var BRIDGE_MODE = "on";
-
-  var AI_PROVIDERS = [
-    {
-      value: "perchance",
-      label: "IA de Perchance (gratis, sin clave)",
-      free: true,
-      bridge: true
-    },
-    {
-      value: "pollinations",
-      label: "Pollinations (gratis, sin clave)",
-      endpoint: "https://text.pollinations.ai/openai",
-      model: "openai",
-      free: true
-    },
-    {
-      value: "groq",
-      label: "Groq (nivel gratis, con clave)",
-      endpoint: "https://api.groq.com/openai/v1/chat/completions",
-      model: "llama-3.1-8b-instant"
-    },
-    {
-      value: "gemini",
-      label: "Google Gemini (nivel gratis, con clave)",
-      endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-      model: "gemini-2.0-flash"
-    },
-    {
-      value: "openrouter",
-      label: "OpenRouter (modelos :free, con clave)",
-      endpoint: "https://openrouter.ai/api/v1/chat/completions",
-      model: "meta-llama/llama-3.1-8b-instruct:free"
-    },
-    {
-      value: "openai",
-      label: "OpenAI (de pago)",
-      endpoint: "https://api.openai.com/v1/chat/completions",
-      model: "gpt-4o-mini"
-    },
-    {
-      value: "mistral",
-      label: "Mistral",
-      endpoint: "https://api.mistral.ai/v1/chat/completions",
-      model: "mistral-small-latest"
-    },
-    {
-      value: "ollama",
-      label: "Ollama en tu PC (localhost:11434)",
-      endpoint: "http://localhost:11434/v1/chat/completions",
-      model: "llama3.1"
-    },
-    { value: "custom", label: "Personalizado" }
-  ];
-
-  // Los proveedores que funcionan sin configurar nada (sin clave y sin registro).
-  function keylessProviders() {
-    return AI_PROVIDERS.filter(function (p) {
-      return p.free;
-    });
-  }
-
-  function providerShort(value) {
-    var p = providerByKey(value);
-    if (!p) return String(value);
-    return p.label.replace(/\s*\([^)]*\)\s*$/, "");
-  }
-
-  function providerByKey(key) {
-    return AI_PROVIDERS.filter(function (p) {
-      return p.value === key;
-    })[0];
-  }
-
-  // Versi\u00f3n del bloque de IA guardado en el navegador: al subirla se aplican las mejoras de golpe
-  // (la instrucci\u00f3n nueva, el motor gratuito por defecto) sin que el usuario toque nada.
-  var AI_VERSION = 3;
-
-  // Gratis y sin configurar nada: el puente de Perchance si la copia lo lleva; si no, Pollinations.
-  function freeDefault() {
-    return BRIDGE_MODE !== "off" ? "perchance" : "pollinations";
-  }
-
-  // Marca de la instrucci\u00f3n actual: si la guardada no la lleva (y el usuario no la edit\u00f3 a mano), es
-  // una versi\u00f3n vieja de la de por defecto y se cambia por la nueva.
-  var AI_INSTRUCTION_MARK = "ya descartadas por las reglas locales";
-
-  // La instrucci\u00f3n guardada puede ser una versi\u00f3n vieja de la de por defecto (por ejemplo, la que
-  // todav\u00eda no ped\u00eda el prompt). Si el usuario no la edit\u00f3, se cambia por la actual.
-  function legacyInstruction(text) {
-    if (!text) return true;
-    var s = String(text);
-    if (s.indexOf('"prompt"') === -1) return true;
-    return s.indexOf(AI_INSTRUCTION_MARK) === -1;
-  }
+  // Versión del bloque guardado en el navegador. Al subirla se aplican los cambios de golpe: de los
+  // ajustes viejos (proveedor, dirección, modelo, puente de Perchance, instrucción) ya no se usa nada,
+  // solo se conserva la clave para no hacerla volver a pegar.
+  var AI_VERSION = 4;
 
   function loadAI() {
     var stored = null;
@@ -3473,26 +3382,20 @@
       stored = JSON.parse(localStorage.getItem(AI_KEY) || "null");
     } catch (e) {}
     var cfg = stored && typeof stored === "object" ? stored : {};
-    var migrated = false;
-    if ((Number(cfg.v) || 0) < AI_VERSION) {
-      if (!cfg.customInstruction && legacyInstruction(cfg.instruction)) cfg.instruction = AI_DEFAULT_INSTRUCTION;
-      if (cfg.provider === "pollinations" && !cfg.key && BRIDGE_MODE !== "off") cfg.provider = "perchance";
-      cfg.v = AI_VERSION;
-      migrated = true;
-    }
-    cfg.endpoint = cfg.endpoint || R.settings.tEndpoint || "https://text.pollinations.ai/openai";
-    cfg.model = cfg.model || "openai";
-    cfg.key = cfg.key || "";
-    cfg.instruction = cfg.instruction || AI_DEFAULT_INSTRUCTION;
-    cfg.provider = cfg.provider || freeDefault();
-    cfg.bridge = cfg.bridge || R.settings.tBridge || "";
-    cfg.v = AI_VERSION;
-    if (migrated) {
+    var key = typeof cfg.key === "string" ? cfg.key : "";
+    var out = {
+      v: AI_VERSION,
+      key: key,
+      // De qué motor venía la clave: si era de otro proveedor, Gemini la rechazará y el panel lo avisa
+      // en vez de mandarla a ciegas.
+      from: key && cfg.provider && cfg.provider !== "gemini" ? String(cfg.provider) : ""
+    };
+    if (cfg.v !== AI_VERSION) {
       try {
-        localStorage.setItem(AI_KEY, JSON.stringify(cfg));
+        localStorage.setItem(AI_KEY, JSON.stringify(out));
       } catch (e) {}
     }
-    return cfg;
+    return out;
   }
 
   var ai = {
