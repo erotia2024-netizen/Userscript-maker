@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.17
+// @version      0.8.18
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA opcional) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -3665,18 +3665,84 @@
     } catch (e) {}
   };
 
-  // Petición directa a un endpoint compatible con OpenAI (Groq, Gemini, OpenRouter, Pollinations…).
+  // Transporte http. En rule34.xxx el script corre bajo Tampermonkey, as\u00ed que si hay
+  // GM_xmlhttpRequest se usa \u00e9l: la petici\u00f3n sale por el gestor de userscripts y se salta el CORS del
+  // sitio. En el laboratorio (o si el gestor no lo ofrece) se usa fetch normal.
+  function gmXhr() {
+    try {
+      if (typeof GM_xmlhttpRequest === "function") return GM_xmlhttpRequest;
+    } catch (e) {}
+    try {
+      if (typeof window !== "undefined" && typeof window.GM_xmlhttpRequest === "function") return window.GM_xmlhttpRequest;
+    } catch (e) {}
+    return null;
+  }
+
+  function hostOf(url) {
+    return String(url || "")
+      .replace(/^https?:\/\//i, "")
+      .split("/")[0];
+  }
+
+  function viaFetch(url, headers, body) {
+    return fetch(url, { method: "POST", headers: headers, body: body }).then(function (res) {
+      return res.text().then(function (text) {
+        return { status: res.status, ok: res.ok, text: text };
+      });
+    });
+  }
+
+  function httpPost(url, headers, body) {
+    var gm = gmXhr();
+    if (!gm) return viaFetch(url, headers, body);
+    return new Promise(function (resolve, reject) {
+      var done = false;
+      var finish = function (fn) {
+        if (done) return;
+        done = true;
+        fn();
+      };
+      try {
+        gm({
+          method: "POST",
+          url: url,
+          headers: headers,
+          data: body,
+          timeout: 180000,
+          onload: function (res) {
+            finish(function () {
+              var status = Number(res.status) || 0;
+              resolve({ status: status, ok: status >= 200 && status < 300, text: res.responseText || "" });
+            });
+          },
+          onerror: function () {
+            finish(function () {
+              reject(new Error("no se pudo conectar con " + hostOf(url)));
+            });
+          },
+          ontimeout: function () {
+            finish(function () {
+              reject(new Error("se agot\u00f3 el tiempo conectando con " + hostOf(url)));
+            });
+          }
+        });
+      } catch (e) {
+        finish(function () {
+          reject(new Error(String((e && e.message) || e)));
+        });
+      }
+    });
+  }
+
+  // Petici\u00f3n directa a un endpoint compatible con OpenAI (Groq, Gemini, OpenRouter, Pollinations\u2026).
   function directAsk(cfg, messages) {
-    if (!cfg.endpoint) return Promise.reject(new Error("falta la direcci\u00f3n del motor de IA"));
+    if (!cfg || !cfg.endpoint) return Promise.reject(new Error("falta la direcci\u00f3n del motor de IA"));
     var headers = { "Content-Type": "application/json" };
     if (cfg.key) headers.Authorization = "Bearer " + cfg.key;
-    return fetch(cfg.endpoint, {
-      method: "POST",
-      headers: headers,
-      body: JSON.stringify({ model: cfg.model, messages: messages, temperature: 0.2 })
-    }).then(function (res) {
-      if (!res.ok) {
-        return res.text().then(function (body) {
+    return httpPost(cfg.endpoint, headers, JSON.stringify({ model: cfg.model, messages: messages, temperature: 0.2 }))
+      .then(function (res) {
+        if (!res.ok) {
+          var body = res.text || "";
           var detail = "";
           try {
             var j = JSON.parse(body);
@@ -3684,47 +3750,103 @@
             detail = detail ? String(detail) : "";
           } catch (e) {}
           if (!detail) detail = String(body || "").slice(0, 120);
+          if (!res.status) throw new Error("no se pudo conectar con " + hostOf(cfg.endpoint));
           if (res.status === 429) {
-            var wait = res.headers ? res.headers.get("retry-after") : "";
-            throw new Error(
-              "l\u00edmite alcanzado" + (wait ? " (reintentar en " + wait + " s)" : "") + ". Usa el an\u00e1lisis local o cambia de proveedor."
-            );
+            throw new Error("l\u00edmite alcanzado (429). Prueba en un rato, usa el an\u00e1lisis local o cambia de proveedor.");
           }
           if (res.status === 401 || res.status === 403) {
             throw new Error("clave rechazada (" + res.status + "). Rev\u00edsala o cambia de proveedor.");
           }
-          throw new Error("HTTP " + res.status + (detail ? ": " + detail.slice(0, 140) : ""));
-        });
-      }
-      return res.text().then(function (body) {
+          throw new Error("HTTP " + res.status + " en " + hostOf(cfg.endpoint) + (detail ? ": " + detail.slice(0, 140) : ""));
+        }
         var data;
         try {
-          data = JSON.parse(body);
+          data = JSON.parse(res.text);
         } catch (e) {
-          return body;
+          return res.text;
         }
         if (data && data.choices && data.choices[0] && data.choices[0].message) return data.choices[0].message.content || "";
         if (typeof data === "string") return data;
         if (data && typeof data.text === "string") return data.text;
         return JSON.stringify(data);
+      })
+      .catch(function (e) {
+        var msg = (e && e.message) || String(e);
+        if (/failed to fetch|network ?error|load failed|err_/i.test(msg)) {
+          throw new Error("no se pudo conectar con " + hostOf(cfg.endpoint) + " (sin red o bloqueado; puede ser el bloqueador de anuncios)");
+        }
+        throw e;
       });
-    }).catch(function (e) {
-      var msg = (e && e.message) || String(e);
-      if (/failed to fetch|network ?error|load failed|err_/i.test(msg)) {
-        throw new Error("no se pudo conectar (revisa la direcci\u00f3n, la conexi\u00f3n o el CORS del proveedor)");
-      }
-      throw e;
-    });
   }
 
   // Proveedor de reserva: gratis y sin clave.
   var FALLBACK = { endpoint: "https://text.pollinations.ai/openai", model: "openai", key: "" };
 
+  // Config con la que se pregunta a cada proveedor: para el elegido se respeta lo que haya guardado el
+  // usuario (direcci\u00f3n, modelo y clave); los de reserva van con los valores de f\u00e1brica y sin clave.
+  function cfgForProvider(key) {
+    if (key === ai.config.provider && ai.config.endpoint) return ai.config;
+    if (key === "pollinations") return { endpoint: FALLBACK.endpoint, model: FALLBACK.model, key: "" };
+    var p = providerByKey(key);
+    return { endpoint: p && p.endpoint, model: p && p.model, key: "" };
+  }
+
+  // Cadena de intentos: primero lo que eligi\u00f3 el usuario y despu\u00e9s, como red, los proveedores que no
+  // piden nada. As\u00ed \u00abAnalizar con IA\u00bb conecta aunque no se haya configurado absolutamente nada.
+  function askChain() {
+    var chain = [];
+    var primary = ai.config.provider;
+    if (primary === "perchance" && BRIDGE_MODE === "off") primary = "pollinations";
+    chain.push(primary);
+    if (BRIDGE_MODE !== "off") chain.push("perchance");
+    chain.push("pollinations");
+    keylessProviders().forEach(function (p) {
+      if (chain.indexOf(p.value) === -1) chain.push(p.value);
+    });
+    return chain.filter(function (key, n) {
+      return key && chain.indexOf(key) === n;
+    });
+  }
+
+  function askProvider(key, messages) {
+    if (key === "perchance") return bridgeAsk(messages);
+    return directAsk(cfgForProvider(key), messages);
+  }
+
+  function chainError(errors) {
+    if (!errors.length) return new Error("no hay ning\u00fan proveedor de IA disponible");
+    return new Error(
+      errors
+        .map(function (e) {
+          return e.who + ": " + e.msg;
+        })
+        .join(" \u00b7 ")
+    );
+  }
+
   ai.request = function (messages) {
     if (typeof window.__r34gAIHook === "function") return Promise.resolve(window.__r34gAIHook(messages));
-    var cfg = ai.config;
-    if (cfg.provider === "perchance" && BRIDGE_MODE !== "off") return perchanceAsk(messages);
-    return directAsk(cfg, messages);
+    if (ai.warm) ai.warm();
+    var chain = askChain();
+    var errors = [];
+    function attempt(n) {
+      if (n >= chain.length) return Promise.reject(chainError(errors));
+      var key = chain[n];
+      if (n > 0) {
+        util.toast("\u00ab" + providerShort(chain[n - 1]) + "\u00bb no respondi\u00f3; pruebo con \u00ab" + providerShort(key) + "\u00bb\u2026", 2600);
+      }
+      return askProvider(key, messages)
+        .then(function (text) {
+          if (text == null || !String(text).trim()) throw new Error("devolvi\u00f3 una respuesta vac\u00eda");
+          ai.lastProvider = key;
+          return text;
+        })
+        .catch(function (e) {
+          errors.push({ who: providerShort(key), msg: (e && e.message) || String(e) });
+          return attempt(n + 1);
+        });
+    }
+    return attempt(0);
   };
 
   R.ai = ai;
