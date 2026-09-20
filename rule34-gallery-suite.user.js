@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.18
+// @version      0.8.19
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA opcional) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -3438,13 +3438,6 @@
     return p.label.replace(/\s*\([^)]*\)\s*$/, "");
   }
 
-  function providerOf(endpoint) {
-    var found = AI_PROVIDERS.filter(function (p) {
-      return p.endpoint && p.endpoint === endpoint;
-    })[0];
-    return found ? found.value : "custom";
-  }
-
   function providerByKey(key) {
     return AI_PROVIDERS.filter(function (p) {
       return p.value === key;
@@ -4443,6 +4436,31 @@
     paintPrompt(host, result);
   }
 
+  // Aviso de "la IA est\u00e1 trabajando" con los segundos que lleva: la primera consulta al puente de
+  // Perchance tarda en cargar el iframe, as\u00ed que conviene que se vea que sigue en marcha.
+  function aiStatus(host, label) {
+    var box = util.el("div", "r34g-tp-status");
+    box.appendChild(util.el("span", "r34g-spinner"));
+    var text = util.el("span", null, label);
+    box.appendChild(text);
+    var t0 = Date.now();
+    var timer = setInterval(function () {
+      if (!box.parentNode) {
+        clearInterval(timer);
+        return;
+      }
+      var s = Math.round((Date.now() - t0) / 1000);
+      var wait = s >= 3 ? " " + s + " s" : "";
+      if (s >= 12 && s < 30) wait += " (la primera vez tarda un poco)";
+      text.textContent = label + wait;
+    }, 1000);
+    box.stop = function () {
+      clearInterval(timer);
+    };
+    if (host) host.appendChild(box);
+    return box;
+  }
+
   function askAiPrompt(result, host) {
     var key = aiCacheId();
     var cacheKey = key ? "prompt-v2:" + key : "";
@@ -4454,12 +4472,10 @@
       return;
     }
     var box = host.querySelector(".r34g-tp-prompt");
-    var status = util.el("div", "r34g-tp-status");
-    status.appendChild(util.el("span", "r34g-spinner"));
-    status.appendChild(util.el("span", null, "La IA est\u00e1 redactando el prompt\u2026"));
-    if (box) box.appendChild(status);
+    var status = aiStatus(box, "La IA est\u00e1 redactando el prompt\u2026");
     ai.request(aiPromptMessages(result)).then(
       function (text) {
+        status.stop();
         status.remove();
         var clean = cleanPrompt(text);
         if (!clean) {
@@ -4473,6 +4489,7 @@
         util.toast("Prompt de la IA listo");
       },
       function (err) {
+        status.stop();
         status.remove();
         util.toast("La IA fall\u00f3: " + (err && err.message ? err.message : err), 4000);
         setPromptButtons(host, result, "user:local");
@@ -4931,12 +4948,10 @@
       util.toast("IA: usando el an\u00e1lisis ya guardado de este post");
       return;
     }
-    var status = util.el("div", "r34g-tp-status");
-    status.appendChild(util.el("span", "r34g-spinner"));
-    status.appendChild(util.el("span", null, "Consultando a la IA\u2026"));
-    host.appendChild(status);
+    var status = aiStatus(host, "Consultando a la IA\u2026");
     ai.request(aiMessages(result)).then(
       function (text) {
+        status.stop();
         status.remove();
         var data = extractJSON(text);
         if (!data) {
@@ -4949,6 +4964,7 @@
         util.toast("An\u00e1lisis de IA aplicado");
       },
       function (err) {
+        status.stop();
         status.remove();
         util.toast("La IA fall\u00f3: " + (err && err.message ? err.message : err), 4000);
       }
@@ -5010,6 +5026,7 @@
     aiBtn.type = "button";
     aiBtn.title = "Env\u00eda las etiquetas a la IA configurada en Ajustes \u2192 Etiquetas";
     aiBtn.addEventListener("click", function () {
+      if (ai.warm) ai.warm();
       show(true, true);
     });
     bar.appendChild(toggle);
@@ -5023,8 +5040,12 @@
     else document.getElementById("content").appendChild(host);
     if (R.settings.tAuto) setTimeout(function () {
       // con la cach\u00e9 por post, repetir un post no gasta peticiones: solo los nuevos
-      show(!!R.settings.tAutoAI);
+      show(R.settings.tEngine === "ai" && !!R.settings.tAutoAI);
     }, 600);
+    // si el an\u00e1lisis autom\u00e1tico va a usar la IA, se deja cargando ya el puente de Perchance
+    if (ai.warm && R.settings.tEngine === "ai" && R.settings.tAutoAI) setTimeout(function () {
+      ai.warm();
+    }, 1200);
     return host;
   }
 
@@ -5138,12 +5159,13 @@
     var engine = ui.section(
       panel,
       "Motor de IA",
-      "La clasificaci\u00f3n base es local y no necesita internet. La IA es opcional y sirve para repartir mejor las etiquetas entre personajes. Si el proveedor te deja sin cuota, el an\u00e1lisis local sigue funcionando igual."
+      "El an\u00e1lisis base es local y no necesita internet. La IA es opcional: sirve para repartir mejor las etiquetas entre personajes y para redactar el prompt. De f\u00e1brica usa \u00abIA de Perchance\u00bb, que es gratis y no pide clave ni registro: si ese falla, se prueba solo con \u00abPollinations\u00bb. Si ninguno responde, el an\u00e1lisis local sigue funcionando igual."
     );
     ui.seg({
       section: engine,
       key: "tEngine",
       title: "Modo",
+      note: "El bot\u00f3n \u00abAnalizar con IA\u00bb funciona siempre. Este interruptor solo decide si el an\u00e1lisis autom\u00e1tico (el de abajo) puede usar la IA.",
       options: [
         { label: "Solo local", value: "local" },
         { label: "IA externa", value: "ai" }
@@ -5152,7 +5174,7 @@
     ui.select({
       section: engine,
       title: "Proveedor",
-      note: "Rellena la direcci\u00f3n y el modelo de golpe. Groq, Gemini y OpenRouter tienen nivel gratuito: pide la clave gratis en su web y p\u00e9gala abajo. Pollinations no pide clave pero tiene cola y devuelve l\u00edmites.",
+      note: "Los dos primeros son gratis y no piden nada: \u00abIA de Perchance\u00bb usa este generador como puente (va bien desde rule34.xxx) y \u00abPollinations\u00bb es un servicio p\u00fablico con cola. Los dem\u00e1s s\u00ed necesitan que pegues su clave abajo. Si el elegido falla, \u00abAnalizar con IA\u00bb prueba solo con los gratuitos.",
       options: AI_PROVIDERS.map(function (p) {
         return { label: p.label, value: p.value };
       }),
@@ -5185,7 +5207,7 @@
     ui.text({
       section: engine,
       title: "Direcci\u00f3n del servicio",
-      note: "Cualquier API compatible con OpenAI (chat/completions).",
+      note: "Solo se usa con los proveedores de direcci\u00f3n propia (Groq, Gemini, OpenRouter\u2026). Con \u00abIA de Perchance\u00bb y \u00abPollinations\u00bb se ignora.",
       placeholder: "https://text.pollinations.ai/openai",
       mono: true,
       get: function () {
@@ -5227,13 +5249,15 @@
     ui.textarea({
       section: engine,
       title: "Instrucci\u00f3n para la IA",
-      note: "D\u00e9jalo vac\u00edo para usar la instrucci\u00f3n recomendada. Debe pedir un JSON con characters/shared/discard y un prompt en ingl\u00e9s.",
+      note: "D\u00e9jalo vac\u00edo para usar la instrucci\u00f3n recomendada (pide characters/shared/discard y un prompt en ingl\u00e9s). Si escribes la tuya, se respeta aunque la de f\u00e1brica cambie.",
       rows: 6,
       get: function () {
         return ai.config.instruction === AI_DEFAULT_INSTRUCTION ? "" : ai.config.instruction;
       },
       set: function (v) {
-        ai.config.instruction = v.trim() || AI_DEFAULT_INSTRUCTION;
+        var custom = v.trim();
+        ai.config.instruction = custom || AI_DEFAULT_INSTRUCTION;
+        ai.config.customInstruction = !!custom;
         ai.save();
       },
       event: "change",
@@ -5241,13 +5265,14 @@
         {
           label: "Probar conexi\u00f3n",
           onClick: function () {
-            util.toast("Probando\u2026", 1200);
+            util.toast("Probando\u2026 si el proveedor elegido falla, se prueba con los gratuitos", 2200);
             ai.request([{ role: "user", content: "Responde solo con la palabra OK" }]).then(
               function (t) {
-                util.toast("Respuesta: " + String(t).slice(0, 60));
+                var via = ai.lastProvider ? " con " + providerShort(ai.lastProvider) : "";
+                util.toast("Conectado" + via + ": " + String(t).replace(/\s+/g, " ").slice(0, 60), 5000);
               },
               function (e) {
-                util.toast("Error: " + (e && e.message ? e.message : e), 4000);
+                util.toast("No conect\u00f3 ning\u00fan proveedor. " + (e && e.message ? e.message : e), 8000);
               }
             );
           }
