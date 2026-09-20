@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.12
+// @version      0.8.13
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA opcional) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -3731,8 +3731,12 @@
     return "general";
   }
 
-  function parse() {
-    var side = document.getElementById("tag-sidebar");
+  // `root` puede ser el documento de la página o cualquier documento/elemento con el panel de
+  // etiquetas dentro (así se puede analizar una copia guardada del post sin abrirla).
+  function parse(root) {
+    root = root || document;
+    var side = root.getElementById ? root.getElementById("tag-sidebar") : null;
+    if (!side) side = root.querySelector ? root.querySelector("#tag-sidebar") : null;
     if (!side) return [];
     var out = [];
     var group = "";
