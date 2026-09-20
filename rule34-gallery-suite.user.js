@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.0
+// @version      0.8.1
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA opcional), aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -5272,7 +5272,7 @@
     var failed = 0;
     queue.items.forEach(function (it) {
       if (it.state === "hold") held++;
-      else if (it.state === "error") failed++;
+      else if (isRetryable(it)) failed++;
     });
     var banner = w.querySelector("#r34g-dlq-restore");
     if (banner) {
@@ -5442,6 +5442,18 @@
     }).length;
   }
 
+  // Estados que se pueden volver a intentar: los que fallaron, y los que acabaron abriéndose en
+  // otra pestaña porque no se pudo leer el archivo (que en la práctica es el mismo caso).
+  function isRetryable(it) {
+    return it.state === "error" || it.state === "open";
+  }
+
+  function countRetryable() {
+    return queue.items.filter(function (it) {
+      return isRetryable(it);
+    }).length;
+  }
+
   function resumeQueue() {
     var n = 0;
     queue.items.forEach(function (it) {
@@ -5475,7 +5487,7 @@
   function retryFailed() {
     var n = 0;
     queue.items.forEach(function (it) {
-      if (it.state === "error") {
+      if (isRetryable(it)) {
         it.state = "wait";
         it.error = "";
         it.progress = 0;
