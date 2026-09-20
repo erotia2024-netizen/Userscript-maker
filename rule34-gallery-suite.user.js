@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.9.3
+// @version      0.9.4
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje que ademas prepara un prompt listo para pegar en cualquier app de imagen o video (con IA opcional via Gemini, tu propia clave), recomendador que puntua los posts de una galeria y dice cuales conviene bajar, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -8428,23 +8428,32 @@
     return bar;
   }
 
+  // Coloca la barra justo debajo de la barra de etiquetas (si la hay) y justo encima de la barra de
+  // miniaturas, que es donde se lee antes de la cuadrícula. Se recoloca si el orden cambió, porque
+  // esas barras pueden insertarse más tarde (y entonces quedarían delante de la nuestra).
+  function placeBar(bar) {
+    var list = document.querySelector(".image-list");
+    if (!list || !list.parentNode) return;
+    var gridBar = document.getElementById("r34g-grid-bar");
+    var tagsBar = document.getElementById("r34g-tags-bar");
+    var anchor = gridBar && gridBar.parentNode === list.parentNode ? gridBar : list;
+    if (tagsBar && tagsBar.parentNode === list.parentNode && tagsBar.nextElementSibling) {
+      anchor = tagsBar.nextElementSibling;
+    }
+    if (anchor === bar || bar.nextElementSibling === anchor) return;
+    anchor.parentNode.insertBefore(bar, anchor);
+  }
+
   function ensureBar() {
     var list = document.querySelector(".image-list");
     if (!list || !list.parentNode) return null;
     var bar = document.getElementById(BAR_ID);
-    if (bar) {
-      bar.hidden = !R.settings.scOn;
-      return bar;
+    if (!bar) {
+      bar = buildBar();
+      list.parentNode.insertBefore(bar, list);
     }
-    bar = buildBar();
     bar.hidden = !R.settings.scOn;
-    var tagsBar = document.getElementById("r34g-tags-bar");
-    var gridBar = document.getElementById("r34g-grid-bar");
-    var anchor = list;
-    if (gridBar && gridBar.parentNode === list.parentNode) anchor = gridBar;
-    if (tagsBar && tagsBar.parentNode === list.parentNode && tagsBar.nextElementSibling) anchor = tagsBar.nextElementSibling;
-    else if (tagsBar && tagsBar.parentNode === list.parentNode) anchor = list;
-    anchor.parentNode.insertBefore(bar, anchor);
+    placeBar(bar);
     return bar;
   }
 
@@ -8584,6 +8593,9 @@
     }, 700);
     var mo = new MutationObserver(deb);
     mo.observe(list, { childList: true, subtree: true });
+    // Las otras barras (etiquetas, miniaturas) y los lotes se insertan al lado de la cuadrícula: si
+    // aparece algo nuevo ahí, se vuelve a comprobar el sitio de la nuestra.
+    if (list.parentNode) mo.observe(list.parentNode, { childList: true });
     return true;
   }
 
