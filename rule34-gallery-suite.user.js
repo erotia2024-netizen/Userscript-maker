@@ -3719,7 +3719,8 @@
   }
 
   function roleOf(tag) {
-    if (META_TAGS[norm(tag.name)]) return "meta";
+    var n = norm(tag.name);
+    if (META_TAGS[n] || META_TAGS[n.replace(/\s+/g, "_")]) return "meta";
     var t = (tag.type || "").toLowerCase();
     if (t === "character") return "character";
     if (t === "copyright") return "copyright";
@@ -4023,6 +4024,7 @@
   // Prompt para otras apps (esta suite no genera imágenes). Se arma con las etiquetas que
   // quedan activas en el panel, ordenadas por sujeto, escena, serie, artista y medio, y sin
   // repetir ninguna: una etiqueta que describe a varios personajes no sale dos veces.
+  // (El análisis lo ofrece en Local o redactado por la IA, y el usuario lo copia a su app.)
   function promptTags(result) {
     var seen = {};
     var out = [];
@@ -4071,19 +4073,23 @@
   function promptNote(result) {
     var n = promptTags(result).length;
     var bits = [n + (n === 1 ? " etiqueta lista" : " etiquetas listas") + ", sin repetidas"];
-    var out = result.tags.length - n;
-    if (out > 0) bits.push(out + " fuera");
+    var medio = 0;
     if (R.settings.tPromptMeta !== true) {
-      var meta = result.tags.filter(function (t) {
+      medio = result.tags.filter(function (t) {
         return t.role === "meta";
       }).length;
-      if (meta) bits.push(meta + " de medio fuera");
     }
+    var fuera = result.tags.length - n - medio;
+    if (fuera > 0) bits.push(fuera + " fuera del resultado");
+    if (medio > 0) bits.push(medio + " de medio fuera");
     return bits.join(" \u00b7 ");
   }
 
   function promptMode(host, result) {
-    return host && host.dataset.r34gPromptMode === "ai" && result.aiPrompt ? "ai" : "local";
+    var m = host && host.dataset.r34gPromptMode;
+    if (m === "user:ai" && result.aiPrompt) return "ai";
+    if (m === "user:local") return "local";
+    return result.aiPrompt ? "ai" : "local";
   }
 
   function paintPrompt(host, result) {
@@ -4101,7 +4107,7 @@
     var box = util.el("div", "r34g-tp-prompt");
     var head = util.el("div", "r34g-tp-prompt-head");
     head.appendChild(util.el("b", null, "Prompt para otra app"));
-    head.appendChild(util.el("span", "r34g-note", promptNote(result)));
+    head.appendChild(util.el("span", "r34g-note r34g-prompt-note", promptNote(result)));
     var row = util.el("span", "r34g-mini-row");
     var modes = [];
     function modeBtn(label, value, title) {
@@ -4110,17 +4116,20 @@
       b.title = title;
       b.dataset.mode = value;
       b.addEventListener("click", function () {
-        host.dataset.r34gPromptMode = value;
+        host.dataset.r34gPromptMode = "user:" + value;
         modes.forEach(function (m) {
           m.el.classList.toggle("r34g-on", m.value === value);
         });
-        paintPrompt(host, result);
+        if (value === "ai" && !result.aiPrompt) askAiPrompt(result, host);
+        else paintPrompt(host, result);
       });
       modes.push({ el: b, value: value });
       return b;
     }
     row.appendChild(modeBtn("Local", "local", "Prompt que arma aqu\u00ed el an\u00e1lisis, sin internet ni claves"));
-    if (result.aiPrompt) row.appendChild(modeBtn("IA", "ai", "Prompt redactado por la IA a partir de las mismas etiquetas"));
+    row.appendChild(
+      modeBtn("IA", "ai", "Prompt redactado por la IA a partir de las mismas etiquetas (una consulta; queda guardado por post)")
+    );
     var copy = util.el("button", "r34g-mini r34g-prompt-copy", "Copiar prompt");
     copy.type = "button";
     copy.title = "Copia el prompt para pegarlo en la app de imagen o de v\u00eddeo que uses";
@@ -4146,6 +4155,98 @@
       m.el.classList.toggle("r34g-on", m.value === promptMode(host, result));
     });
     return box;
+  }
+
+  var AI_PROMPT_SYSTEM = [
+    "Eres un experto en prompts para modelos de generación de imágenes (Stable Diffusion, Flux, Midjourney, NovelAI).",
+    "Recibes las etiquetas de un post de imageboard y devuelves UN SOLO prompt en inglés, en una línea y separado por comas: primero el sujeto y su apariencia, después la escena y las acciones, y al final el estilo o el artista.",
+    "No repitas etiquetas, no juntes sinónimos de lo mismo, no incluyas etiquetas de medio o formato (video, webm, animated, sound, watermark) y no añadas nada que no esté en la lista salvo conectores mínimos.",
+    "Si las etiquetas son de un vídeo, describe un fotograma fijo de la escena.",
+    "Responde solo con el prompt, sin comillas, sin listas y sin explicaciones."
+  ].join(" ");
+
+  function aiPromptMessages(result) {
+    var lines = result.tags
+      .slice()
+      .sort(function (a, b) {
+        return (b.count || 0) - (a.count || 0);
+      })
+      .map(function (t) {
+        return "- " + String(t.name).replace(/_/g, " ") + " [" + t.role + "]";
+      });
+    var chars = result.characters.map(function (c) {
+      return "- " + String(c.tag).replace(/_/g, " ");
+    });
+    return [
+      { role: "system", content: AI_PROMPT_SYSTEM },
+      {
+        role: "user",
+        content: [
+          "Etiquetas del post (nombre [tipo]):",
+          lines.join("\n"),
+          "",
+          "Personajes detectados:",
+          chars.length ? chars.join("\n") : "- (ninguno)",
+          "",
+          "Escribe el prompt en inglés."
+        ].join("\n")
+      }
+    ];
+  }
+
+  function cleanPrompt(text) {
+    return String(text == null ? "" : text)
+      .replace(/```[a-z]*/gi, "")
+      .replace(/^\s*(prompt|prompt en ingl\u00e9s)\s*:\s*/i, "")
+      .replace(/^["'\s]+|["'\s]+$/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function setPromptButtons(host, result, mode) {
+    if (mode) host.dataset.r34gPromptMode = mode;
+    var active = promptMode(host, result);
+    var opts = host.querySelectorAll(".r34g-prompt-opt");
+    Array.prototype.slice.call(opts).forEach(function (b) {
+      b.classList.toggle("r34g-on", b.dataset.mode === active);
+    });
+    paintPrompt(host, result);
+  }
+
+  function askAiPrompt(result, host) {
+    var key = aiCacheId();
+    var cached = key ? aiCacheGet("prompt:" + key) : null;
+    if (cached && cached.text) {
+      result.aiPrompt = cached.text;
+      setPromptButtons(host, result, "user:ai");
+      util.toast("Prompt de la IA recuperado de la cach\u00e9 de este post");
+      return;
+    }
+    var box = host.querySelector(".r34g-tp-prompt");
+    var status = util.el("div", "r34g-tp-status");
+    status.appendChild(util.el("span", "r34g-spinner"));
+    status.appendChild(util.el("span", null, "La IA est\u00e1 redactando el prompt\u2026"));
+    if (box) box.appendChild(status);
+    ai.request(aiPromptMessages(result)).then(
+      function (text) {
+        status.remove();
+        var clean = cleanPrompt(text);
+        if (!clean) {
+          util.toast("La IA no devolvi\u00f3 ning\u00fan prompt");
+          setPromptButtons(host, result, "user:local");
+          return;
+        }
+        result.aiPrompt = clean;
+        if (key) aiCachePut("prompt:" + key, { text: clean });
+        setPromptButtons(host, result, "user:ai");
+        util.toast("Prompt de la IA listo");
+      },
+      function (err) {
+        status.remove();
+        util.toast("La IA fall\u00f3: " + (err && err.message ? err.message : err), 4000);
+        setPromptButtons(host, result, "user:local");
+      }
+    );
   }
 
   function chip(result, tagName, opts) {
@@ -4224,6 +4325,8 @@
     var ta = host.querySelector(".r34g-tp-output");
     if (ta) ta.value = result.output;
     paintPrompt(host, result);
+    var pnote = host.querySelector(".r34g-prompt-note");
+    if (pnote) pnote.textContent = promptNote(result);
     var counter = host.querySelector(".r34g-tp-count");
     if (counter) {
       counter.textContent =
@@ -4253,9 +4356,6 @@
   function renderInto(host, result) {
     host.innerHTML = "";
     host.dataset.r34gResult = "1";
-    if (!host.dataset.r34gPromptMode || (host.dataset.r34gPromptMode === "ai" && !result.aiPrompt)) {
-      host.dataset.r34gPromptMode = result.aiPrompt ? "ai" : "local";
-    }
 
     if (!result.tags.length) {
       host.appendChild(util.el("p", "r34g-hint", "No se encontraron etiquetas en este post."));
@@ -4747,7 +4847,7 @@
       section: promptSec,
       title: "Principio del prompt",
       note: "Opcional. Por ejemplo tus etiquetas de calidad.",
-      placeholder: "masterpiece, best quality, absurdres",
+      placeholder: "masterpiece, best quality",
       get: function () {
         return R.settings.tPromptPre;
       },
@@ -5025,6 +5125,7 @@
     promptTags: promptTags,
     promptText: promptText,
     promptBox: promptBox,
+    aiPrompt: askAiPrompt,
     tagIndex: function (result) {
       return result;
     }
