@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.19
+// @version      0.8.20
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA opcional) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -1998,8 +1998,9 @@
     });
     var runAi = util.el("button", "r34g-mini", "Analizar con IA");
     runAi.type = "button";
-    runAi.title = "Usa el motor de IA configurado en Ajustes \u2192 Etiquetas";
+    runAi.title = "Usa la IA para repartir y afinar las etiquetas. De f\u00e1brica es gratis y no hay que configurar nada";
     runAi.addEventListener("click", function () {
+      if (R.ai && R.ai.warm) R.ai.warm();
       runAnalysis(true);
     });
     bar.appendChild(run);
@@ -3612,20 +3613,39 @@
     });
     return new Promise(function (resolve, reject) {
       var id = "r34g-" + ++bridgeSeq + "-" + Date.now();
-      var timer = setTimeout(function () {
+      var done = false;
+      var entry = {};
+      // Una sola salida: o contesta el generador, o salta el aviso de que no carg\u00f3, o se agota el tiempo.
+      var settle = function (fn) {
+        if (done) return;
+        done = true;
         delete bridgeWaiting[id];
-        reject(new Error("la IA de Perchance no respondi\u00f3 a tiempo"));
+        clearTimeout(entry.timer);
+        clearTimeout(entry.guard);
+        fn();
+      };
+      entry.timer = setTimeout(function () {
+        settle(function () {
+          reject(new Error("la IA de Perchance tard\u00f3 demasiado en responder"));
+        });
       }, 120000);
-      bridgeWaiting[id] = { res: resolve, rej: reject, timer: timer };
+      entry.guard = setTimeout(function () {
+        if (entry.sent) return;
+        settle(function () {
+          reject(new Error("el generador de Perchance no carg\u00f3 (\u00bfest\u00e1 guardado y es p\u00fablico?)"));
+        });
+      }, 30000);
+      entry.settle = settle;
+      bridgeWaiting[id] = entry;
       var frame = bridgeFrameFor(url);
       var send = function () {
-        if (!bridgeWaiting[id]) return;
+        entry.sent = true;
         try {
           frame.contentWindow.postMessage({ r34g: "ai-request", id: id, system: system, user: user }, "*");
         } catch (e) {
-          clearTimeout(timer);
-          delete bridgeWaiting[id];
-          reject(new Error("no se pudo hablar con el generador"));
+          settle(function () {
+            reject(new Error("no se pudo hablar con el generador"));
+          });
         }
       };
       if (frame.dataset.r34gReady === "1") setTimeout(send, 250);
@@ -3641,10 +3661,10 @@
     if (!/\.perchance\.org$/.test((e.origin || "").replace(/^https?:\/\//, ""))) return;
     var w = bridgeWaiting[d.id];
     if (!w) return;
-    clearTimeout(w.timer);
-    delete bridgeWaiting[d.id];
-    if (d.error) w.rej(new Error(String(d.error).slice(0, 180)));
-    else w.res(String(d.text == null ? "" : d.text));
+    w.settle(function () {
+      if (d.error) w.rej(new Error(String(d.error).slice(0, 180)));
+      else w.res(String(d.text == null ? "" : d.text));
+    });
   });
 
   // El iframe del puente tarda en cargar la p\u00e1gina del generador la primera vez. Arrancarlo un poco
