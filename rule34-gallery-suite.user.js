@@ -2,7 +2,7 @@
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
 // @version      0.8.30
-// @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA opcional), aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
+// @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA gratis sin configurar nada) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
 // @supportURL   https://github.com/erotia2024-netizen/Userscript-maker/issues
@@ -26,7 +26,7 @@
 
 (function () {
   "use strict";
-  var css = "html {\n  --r34g-cols: 5;\n  --r34g-aspect: 1 / 1;\n  --r34g-gap: 12px;\n  --r34g-radius: 8px;\n  --r34g-card: #232a23;\n  --r34g-card-hover: #2a322a;\n  --r34g-line: #3d473d;\n  --r34g-accent: var(--c-link-soft, #93b393);\n  --r34g-bg: var(--c-bg, #303a30);\n  --r34g-bg-alt: var(--c-bg-alt, #293129);\n  --r34g-bg-deep: var(--c-bg-deep, #303030);\n  --r34g-text: var(--c-text, #c0c0c0);\n  --r34g-text-soft: var(--c-text-soft, #878787);\n  --r34g-link: var(--c-link, #b0e0b0);\n  --r34g-shadow: 0 18px 48px rgba(0, 0, 0, .55);\n  --r34g-vwidth: 1000px;\n  --r34g-z: 2147482000;\n}\n\nhtml[data-r34g-cols=\"3\"] { --r34g-cols: 3; }\nhtml[data-r34g-cols=\"4\"] { --r34g-cols: 4; }\nhtml[data-r34g-cols=\"5\"] { --r34g-cols: 5; }\nhtml[data-r34g-cols=\"6\"] { --r34g-cols: 6; }\nhtml[data-r34g-cols=\"7\"] { --r34g-cols: 7; }\nhtml[data-r34g-aspect=\"1\"] { --r34g-aspect: 1 / 1; }\nhtml[data-r34g-aspect=\"4/5\"] { --r34g-aspect: 4 / 5; }\nhtml[data-r34g-aspect=\"3x4\"] { --r34g-aspect: 3 / 4; }\nhtml[data-r34g-aspect=\"auto\"] { --r34g-aspect: auto; }\nhtml[data-r34g-aspect=\"auto\"] { --r34g-fit: contain; }\nhtml[data-r34g-fit=\"contain\"] { --r34g-fit: contain; }\nhtml[data-r34g-fit=\"cover\"] { --r34g-fit: cover; }\nhtml[data-r34g-hover=\"off\"] .image-list .thumb img.preview { transform: none !important; }\n\n#r34g-nav-item a {\n  display: inline-flex;\n  align-items: center;\n  gap: 5px;\n  cursor: pointer;\n}\n\n#r34g-nav-item a b {\n  font-weight: normal;\n  font-size: 1.15em;\n  line-height: 1;\n}\n\n#r34g-nav-item a:hover {\n  color: var(--c-link, #b0e0b0) !important;\n}\n\n#r34g-nav-item a svg {\n  width: 14px;\n  height: 14px;\n}\n\n#r34g-nav-item.r34g-active a {\n  color: var(--c-link, #b0e0b0) !important;\n  text-shadow: 0 0 0 currentColor;\n}\n\nhtml body #r34g-modal .r34g-title svg {\n  width: 15px;\n  height: 15px;\n}\n\nhtml body #post-list > .content,\nhtml body .image-list {\n  min-width: 0;\n}\n\nhtml body #post-list > .content {\n  flex: 1 1 auto !important;\n  width: auto !important;\n  max-width: none !important;\n}\n\nhtml body .image-list {\n  display: grid !important;\n  grid-template-columns: repeat(var(--r34g-cols), minmax(0, 1fr)) !important;\n  gap: var(--r34g-gap) !important;\n  align-items: start !important;\n  align-content: start !important;\n  justify-content: stretch !important;\n  width: 100% !important;\n  margin: 0 !important;\n  padding: 0 !important;\n}\n\nhtml body .image-list > .thumb {\n  position: relative !important;\n  display: block !important;\n  width: auto !important;\n  height: auto !important;\n  min-width: 0 !important;\n  margin: 0 !important;\n  padding: 0 !important;\n  border-radius: var(--r34g-radius) !important;\n  background: var(--r34g-card);\n  overflow: hidden;\n  box-shadow: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 2px 10px rgba(0, 0, 0, .28);\n  transition: background .18s ease, box-shadow .18s ease, transform .18s ease;\n}\n\nhtml body .image-list > .thumb::before {\n  content: \"\";\n  display: block;\n  padding-top: 0;\n}\n\nhtml body .image-list > .thumb > a {\n  position: relative !important;\n  display: block !important;\n  width: 100% !important;\n  height: 100% !important;\n  aspect-ratio: var(--r34g-aspect) !important;\n  text-align: center !important;\n  overflow: hidden;\n  border-radius: var(--r34g-radius) !important;\n  background: linear-gradient(160deg, rgba(255, 255, 255, .03), rgba(0, 0, 0, .25));\n  outline: 1px solid rgba(255, 255, 255, .05);\n  outline-offset: -1px;\n}\n\nhtml body .image-list > .thumb:hover {\n  background: var(--r34g-card-hover);\n  transform: translateY(-2px);\n  box-shadow: 0 6px 20px rgba(0, 0, 0, .45);\n}\n\nhtml body .image-list > .thumb:hover > a {\n  outline-color: rgba(147, 179, 147, .6);\n}\n\nhtml body .image-list > .thumb:hover img.preview,\nhtml body .image-list > .thumb:hover img.r34g-ready {\n  filter: brightness(1.06) saturate(1.04);\n}\n\nhtml body .image-list > .thumb > a::after {\n  content: \"\";\n  position: absolute;\n  inset: 0;\n  background: linear-gradient(to top, rgba(0, 0, 0, .78) 0%, rgba(0, 0, 0, .32) 32%, rgba(0, 0, 0, 0) 62%);\n  opacity: 0;\n  transition: opacity .2s ease;\n  pointer-events: none;\n}\n\nhtml body .image-list > .thumb:hover > a::after {\n  opacity: 1;\n}\n\nhtml body .image-list > .thumb img.preview,\nhtml body .image-list > .thumb img,\nhtml body .image-list > .thumb video {\n  display: block !important;\n  width: 100% !important;\n  height: 100% !important;\n  max-width: none !important;\n  max-height: none !important;\n  margin: 0 !important;\n  object-fit: var(--r34g-fit, cover) !important;\n  object-position: center 22%;\n  border: 0 !important;\n  box-sizing: border-box !important;\n  opacity: 0;\n  transition: opacity .35s ease, transform .3s ease, filter .3s ease;\n}\n\nhtml body .image-list > .thumb img.r34g-ready {\n  opacity: 1;\n}\n\nhtml body .image-list > .thumb:hover img.preview,\nhtml body .image-list > .thumb:hover img.r34g-ready {\n  transform: scale(1.045);\n}\n\nhtml body .image-list > .thumb img.webm-thumb {\n  border: 0 !important;\n  outline: 0 !important;\n}\n\nhtml body .image-list > .thumb > a > .score-info {\n  position: absolute !important;\n  right: 7px !important;\n  bottom: 7px !important;\n  z-index: 3;\n  display: inline-flex !important;\n  align-items: center;\n  gap: 4px;\n  margin: 0 !important;\n  padding: 2px 7px !important;\n  border-radius: 999px !important;\n  background: rgba(0, 0, 0, .62) !important;\n  border: 1px solid rgba(255, 255, 255, .12);\n  border-left-width: 3px;\n  color: #e8e8e8 !important;\n  font-size: 11px !important;\n  line-height: 1.45 !important;\n  letter-spacing: .2px;\n  text-align: center !important;\n  backdrop-filter: blur(3px);\n  transition: background .2s ease, transform .2s ease, border-color .2s ease;\n}\n\nhtml body .image-list > .thumb:hover > a > .score-info {\n  background: rgba(0, 0, 0, .85) !important;\n  transform: translateY(-1px);\n}\n\nhtml body .image-list > .thumb > a > .score-info.low {\n  border-left-color: #d9534f !important;\n}\n\nhtml body .image-list > .thumb > a > .score-info.medium {\n  border-left-color: #f0ad4e !important;\n}\n\nhtml body .image-list > .thumb > a > .score-info.high {\n  border-left-color: #5cb85c !important;\n}\n\nhtml[data-r34g-score=\"off\"] .image-list .thumb > a > .score-info {\n  display: none !important;\n}\n\nhtml body .image-list .thumb .r34g-badges {\n  position: absolute;\n  top: 7px;\n  left: 7px;\n  z-index: 3;\n  display: flex;\n  gap: 5px;\n  opacity: .92;\n  transition: opacity .2s ease;\n}\n\nhtml body .image-list .thumb:hover .r34g-badges {\n  opacity: 1;\n}\n\nhtml body .image-list .thumb .r34g-badge {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  min-width: 20px;\n  height: 20px;\n  padding: 0 5px;\n  border-radius: 6px;\n  background: rgba(0, 0, 0, .68);\n  border: 1px solid rgba(255, 255, 255, .14);\n  color: #f2f2f2;\n  font-size: 10px;\n  font-weight: bold;\n  letter-spacing: .3px;\n  line-height: 1;\n  backdrop-filter: blur(3px);\n}\n\nhtml body .image-list .thumb .r34g-badge.r34g-video {\n  color: #8fd0ff;\n  border-color: rgba(143, 208, 255, .4);\n}\n\nhtml body .image-list .thumb .r34g-badge.r34g-gif {\n  color: #ffd479;\n  border-color: rgba(255, 212, 121, .4);\n}\n\nhtml body .image-list .thumb .r34g-badge.r34g-sound {\n  color: #a9f0a9;\n  border-color: rgba(169, 240, 169, .4);\n}\n\nhtml[data-r34g-badges=\"off\"] .image-list .thumb .r34g-badges {\n  display: none !important;\n}\n\nhtml body .image-list .thumb .r34g-meta {\n  position: absolute;\n  left: 0;\n  right: 0;\n  bottom: 0;\n  z-index: 2;\n  padding: 22px 8px 7px;\n  text-align: left;\n  font-size: 10px;\n  color: #d8d8d8;\n  text-shadow: 0 1px 2px rgba(0, 0, 0, .9);\n  opacity: 0;\n  transform: translateY(4px);\n  transition: opacity .2s ease, transform .2s ease;\n  pointer-events: none;\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n}\n\nhtml body .image-list .thumb:hover .r34g-meta {\n  opacity: 1;\n  transform: none;\n}\n\nhtml body .image-list .thumb .r34g-meta .r34g-taglist {\n  display: block;\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  color: #cfd8cf;\n}\n\nhtml body .image-list > .thumb.r34g-hidden-by-filter {\n  display: none !important;\n}\n\nhtml body .r34g-ad-hidden {\n  display: none !important;\n}\n\nhtml.r34g-drawer-open {\n  overflow: hidden;\n}\n\nhtml body .sidebar {\n  align-self: flex-start;\n  max-height: calc(100vh - 12px);\n  position: sticky;\n  top: 8px;\n  overflow-y: auto;\n  overflow-x: hidden;\n  padding: 0 10px 14px 0;\n  scrollbar-width: thin;\n  scrollbar-color: #4b564b rgba(0, 0, 0, .25);\n  z-index: 4;\n}\n\nhtml body #r34g-drawer-head {\n  display: none;\n  align-items: center;\n  gap: 8px;\n  margin: 0 0 8px;\n  padding-bottom: 7px;\n  border-bottom: 1px solid var(--r34g-line);\n}\n\nhtml body #r34g-drawer-head h5 {\n  flex: 1;\n  margin: 0 !important;\n  color: var(--r34g-link);\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 12.5px;\n  letter-spacing: .06em;\n  text-transform: uppercase;\n}\n\nhtml body #r34g-drawer-close {\n  width: 30px;\n  height: 30px;\n  padding: 0;\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 7px;\n  background: #333d33;\n  color: var(--r34g-text) !important;\n  font-size: 16px;\n  line-height: 1;\n  cursor: pointer;\n}\n\nhtml body #r34g-drawer-close:hover {\n  border-color: var(--r34g-accent);\n  color: #eafaea !important;\n}\n\nhtml body .tag-search input[type=\"text\"],\nhtml body .tag-search input[type=\"search\"] {\n  width: 100% !important;\n  box-sizing: border-box !important;\n  padding: 4px 7px !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 5px !important;\n  background: var(--r34g-bg-deep) !important;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 12px !important;\n  outline: none;\n}\n\nhtml body .tag-search input[type=\"text\"]:focus,\nhtml body .tag-search input[type=\"search\"]:focus {\n  border-color: var(--r34g-accent) !important;\n}\n\nhtml body .tag-search input[type=\"submit\"] {\n  margin-top: 5px;\n  padding: 4px 12px !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 5px !important;\n  background: #333d33 !important;\n  color: var(--r34g-link) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 12px !important;\n  cursor: pointer;\n}\n\nhtml body .tag-search input[type=\"submit\"]:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #eafaea !important;\n}\n\nhtml body .sidebar small {\n  display: block;\n  margin-top: 4px;\n  color: var(--r34g-text-soft);\n  font-size: 10.5px;\n}\n\nhtml[data-r34g-sticky=\"off\"] body .sidebar {\n  position: static;\n  max-height: none;\n  overflow: visible;\n}\n\nhtml body .sidebar::-webkit-scrollbar {\n  width: 9px;\n}\n\nhtml body .sidebar::-webkit-scrollbar-thumb {\n  background: #4b564b;\n  border-radius: 6px;\n}\n\nhtml body .sidebar::-webkit-scrollbar-track {\n  background: rgba(0, 0, 0, .2);\n}\n\nhtml body .tag-search h5,\nhtml body #r34g-sidebar-tags-title {\n  margin: 0 0 6px !important;\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 12px !important;\n  letter-spacing: .08em;\n  text-transform: uppercase;\n  color: var(--r34g-text-soft) !important;\n  border-bottom: 1px solid var(--r34g-line);\n  padding-bottom: 5px;\n}\n\nhtml body #r34g-tag-filter {\n  width: 100% !important;\n  box-sizing: border-box !important;\n  margin: 0 0 7px !important;\n  padding: 4px 6px !important;\n  background: var(--r34g-bg-deep) !important;\n  color: var(--r34g-text) !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 4px !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 11px !important;\n  outline: none;\n}\n\nhtml body #r34g-tag-filter:focus {\n  border-color: var(--r34g-accent) !important;\n}\n\nhtml body #r34g-tag-filter::placeholder {\n  color: #6f7a6f;\n}\n\nhtml[data-r34g-filter=\"off\"] body #r34g-tag-filter {\n  display: none !important;\n}\n\nhtml body .sidebar ul {\n  list-style: none;\n  padding: 0;\n  margin: 0;\n}\n\nhtml body .sidebar li {\n  padding: 1px 0 !important;\n  line-height: 1.45;\n}\n\nhtml body .sidebar li a {\n  font-size: 13px !important;\n  line-height: 1.5;\n  color: var(--c-link-metadata, #90d9ed);\n}\n\nhtml body .sidebar li a:hover {\n  text-decoration: underline;\n  color: #d9f4ff;\n}\n\nhtml body .sidebar li {\n  display: flex !important;\n  align-items: flex-start;\n  gap: 6px;\n  padding: 1px 2px !important;\n  line-height: 1.5;\n  border-radius: 4px;\n  transition: background .12s ease;\n}\n\nhtml body .sidebar li > a {\n  flex: 1 1 auto;\n  min-width: 0;\n  overflow-wrap: anywhere;\n}\n\nhtml body .sidebar .tag-count {\n  flex: 0 0 auto;\n  min-width: 46px;\n  text-align: right;\n  color: var(--r34g-text-soft) !important;\n  font-size: 10.5px !important;\n  line-height: 1.85;\n  padding-left: 6px;\n}\n\nhtml body .sidebar li > a[href^=\"https://rule34.xxx/\"],\nhtml body .sidebar li > a[href*=\"page=wiki\"] {\n  order: 3;\n  flex: 0 0 auto;\n  width: 0;\n  overflow: hidden;\n  opacity: 0;\n  padding-left: 3px;\n  color: var(--r34g-text-soft) !important;\n  font-size: 11px !important;\n  line-height: 1.9;\n  text-decoration: none;\n  transition: width .15s ease, opacity .15s ease;\n}\n\nhtml body .sidebar li:hover > a[href^=\"https://rule34.xxx/\"],\nhtml body .sidebar li:hover > a[href*=\"page=wiki\"] {\n  width: 13px;\n  opacity: 1;\n  text-align: center;\n}\n\nhtml body .sidebar li > a[href*=\"page=post\"] {\n  order: 1;\n}\n\nhtml body .sidebar li > .tag-count {\n  order: 2;\n}\n\nhtml body .sidebar li:hover {\n  background: rgba(255, 255, 255, .045);\n}\n\nhtml body .sidebar .tag-type-general a { color: var(--c-link-metadata, #90d9ed); }\nhtml body .sidebar .tag-type-artist a { color: var(--c-link-artist, #f0a0a0); }\nhtml body .sidebar .tag-type-character a { color: var(--c-link-character, #f0f0a0); }\nhtml body .sidebar .tag-type-copyright a { color: var(--c-link-copyright, #f0a0f0); }\n\nhtml body .sidebar .tag-count {\n  color: var(--r34g-text-soft) !important;\n  font-size: 10.5px !important;\n  padding-left: 3px;\n}\n\nhtml body .sidebar li.r34g-tag-hidden {\n  display: none !important;\n}\n\n/* Botones + / − de cada etiqueta del panel lateral: la añaden o la excluyen de la caja de búsqueda\n   sin buscar todavía (la búsqueda se lanza con «Search»). */\nhtml body .sidebar li > .r34g-tag-act {\n  order: 4 !important;\n  flex: 0 0 auto;\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 15px !important;\n  height: 15px !important;\n  margin: 3px 0 0 2px !important;\n  padding: 0 !important;\n  border: 1px solid var(--r34g-line) !important;\n  border-radius: 4px;\n  background: rgba(255, 255, 255, .05) !important;\n  color: var(--r34g-text-soft) !important;\n  font: bold 11px/1 verdana, sans-serif !important;\n  line-height: 1 !important;\n  text-decoration: none !important;\n  opacity: .32;\n  cursor: pointer;\n  transition: opacity .12s, border-color .12s, color .12s, background .12s;\n}\nhtml body .sidebar li:hover > .r34g-tag-act,\nhtml body .sidebar li > .r34g-tag-act:focus-visible {\n  opacity: 1;\n}\nhtml body .sidebar li > .r34g-tag-act:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #ffffff !important;\n  background: rgba(255, 255, 255, .12) !important;\n}\nhtml body .sidebar li > .r34g-tag-act.r34g-on {\n  opacity: 1;\n}\nhtml body .sidebar li > .r34g-tag-add.r34g-on {\n  border-color: #8fd08f !important;\n  color: #d6f5d6 !important;\n  background: rgba(120, 190, 120, .22) !important;\n}\nhtml body .sidebar li > .r34g-tag-sub.r34g-on {\n  border-color: #e08f8f !important;\n  color: #ffd3d3 !important;\n  background: rgba(200, 110, 110, .22) !important;\n}\nhtml body .sidebar li.r34g-tag-in > a[href*=\"tags=\"] {\n  color: #b7e6b7 !important;\n}\nhtml body .sidebar li.r34g-tag-out > a[href*=\"tags=\"] {\n  color: #ffb3ae !important;\n  text-decoration: line-through !important;\n}\n\n/* Aviso en la caja de búsqueda cada vez que se añade o se quita una etiqueta */\nhtml body .tag-search input.r34g-flash {\n  border-color: var(--r34g-accent) !important;\n  box-shadow: 0 0 0 3px rgba(147, 179, 147, .35) !important;\n}\n\nhtml body #r34g-sidebar-section {\n  border-top: 1px solid var(--r34g-line);\n  margin-top: 10px;\n  padding-top: 9px;\n}\n\nhtml body #r34g-sidebar-toggle {\n  display: none;\n  position: fixed;\n  left: 12px;\n  bottom: 14px;\n  z-index: calc(var(--r34g-z) - 5);\n  align-items: center;\n  gap: 6px;\n  padding: 8px 12px;\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 999px;\n  background: var(--r34g-bg-alt);\n  color: var(--r34g-link) !important;\n  font-family: verdana, sans-serif;\n  font-size: 12px;\n  cursor: pointer;\n  box-shadow: 0 6px 18px rgba(0, 0, 0, .5);\n}\n\nhtml body #r34g-sidebar-toggle:hover {\n  border-color: var(--r34g-accent);\n  color: #dff0df !important;\n}\n\nhtml body #r34g-drawer-backdrop {\n  display: none;\n  position: fixed;\n  inset: 0;\n  z-index: calc(var(--r34g-z) - 6);\n  background: rgba(0, 0, 0, .6);\n}\n\nhtml body #r34g-to-top {\n  position: fixed;\n  right: 12px;\n  bottom: 14px;\n  z-index: calc(var(--r34g-z) - 5);\n  width: 38px;\n  height: 38px;\n  padding: 0;\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 50%;\n  background: var(--r34g-bg-alt);\n  color: var(--r34g-link) !important;\n  font-size: 15px;\n  cursor: pointer;\n  opacity: 0;\n  pointer-events: none;\n  transition: opacity .25s ease, border-color .2s ease;\n  box-shadow: 0 6px 18px rgba(0, 0, 0, .5);\n}\n\nhtml body #r34g-to-top.r34g-visible {\n  opacity: .92;\n  pointer-events: auto;\n}\n\nhtml body #r34g-to-top:hover {\n  border-color: var(--r34g-accent);\n}\n\nhtml body #paginator {\n  margin-top: 14px !important;\n}\n\nhtml body #paginator .pagination {\n  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  justify-content: center;\n  gap: 4px;\n  row-gap: 6px;\n  padding: 7px 8px;\n  background: var(--r34g-bg-alt);\n  border: 1px solid var(--r34g-line);\n  border-radius: var(--r34g-radius);\n}\n\nhtml body #paginator #manualpage {\n  display: inline-flex !important;\n  align-items: center;\n  gap: 4px;\n  margin-left: 6px;\n  padding-left: 8px;\n  border-left: 1px solid var(--r34g-line);\n}\n\nhtml body #paginator #manualpage input[type=\"text\"] {\n  width: 62px !important;\n  height: 28px;\n  box-sizing: border-box;\n  padding: 0 7px !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 6px !important;\n  background: var(--r34g-bg-deep) !important;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 12px !important;\n  outline: none;\n}\n\nhtml body #paginator #manualpage input[type=\"text\"]:focus {\n  border-color: var(--r34g-accent) !important;\n}\n\nhtml body #paginator #manualpage input[type=\"text\"]::placeholder {\n  color: #6f7a6f;\n}\n\nhtml body #paginator #manualpage input[type=\"submit\"] {\n  height: 28px;\n  padding: 0 10px !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 6px !important;\n  background: #333d33;\n  color: var(--r34g-link) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 12px !important;\n  cursor: pointer;\n}\n\nhtml body #paginator #manualpage input[type=\"submit\"]:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #eafaea !important;\n}\n\nhtml body #paginator .pagination a,\nhtml body #paginator .pagination b,\nhtml body #paginator .pagination span {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  min-width: 30px;\n  height: 28px;\n  padding: 0 9px !important;\n  border: 1px solid transparent;\n  border-radius: 6px;\n  color: var(--r34g-link) !important;\n  font-size: 12.5px !important;\n  line-height: 1 !important;\n  transition: background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease;\n}\n\nhtml body #paginator .pagination a:hover {\n  background: var(--c-bg-highlight, #505a50);\n  border-color: rgba(147, 179, 147, .55);\n  color: #eafaea !important;\n  transform: translateY(-1px);\n}\n\nhtml body #paginator .pagination b {\n  background: var(--r34g-accent);\n  border-color: rgba(255, 255, 255, .25);\n  color: var(--r34g-bg) !important;\n  font-weight: bold;\n  box-shadow: 0 2px 8px rgba(0, 0, 0, .35);\n}\n\nhtml body #paginator .pagination a.arrow,\nhtml body #paginator .pagination a[alt] {\n  color: var(--r34g-text-soft) !important;\n}\n\nhtml body #paginator .pagination a.arrow:hover,\nhtml body #paginator .pagination a[alt]:hover {\n  color: #eafaea !important;\n}\n\nhtml body .image-list + br,\nhtml body #post-list > br {\n  display: none;\n}\n\nhtml body #r34g-modal {\n  position: fixed;\n  inset: 0;\n  z-index: var(--r34g-z);\n  display: none;\n  align-items: center;\n  justify-content: center;\n  padding: 24px 16px;\n  background: rgba(0, 0, 0, .66);\n  backdrop-filter: blur(2px);\n  font-family: verdana, sans-serif;\n  text-align: left;\n  color-scheme: dark;\n}\n\nhtml body #r34g-modal.r34g-open {\n  display: flex;\n}\n\nhtml body #r34g-modal .r34g-dialog {\n  display: flex;\n  flex-direction: column;\n  width: min(880px, 100%);\n  max-height: min(84vh, 780px);\n  background: var(--r34g-bg-alt);\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 10px;\n  box-shadow: var(--r34g-shadow);\n  color: var(--r34g-text);\n  font-size: 12.8px;\n  overflow: hidden;\n}\n\nhtml body #r34g-modal .r34g-head {\n  display: flex;\n  align-items: center;\n  gap: 14px;\n  padding: 10px 14px 0;\n  border-bottom: 1px solid var(--r34g-line);\n  background: linear-gradient(#2d362d, var(--r34g-bg-alt));\n}\n\nhtml body #r34g-modal .r34g-title {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  padding-bottom: 9px;\n  color: var(--r34g-link);\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 13px;\n  font-weight: bold;\n  letter-spacing: .06em;\n  text-transform: uppercase;\n  white-space: nowrap;\n}\n\nhtml body #r34g-modal .r34g-tabs {\n  display: flex;\n  align-items: flex-end;\n  gap: 4px;\n  flex: 1;\n  overflow-x: auto;\n  scrollbar-width: none;\n}\n\nhtml body #r34g-modal .r34g-tabs::-webkit-scrollbar {\n  display: none;\n}\n\nhtml body #r34g-modal .r34g-tab {\n  padding: 7px 13px;\n  border: 1px solid transparent;\n  border-bottom: 0;\n  border-radius: 7px 7px 0 0;\n  background: transparent;\n  color: var(--r34g-link) !important;\n  font-family: verdana, sans-serif;\n  font-size: 12px;\n  white-space: nowrap;\n  cursor: pointer;\n  position: relative;\n  bottom: -1px;\n}\n\nhtml body #r34g-modal .r34g-tab:hover {\n  background: rgba(255, 255, 255, .045);\n  color: #dff0df !important;\n}\n\nhtml body #r34g-modal .r34g-tab.r34g-tab-active {\n  background: var(--r34g-bg);\n  border-color: var(--r34g-line);\n  border-bottom: 1px solid var(--r34g-bg);\n  color: #ffffff !important;\n}\n\nhtml body #r34g-modal .r34g-tab-short {\n  display: none;\n}\n\nhtml body #r34g-modal .r34g-close {\n  width: 30px;\n  height: 30px;\n  margin-bottom: 8px;\n  padding: 0;\n  border: 1px solid transparent;\n  border-radius: 6px;\n  background: transparent;\n  color: var(--r34g-text-soft) !important;\n  font-size: 17px;\n  line-height: 1;\n  cursor: pointer;\n}\n\nhtml body #r34g-modal .r34g-close:hover {\n  background: rgba(217, 83, 79, .16);\n  border-color: rgba(217, 83, 79, .5);\n  color: #ff9a96 !important;\n}\n\nhtml body #r34g-modal .r34g-body {\n  flex: 1;\n  min-height: 0;\n  overflow-y: auto;\n  padding: 14px 16px;\n  background: var(--r34g-bg);\n  scrollbar-width: thin;\n  scrollbar-color: #4b564b rgba(0, 0, 0, .25);\n}\n\nhtml body #r34g-modal .r34g-body::-webkit-scrollbar {\n  width: 10px;\n}\n\nhtml body #r34g-modal .r34g-body::-webkit-scrollbar-thumb {\n  background: #4b564b;\n  border-radius: 6px;\n}\n\nhtml body #r34g-modal .r34g-panel {\n  display: none;\n}\n\nhtml body #r34g-modal .r34g-panel.r34g-panel-active {\n  display: block;\n}\n\nhtml body #r34g-modal .r34g-foot {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  padding: 10px 14px;\n  border-top: 1px solid var(--r34g-line);\n  background: var(--r34g-bg-alt);\n}\n\nhtml body #r34g-modal .r34g-foot .r34g-spacer {\n  flex: 1;\n}\n\nhtml body #r34g-modal .r34g-foot button,\nhtml body #r34g-modal .r34g-btn {\n  padding: 6px 14px;\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 6px;\n  background: #333d33;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif;\n  font-size: 12px;\n  cursor: pointer;\n  transition: background .15s ease, border-color .15s ease, color .15s ease;\n}\n\nhtml body #r34g-modal .r34g-foot button:hover,\nhtml body #r34g-modal .r34g-btn:hover {\n  border-color: var(--r34g-accent);\n  color: #eafaea !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettingsSave {\n  background: var(--r34g-accent);\n  border-color: var(--r34g-accent);\n  color: var(--r34g-bg) !important;\n  font-weight: bold;\n}\n\nhtml body #r34g-modal #ibenhancerSettingsSave:hover {\n  background: var(--c-link, #b0e0b0);\n  color: #22301f !important;\n}\n\nhtml body #r34g-modal .r34g-section {\n  margin: 0 0 16px;\n}\n\nhtml body #r34g-modal .r34g-section > h6 {\n  margin: 0 0 4px;\n  padding-bottom: 5px;\n  border-bottom: 1px solid var(--r34g-line);\n  color: var(--r34g-link);\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 11.5px;\n  font-weight: bold;\n  letter-spacing: .09em;\n  text-transform: uppercase;\n}\n\nhtml body #r34g-modal .r34g-hint {\n  margin: 2px 0 8px;\n  color: var(--r34g-text-soft);\n  font-size: 11px;\n  line-height: 1.5;\n}\n\nhtml body #r34g-modal .r34g-row {\n  display: flex;\n  align-items: center;\n  gap: 10px;\n  min-height: 30px;\n  padding: 3px 2px;\n  border-bottom: 1px dashed rgba(255, 255, 255, .055);\n}\n\nhtml body #r34g-modal .r34g-row:last-child {\n  border-bottom: 0;\n}\n\nhtml body #r34g-modal .r34g-row > .r34g-label {\n  flex: 1;\n  min-width: 0;\n  line-height: 1.45;\n  color: var(--r34g-text);\n}\n\nhtml body #r34g-modal .r34g-row > .r34g-value {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  flex: 0 0 auto;\n}\n\nhtml body #r34g-modal .r34g-row > .r34g-value label {\n  display: inline-flex !important;\n  align-items: center;\n  gap: 6px;\n}\n\nhtml.r34g-modal-open {\n  overflow: hidden !important;\n}\n\nhtml body #r34g-modal .r34g-row .r34g-note {\n  display: block;\n  color: var(--r34g-text-soft);\n  font-size: 10.5px;\n}\n\nhtml body #r34g-modal .r34g-seg {\n  display: inline-flex;\n  gap: 3px;\n  padding: 2px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 7px;\n  background: var(--r34g-bg-deep);\n}\n\nhtml body #r34g-modal .r34g-seg button {\n  padding: 4px 10px;\n  border: 0;\n  border-radius: 5px;\n  background: transparent;\n  color: var(--r34g-text-soft) !important;\n  font-family: verdana, sans-serif;\n  font-size: 11.5px;\n  cursor: pointer;\n}\n\nhtml body #r34g-modal .r34g-seg button:hover {\n  color: #eafaea !important;\n}\n\nhtml body #r34g-modal .r34g-seg button.r34g-on {\n  background: var(--r34g-accent);\n  color: #22301f !important;\n  font-weight: bold;\n}\n\nhtml body .r34g-switch {\n  position: relative;\n  display: inline-block;\n  flex: 0 0 auto;\n  width: 40px;\n  height: 20px;\n  vertical-align: middle;\n}\n\nhtml body .r34g-switch > input {\n  position: absolute;\n  inset: 0;\n  width: 100% !important;\n  height: 100% !important;\n  margin: 0 !important;\n  opacity: 0 !important;\n  cursor: pointer;\n  z-index: 2;\n}\n\nhtml body .r34g-switch > .r34g-slider {\n  position: absolute;\n  inset: 0;\n  border: 1px solid var(--r34g-line);\n  border-radius: 999px;\n  background: #3b453b;\n  transition: background .2s ease, border-color .2s ease;\n}\n\nhtml body .r34g-switch > .r34g-slider::before {\n  content: \"\";\n  position: absolute;\n  top: 2px;\n  left: 2px;\n  width: 14px;\n  height: 14px;\n  border-radius: 50%;\n  background: #c9cfc9;\n  transition: transform .2s ease, background .2s ease;\n}\n\nhtml body .r34g-switch > input:checked + .r34g-slider {\n  background: var(--r34g-accent);\n  border-color: var(--r34g-accent);\n}\n\nhtml body .r34g-switch > input:checked + .r34g-slider::before {\n  transform: translateX(20px);\n  background: #f4fff4;\n}\n\nhtml body .r34g-switch > input:focus-visible + .r34g-slider {\n  box-shadow: 0 0 0 2px rgba(147, 179, 147, .45);\n}\n\nhtml body #r34g-modal #ibenhancerSettings-options {\n  overflow: visible !important;\n  width: auto !important;\n  height: auto !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettings-options > .r34g-moved,\nhtml body #r34g-modal #ibenhancerSettings-options > br {\n  display: none !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettings-options label {\n  white-space: normal !important;\n  display: flex !important;\n  align-items: center;\n  gap: 10px;\n  width: 100%;\n  line-height: 1.45;\n}\n\nhtml body #r34g-modal #ibenhancerSettings input[type=\"checkbox\"] {\n  flex: 0 0 auto;\n  margin: 0 !important;\n  width: auto !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettings input[type=\"number\"],\nhtml body #r34g-modal #ibenhancerSettings select {\n  margin: 0 !important;\n  padding: 3px 5px !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 5px !important;\n  background: var(--r34g-bg-deep) !important;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 11.5px !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettings button {\n  padding: 4px 9px !important;\n  margin: 0 !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 5px !important;\n  background: #333d33 !important;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 11.5px !important;\n  cursor: pointer;\n}\n\nhtml body #r34g-modal #ibenhancerSettings button:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #eafaea !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettings .tooltip-140 {\n  position: relative;\n}\n\nhtml body #r34g-modal #r34g-icon-grid {\n  display: grid;\n  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));\n  gap: 1px 14px;\n  margin-top: 6px;\n  padding: 8px 10px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 7px;\n  background: rgba(0, 0, 0, .16);\n}\n\nhtml body #r34g-modal #r34g-icon-grid label {\n  display: flex !important;\n  align-items: center;\n  gap: 8px;\n  padding: 1px 0;\n  font-size: 11.5px !important;\n}\n\nhtml body #r34g-modal #r34g-icon-grid .r34g-icon-text {\n  flex: 1;\n  min-width: 0;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\nhtml body #r34g-modal #r34g-icon-grid .r34g-switch {\n  width: 34px;\n  height: 17px;\n}\n\nhtml body #r34g-modal #r34g-icon-grid .r34g-switch > .r34g-slider::before {\n  width: 11px;\n  height: 11px;\n}\n\nhtml body #r34g-modal #r34g-icon-grid .r34g-switch > input:checked + .r34g-slider::before {\n  transform: translateX(17px);\n}\n\nhtml body #r34g-modal #r34g-actions-row {\n  gap: 6px;\n}\n\nhtml body #r34g-modal #ibenhancer-favorite-tags,\nhtml body #r34g-modal #ibenhancer-changelog {\n  background: transparent !important;\n  border: 0 !important;\n  padding: 0 !important;\n  width: auto !important;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 12.8px !important;\n}\n\nhtml body #r34g-modal #ibenhancer-favorite-tags *,\nhtml body #r34g-modal #ibenhancer-changelog * {\n  color: var(--r34g-text) !important;\n  font-size: 12px !important;\n}\n\nhtml body #r34g-modal #ibenhancer-changelog-updates > div,\nhtml body #r34g-modal #ibenhancer-changelog > div {\n  border-bottom: 1px dashed rgba(255, 255, 255, .07);\n  padding: 5px 0;\n  line-height: 1.5;\n}\n\nhtml body #r34g-modal #ibenhancer-changelog > div:first-child,\nhtml body #r34g-modal #ibenhancer-changelog > a {\n  color: var(--r34g-link) !important;\n  font-weight: bold;\n}\n\nhtml body #r34g-sidebar-favs {\n  margin-top: 10px;\n  padding-top: 9px;\n  border-top: 1px solid var(--r34g-line);\n}\n\nhtml body #ibenhancer {\n  display: block;\n}\n\nhtml.r34g-integrated body #ibenhancer {\n  display: none !important;\n}\n\nhtml body #ibenhancerSettings-blocker {\n  display: none !important;\n}\n\nhtml.r34g-integrated body #ibenhancerSettings.show {\n  display: none !important;\n}\n\n@media (max-width: 900px) {\n  html body #r34g-sidebar-toggle {\n    display: inline-flex;\n  }\n\n  html body #r34g-drawer-head {\n    display: flex;\n  }\n\n  html {\n    --r34g-gap: 10px;\n  }\n\n  html body .sidebar {\n    position: fixed !important;\n    top: 0;\n    left: 0;\n    bottom: 0;\n    width: min(320px, 88vw) !important;\n    min-width: 0 !important;\n    max-width: none !important;\n    max-height: none !important;\n    padding: 12px 12px 24px;\n    background: var(--r34g-bg-alt);\n    border-right: 1px solid var(--c-bg-highlight, #505a50);\n    box-shadow: 12px 0 32px rgba(0, 0, 0, .5);\n    transform: translateX(-102%);\n    transition: transform .24s ease;\n    z-index: calc(var(--r34g-z) - 4);\n    overflow-y: auto;\n  }\n\n  html.r34g-drawer-open body .sidebar {\n    transform: none;\n  }\n\n  html.r34g-drawer-open body #r34g-drawer-backdrop {\n    display: block;\n  }\n\n  html body #post-list > .content {\n    flex: 1 1 100% !important;\n    margin: 0 !important;\n  }\n}\n\n@media (max-width: 620px) {\n  html body #r34g-modal .r34g-head {\n    flex-wrap: wrap;\n    gap: 6px 10px;\n    padding: 9px 12px 0;\n  }\n\n  html body #r34g-modal .r34g-title {\n    padding-bottom: 0;\n  }\n\n  html body #r34g-modal .r34g-tabs {\n    order: 3;\n    flex: 1 1 100%;\n    flex-wrap: wrap;\n    overflow-x: visible;\n    gap: 4px 6px;\n    padding-bottom: 0;\n  }\n\n  html body #r34g-modal .r34g-tab {\n    padding: 6px 10px;\n    font-size: 11.5px;\n  }\n\n  html body #r34g-modal .r34g-tab-long {\n    display: none;\n  }\n\n  html body #r34g-modal .r34g-tab-short {\n    display: inline;\n  }\n\n  html body #r34g-modal .r34g-close {\n    margin-left: auto;\n    margin-bottom: 0;\n  }\n\n  html body #r34g-modal .r34g-body {\n    padding: 12px 12px;\n  }\n\n  html body #r34g-modal .r34g-row {\n    flex-wrap: wrap;\n    row-gap: 4px;\n    padding: 5px 2px;\n  }\n\n  html body #r34g-modal .r34g-row > .r34g-seg {\n    flex: 1 1 100%;\n    justify-content: space-between;\n  }\n\n  html body #r34g-modal .r34g-foot {\n    flex-wrap: wrap;\n    gap: 6px;\n  }\n\n  html body #r34g-modal .r34g-foot #r34g-reset {\n    flex: 1 1 100%;\n    text-align: center;\n  }\n\n  html body #r34g-modal .r34g-foot .r34g-spacer {\n    display: none;\n  }\n\n  html body #r34g-modal #r34g-icon-grid {\n    grid-template-columns: 1fr;\n  }\n\n  html body #r34g-modal .r34g-dialog {\n    max-height: 90vh;\n  }\n  html {\n    --r34g-gap: 8px;\n    --r34g-radius: 6px;\n  }\n\n  html[data-r34g-cols] {\n    --r34g-cols: 3;\n  }\n\n  html body #post-list {\n    padding: 0 8px !important;\n  }\n\n  html body #paginator .pagination {\n    gap: 3px;\n    padding: 6px;\n  }\n\n  html body #paginator .pagination a,\n  html body #paginator .pagination b,\n  html body #paginator .pagination span {\n    min-width: 24px;\n    height: 24px;\n    padding: 0 6px !important;\n  }\n\n  html body #r34g-modal .r34g-dialog {\n    max-height: 90vh;\n  }\n\n  html body #r34g-modal .r34g-title span.r34g-title-text {\n    display: none;\n  }\n}\n\nhtml body .image-list .thumb .r34g-seen-badge {\n  position: absolute;\n  top: 7px;\n  right: 7px;\n  z-index: 4;\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 24px;\n  height: 24px;\n  border-radius: 50%;\n  background: rgba(6, 12, 6, .74);\n  border: 1px solid rgba(147, 179, 147, .55);\n  color: #d9f4d9;\n  box-shadow: 0 2px 8px rgba(0, 0, 0, .5);\n}\n\nhtml body .image-list .thumb .r34g-seen-badge svg {\n  width: 15px;\n  height: 15px;\n}\n\nhtml body .image-list .thumb.r34g-seen > a::before {\n  content: \"\";\n  position: absolute;\n  inset: 0;\n  z-index: 1;\n  pointer-events: none;\n  box-shadow: inset 0 0 0 2px rgba(147, 179, 147, .5);\n  border-radius: var(--r34g-radius);\n}\n\nhtml[data-r34g-seen=\"off\"] body .image-list .thumb .r34g-seen-badge {\n  display: none !important;\n}\n\nhtml[data-r34g-seendim=\"on\"] body .image-list .thumb.r34g-seen img {\n  filter: grayscale(.5) brightness(.6) !important;\n}\n\nhtml[data-r34g-seendim=\"on\"] body .image-list .thumb.r34g-seen:hover img {\n  filter: grayscale(.15) brightness(.92) !important;\n}\n\nhtml body #r34g-toasts {\n  position: fixed;\n  left: 50%;\n  bottom: 22px;\n  transform: translateX(-50%);\n  z-index: 2147482100;\n  display: flex;\n  flex-direction: column;\n  gap: 6px;\n  align-items: center;\n  pointer-events: none;\n}\n\nhtml body .r34g-toast {\n  max-width: 460px;\n  padding: 8px 14px;\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 7px;\n  background: rgba(24, 32, 24, .96);\n  color: #d8e6d8;\n  font: 12px/1.45 verdana, sans-serif;\n  box-shadow: 0 10px 30px rgba(0, 0, 0, .6);\n  transition: opacity .28s ease, transform .28s ease;\n}\n\nhtml body .r34g-toast.r34g-toast-out {\n  opacity: 0;\n  transform: translateY(6px);\n}\n\nhtml body .r34g-search {\n  margin: 0 0 12px;\n}\n\nhtml body .r34g-search input {\n  width: 100%;\n  box-sizing: border-box;\n  padding: 6px 9px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  background: var(--r34g-bg-deep);\n  color: var(--r34g-text);\n  font: 12px verdana, sans-serif;\n  outline: none;\n}\n\nhtml body .r34g-search input:focus {\n  border-color: var(--r34g-accent);\n}\n\nhtml body #r34g-modal .r34g-mini,\nhtml body #r34g-tags-panel .r34g-mini {\n  padding: 4px 10px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  background: #333d33;\n  color: var(--r34g-link) !important;\n  font: 11.5px verdana, sans-serif;\n  cursor: pointer;\n}\n\nhtml body #r34g-modal .r34g-mini:hover,\nhtml body #r34g-tags-panel .r34g-mini:hover {\n  border-color: var(--r34g-accent);\n  color: #eafaea !important;\n}\n\nhtml body .r34g-mini-row {\n  display: inline-flex;\n  gap: 6px;\n  flex-wrap: wrap;\n  align-items: center;\n}\n\nhtml body #r34g-modal .r34g-num,\nhtml body #r34g-modal .r34g-text,\nhtml body #r34g-modal .r34g-select,\nhtml body #r34g-modal .r34g-textarea {\n  box-sizing: border-box;\n  padding: 3px 6px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 5px;\n  background: var(--r34g-bg-deep);\n  color: var(--r34g-text);\n  font: 11.5px verdana, sans-serif;\n  outline: none;\n}\n\nhtml body #r34g-modal .r34g-num:focus,\nhtml body #r34g-modal .r34g-text:focus,\nhtml body #r34g-modal .r34g-select:focus,\nhtml body #r34g-modal .r34g-textarea:focus {\n  border-color: var(--r34g-accent);\n}\n\nhtml body #r34g-modal .r34g-text {\n  width: 100%;\n  min-width: 180px;\n}\n\nhtml body #r34g-modal .r34g-textarea {\n  width: 100%;\n  min-height: 66px;\n  resize: vertical;\n  line-height: 1.45;\n}\n\nhtml body #r34g-modal .r34g-mono {\n  font-family: monospace, monospace;\n}\n\nhtml body #r34g-modal .r34g-value-wide {\n  flex: 0 1 56%;\n  max-width: 56%;\n}\n\nhtml body #r34g-modal .r34g-stack {\n  display: block;\n}\n\nhtml body #r34g-modal .r34g-row.r34g-filtered-out,\nhtml body #r34g-modal #r34g-icon-grid label.r34g-filtered-out,\nhtml body #r34g-modal .r34g-section.r34g-filtered-out {\n  display: none !important;\n}\n\nhtml body #r34g-modal .r34g-section.r34g-collapsed {\n  display: none !important;\n}\n\nhtml body #r34g-modal .r34g-enh-sticky {\n  position: sticky;\n  top: -14px;\n  z-index: 3;\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n  margin: -14px -16px 14px;\n  padding: 10px 16px;\n  background: var(--r34g-bg-alt);\n  border-bottom: 1px solid var(--r34g-line);\n}\n\nhtml body #r34g-modal .r34g-enh-sticky .r34g-note {\n  flex: 1 1 220px;\n}\n\nhtml body #r34g-modal .r34g-notes {\n  margin: 4px 0 0;\n  padding-left: 18px;\n  color: var(--r34g-text);\n  font-size: 12px;\n  line-height: 1.6;\n}\n\nhtml body #r34g-modal .r34g-notes li {\n  margin-bottom: 3px;\n}\n\nhtml body #r34g-modal .r34g-panel-actions {\n  display: inline-flex;\n  gap: 6px;\n  align-items: center;\n}\n\nhtml body .r34g-vhost {\n  flex: 1 1 auto !important;\n  width: auto !important;\n  min-width: 0 !important;\n  max-width: none !important;\n}\n\nhtml body #gelcomVideoContainer,\nhtml body .r34g-vwrap {\n  position: relative !important;\n  width: 100% !important;\n  max-width: var(--r34g-vwidth) !important;\n  margin: 0 auto !important;\n  background: #000;\n  overflow: hidden;\n}\n\nhtml[data-r34g-vbg=\"ninguno\"] body #gelcomVideoContainer,\nhtml[data-r34g-vbg=\"ninguno\"] body .r34g-vwrap {\n  background: transparent;\n}\n\nhtml[data-r34g-vradius=\"on\"] body #gelcomVideoContainer,\nhtml[data-r34g-vradius=\"on\"] body .r34g-vwrap {\n  border-radius: 10px;\n}\n\nhtml[data-r34g-vshadow=\"on\"] body #gelcomVideoContainer,\nhtml[data-r34g-vshadow=\"on\"] body .r34g-vwrap {\n  box-shadow: 0 14px 40px rgba(0, 0, 0, .55);\n}\n\nhtml[data-r34g-vcinema=\"on\"] body::before {\n  content: \"\";\n  position: fixed;\n  inset: 0;\n  z-index: 60;\n  background: rgba(0, 0, 0, .84);\n}\n\nhtml[data-r34g-vcinema=\"on\"] body #gelcomVideoContainer,\nhtml[data-r34g-vcinema=\"on\"] body .r34g-vwrap {\n  z-index: 61 !important;\n}\n\nhtml body .r34g-vwrap .r34g-vbackdrop {\n  position: absolute;\n  inset: -30px;\n  z-index: 0;\n  background-size: cover;\n  background-position: center;\n  filter: blur(26px) brightness(.45) saturate(1.25);\n  opacity: .9;\n  pointer-events: none;\n}\n\nhtml body .r34g-vwrap video,\nhtml body #gelcomVideoPlayer {\n  position: relative;\n  z-index: 1;\n  display: block !important;\n  width: 100% !important;\n  height: auto !important;\n  max-height: 84vh !important;\n  margin: 0 auto !important;\n  background: #000;\n  object-fit: contain;\n}\n\nhtml[data-r34g-vfit=\"cover\"] body .r34g-vwrap video {\n  object-fit: cover !important;\n}\n\nhtml[data-r34g-vfit=\"contain\"] body .r34g-vwrap video {\n  object-fit: contain !important;\n}\n\nhtml body .r34g-vbar {\n  position: absolute;\n  left: 0;\n  right: 0;\n  bottom: 0;\n  z-index: 6;\n  display: flex;\n  flex-direction: column;\n  gap: 3px;\n  padding: 26px 10px 7px;\n  background: linear-gradient(to top, rgba(0, 0, 0, .88) 0%, rgba(0, 0, 0, .5) 55%, rgba(0, 0, 0, 0) 100%);\n  color: #ececec;\n  font-family: verdana, sans-serif;\n  transition: opacity .25s ease;\n}\n\nhtml body .r34g-vbar.r34g-idle {\n  opacity: 0;\n}\n\nhtml body .r34g-vbar:hover {\n  opacity: 1 !important;\n}\n\nhtml body .r34g-vbar-top {\n  display: flex;\n  align-items: center;\n}\n\nhtml body .r34g-vbar input[type=\"range\"] {\n  width: 100%;\n  height: 16px;\n  margin: 0;\n  padding: 0;\n  accent-color: var(--r34g-accent);\n  cursor: pointer;\n  background: transparent;\n}\n\nhtml body .r34g-vbar .r34g-vvolume {\n  width: 74px;\n}\n\nhtml body .r34g-vbar-bottom {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n}\n\nhtml body .r34g-vbar .r34g-vgrow {\n  flex: 1;\n}\n\nhtml body .r34g-vbar-main {\n  display: flex;\n  align-items: center;\n  gap: 3px;\n}\n\nhtml body .r34g-vbar .r34g-vbtn {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 28px;\n  height: 28px;\n  padding: 0;\n  border: 1px solid transparent;\n  border-radius: 6px;\n  background: transparent;\n  color: #e4e4e4 !important;\n  font: bold 11.5px/1 verdana, sans-serif;\n  cursor: pointer;\n  transition: background .15s ease, border-color .15s ease, color .15s ease;\n}\n\nhtml body .r34g-vbar .r34g-vbtn svg {\n  width: 16px;\n  height: 16px;\n}\n\nhtml body .r34g-vbar .r34g-vbtn:hover {\n  background: rgba(255, 255, 255, .12);\n  border-color: rgba(147, 179, 147, .55);\n  color: #fff !important;\n}\n\nhtml body .r34g-vbar .r34g-vbtn.r34g-on {\n  color: var(--r34g-accent) !important;\n  border-color: rgba(147, 179, 147, .55);\n}\n\nhtml body .r34g-vbar .r34g-vspeed {\n  width: auto;\n  min-width: 42px;\n  padding: 0 7px;\n}\n\nhtml body .r34g-vbar .r34g-vtime {\n  font-size: 11.5px;\n  line-height: 1;\n  min-width: 96px;\n  color: #dcdcdc;\n  text-shadow: 0 1px 2px rgba(0, 0, 0, .8);\n}\n\nhtml body .r34g-vbar .r34g-vvol {\n  display: flex;\n  align-items: center;\n  gap: 2px;\n}\n\nhtml.r34g-vbar-on .fluid_controls_container,\nhtml.r34g-vbar-on .fluid_video_wrapper > .fluid_controls_container,\nhtml.r34g-vbar-on .fluid_control_video,\nhtml.r34g-vbar-on .video-js .vjs-control-bar {\n  display: none !important;\n}\n\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_play_button,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_duration,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_theatre,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_playback_rate,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_fullscreen,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_video_volume,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_download,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_card,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_vast_skip {\n  display: none !important;\n}\n\nhtml body #r34g-tags-panel {\n  box-sizing: border-box;\n  max-width: var(--r34g-vwidth);\n  margin: 14px auto;\n  padding: 10px 12px;\n  background: var(--r34g-bg-alt);\n  border: 1px solid var(--r34g-line);\n  border-radius: 10px;\n  color: var(--r34g-text);\n  font-family: verdana, sans-serif;\n  font-size: 12px;\n  text-align: left;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-launch {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-toggle {\n  flex: 1 1 220px;\n  display: inline-flex;\n  align-items: center;\n  justify-content: flex-start;\n  gap: 8px;\n  padding: 2px 0;\n  border: 0;\n  background: transparent;\n  color: var(--r34g-link) !important;\n  font: bold 13px verdana, sans-serif;\n  cursor: pointer;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-toggle svg {\n  width: 16px;\n  height: 16px;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-head {\n  display: flex;\n  align-items: center;\n  gap: 10px;\n  flex-wrap: wrap;\n  margin: 8px 0;\n  padding-bottom: 7px;\n  border-bottom: 1px solid var(--r34g-line);\n}\n\nhtml body #r34g-tags-panel .r34g-tp-head b {\n  color: var(--r34g-link);\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 12px;\n  letter-spacing: .06em;\n  text-transform: uppercase;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-count {\n  flex: 1;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-group {\n  margin-bottom: 9px;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-group-head {\n  display: flex;\n  align-items: baseline;\n  gap: 8px;\n  flex-wrap: wrap;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-group-head b {\n  color: #dff0df;\n  font-size: 12px;\n}\n\nhtml body #r34g-tags-panel .r34g-chips {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 5px;\n  margin-top: 5px;\n  min-width: 0;\n}\n\nhtml body .r34g-chip {\n  display: inline-flex;\n  align-items: center;\n  gap: 5px;\n  max-width: 100%;\n  min-width: 0;\n  box-sizing: border-box;\n  padding: 3px 9px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 999px;\n  background: var(--r34g-bg-deep);\n  color: var(--r34g-text) !important;\n  font: 11.5px/1.4 verdana, sans-serif;\n  cursor: pointer;\n  transition: border-color .15s ease, opacity .15s ease, background .15s ease;\n}\n\nhtml body .r34g-chip .r34g-chip-name {\n  overflow-wrap: anywhere;\n}\n\nhtml body .r34g-chip:hover {\n  border-color: var(--r34g-accent);\n  background: #364236;\n}\n\nhtml body .r34g-chip.r34g-chip-off {\n  opacity: .66;\n  border-color: rgba(217, 83, 79, .55);\n}\n\nhtml body .r34g-chip.r34g-chip-off .r34g-chip-name {\n  text-decoration: line-through;\n  color: #ffb3ae;\n}\n\nhtml body .r34g-chip .r34g-chip-count {\n  color: var(--r34g-text-soft);\n  font-size: 9.5px;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-outputwrap {\n  margin: 10px 0 0;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-output {\n  width: 100%;\n  box-sizing: border-box;\n  min-height: 58px;\n  padding: 7px 9px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  background: var(--r34g-bg-deep);\n  color: #cfe8cf;\n  font: 12px/1.5 monospace, monospace;\n  resize: vertical;\n}\n\nhtml body #r34g-tags-panel .r34g-hint,\nhtml body .r34g-hint {\n  color: var(--r34g-text-soft);\n}\n\n/* Prompt para otras apps */\nhtml body #r34g-tags-panel .r34g-tp-prompt {\n  margin: 12px 0 2px;\n  padding: 8px 10px 7px;\n  border: 1px solid rgba(147, 179, 147, .3);\n  border-left: 3px solid var(--r34g-accent);\n  border-radius: 6px;\n  background: rgba(147, 179, 147, .06);\n}\n\nhtml body #r34g-tags-panel .r34g-tp-prompt-head {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n  margin-bottom: 6px;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-prompt-head b {\n  color: var(--r34g-link);\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 12px;\n  letter-spacing: .06em;\n  text-transform: uppercase;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-prompt-head > .r34g-note {\n  flex: 1 1 170px;\n  min-width: 0;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-prompt-head .r34g-mini-row {\n  gap: 6px;\n}\n\nhtml body #r34g-tags-panel .r34g-prompt-opt {\n  padding: 1px 8px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 999px;\n  background: transparent;\n  color: var(--r34g-text-soft) !important;\n  font: 10.5px verdana, sans-serif;\n  cursor: pointer;\n}\n\nhtml body #r34g-tags-panel .r34g-prompt-opt:hover {\n  border-color: var(--r34g-accent);\n}\n\nhtml body #r34g-tags-panel .r34g-prompt-opt.r34g-on {\n  border-color: var(--r34g-accent);\n  background: rgba(147, 179, 147, .18);\n  color: #eaf6ea !important;\n}\n\nhtml body #r34g-tags-panel .r34g-prompt-out {\n  display: block;\n  width: 100%;\n  box-sizing: border-box;\n  min-height: 64px;\n  padding: 7px 9px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  background: var(--r34g-bg-deep);\n  color: #eef7ee;\n  font: 12px/1.55 monospace, monospace;\n  resize: vertical;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-prompt .r34g-hint {\n  margin: 5px 0 0;\n  font-size: 11px;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-status {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  margin-top: 8px;\n  color: var(--r34g-text-soft);\n  font-size: 11.5px;\n}\n\nhtml body .r34g-spinner {\n  width: 14px;\n  height: 14px;\n  border: 2px solid rgba(255, 255, 255, .25);\n  border-top-color: var(--r34g-accent);\n  border-radius: 50%;\n  animation: r34g-spin .8s linear infinite;\n}\n\nhtml body #r34g-tags-panel .r34g-rel {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n  padding: 3px 0;\n  border-bottom: 1px dashed rgba(255, 255, 255, .06);\n}\n\nhtml body #r34g-tags-panel .r34g-rel:last-child {\n  border-bottom: 0;\n}\n\nhtml body #r34g-tags-panel .r34g-rel-text {\n  flex: 1 1 240px;\n  color: #cfd8cf;\n  font-size: 11.5px;\n}\n\n@keyframes r34g-spin {\n  to {\n    transform: rotate(360deg);\n  }\n}\n\n\n/* API de rule34: diagnóstico en Ajustes → Etiquetas */\n.r34g-probe {\n  margin: 8px 0 0;\n  padding: 8px 10px;\n  background: rgba(0, 0, 0, .18);\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  color: var(--r34g-text-soft);\n  font-size: 11.5px;\n  text-align: left;\n}\n\n.r34g-probe:empty {\n  display: none;\n}\n\n.r34g-probe-line + .r34g-probe-line {\n  margin-top: 4px;\n}\n\n.r34g-probe-line b {\n  color: var(--r34g-accent);\n}\n\n.r34g-probe-bad b {\n  color: #d98b7f;\n}\n\n/* Sugerencias de etiquetas (API) bajo el buscador del panel lateral */\nhtml body #r34g-tag-filter + .r34g-suggest {\n  display: block;\n}\n\nhtml body .r34g-suggest {\n  position: relative;\n  z-index: 30;\n  margin: 4px 0 6px;\n  max-height: 224px;\n  overflow-y: auto;\n  background: var(--r34g-bg-deep);\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  box-shadow: 0 10px 26px rgba(0, 0, 0, .45);\n  text-align: left;\n}\n\nhtml body .r34g-suggest[hidden] {\n  display: none !important;\n}\n\nhtml body .r34g-suggest-row {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 8px;\n  width: 100%;\n  padding: 4px 8px;\n  border: 0;\n  border-bottom: 1px solid rgba(255, 255, 255, .04);\n  background: transparent;\n  color: var(--r34g-text);\n  font: 11.5px verdana, sans-serif;\n  text-align: left;\n  cursor: pointer;\n}\n\nhtml body .r34g-suggest-row:last-child {\n  border-bottom: 0;\n}\n\nhtml body .r34g-suggest-row:hover {\n  background: var(--r34g-card-hover);\n  color: #eaf6ea;\n}\n\nhtml body .r34g-suggest-name {\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\nhtml body .r34g-suggest-count {\n  flex: 0 0 auto;\n  color: var(--r34g-text-soft);\n  font-size: 10.5px;\n}\n\n/* ---- Botón flotante de Ajustes: siempre accesible (clave de rule34, IA, opciones) ---- */\nhtml body #r34g-fab {\n  position: fixed !important;\n  right: 18px !important;\n  bottom: 18px !important;\n  z-index: calc(var(--r34g-z) - 4) !important;\n  display: inline-flex !important;\n  align-items: center;\n  gap: 7px;\n  margin: 0 !important;\n  padding: 9px 14px 9px 12px !important;\n  border: 1px solid var(--r34g-accent) !important;\n  border-radius: 999px !important;\n  background: linear-gradient(#3a463a, #2c362c) !important;\n  color: var(--r34g-link) !important;\n  font: bold 12.5px verdana, sans-serif !important;\n  cursor: pointer;\n  box-shadow: 0 8px 22px rgba(0, 0, 0, .5);\n  opacity: .92;\n  transition: opacity .15s, transform .15s;\n}\nhtml body #r34g-fab:hover {\n  opacity: 1;\n  transform: translateY(-1px);\n}\nhtml body #r34g-fab svg {\n  width: 14px;\n  height: 14px;\n  fill: currentColor;\n}\nhtml[data-r34g-fab=\"off\"] #r34g-fab {\n  display: none !important;\n}\nhtml.r34g-modal-open #r34g-fab {\n  display: none !important;\n}\n\n/* ---- Descargas: botones, barra del post, cola y dialogos ---- */\nhtml body .r34g-btn,\nhtml body .r34g-dlq .r34g-mini {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  gap: 6px;\n  padding: 6px 12px !important;\n  margin: 0 !important;\n  border: 1px solid var(--r34g-line) !important;\n  border-radius: 6px !important;\n  background: var(--r34g-bg-alt) !important;\n  color: var(--r34g-text) !important;\n  font: 12px verdana, sans-serif !important;\n  line-height: 1.2 !important;\n  text-decoration: none !important;\n  cursor: pointer;\n}\nhtml body .r34g-dlq .r34g-mini {\n  padding: 3px 9px !important;\n  font-size: 11px !important;\n  white-space: nowrap;\n}\nhtml body .r34g-btn:hover,\nhtml body .r34g-dlq .r34g-mini:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #ffffff !important;\n}\nhtml body .r34g-btn.r34g-on {\n  background: linear-gradient(#3d4b3d, #2f3b2f) !important;\n  border-color: var(--r34g-accent) !important;\n  color: var(--r34g-link) !important;\n}\nhtml body .r34g-btn svg,\nhtml body .r34g-dlq .r34g-mini svg {\n  width: 14px;\n  height: 14px;\n}\nhtml body .r34g-note {\n  color: var(--r34g-text-soft);\n  font-size: 11px;\n}\n\nhtml body .image-list .thumb .r34g-dl-btn {\n  position: absolute;\n  left: 7px;\n  top: 34px;\n  z-index: 5;\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 28px;\n  height: 28px;\n  padding: 0 !important;\n  margin: 0 !important;\n  border: 1px solid rgba(255, 255, 255, .22) !important;\n  border-radius: 50%;\n  background: rgba(10, 14, 10, .78);\n  color: #e8f4e8;\n  cursor: pointer;\n  opacity: 0;\n  transform: translateY(3px);\n  transition: opacity .16s, transform .16s, background .16s;\n}\nhtml body .image-list .thumb:hover .r34g-dl-btn,\nhtml body .image-list .thumb .r34g-dl-btn:focus-visible {\n  opacity: 1;\n  transform: none;\n}\nhtml body .image-list .thumb .r34g-dl-btn:hover {\n  background: #38513a;\n  border-color: var(--r34g-accent) !important;\n}\nhtml body .image-list .thumb .r34g-dl-btn svg {\n  width: 16px;\n  height: 16px;\n}\nhtml body .image-list .thumb .r34g-dl-btn.r34g-busy {\n  opacity: 1;\n  transform: none;\n  animation: r34g-dl-pulse 1.1s ease-in-out infinite;\n}\n@keyframes r34g-dl-pulse {\n  0%, 100% { box-shadow: 0 0 0 0 rgba(147, 179, 147, 0); }\n  50% { box-shadow: 0 0 0 5px rgba(147, 179, 147, .28); }\n}\nhtml body .image-list .thumb .r34g-dl-badge {\n  position: absolute;\n  top: 37px;\n  right: 7px;\n  z-index: 4;\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 20px;\n  height: 20px;\n  border-radius: 50%;\n  background: rgba(8, 18, 8, .78);\n  border: 1px solid rgba(147, 179, 147, .5);\n  color: #cfeccf;\n}\nhtml body .image-list .thumb .r34g-dl-badge svg {\n  width: 13px;\n  height: 13px;\n}\n\nhtml body #r34g-dl-bar {\n  display: flex !important;\n  flex-wrap: wrap;\n  align-items: center;\n  gap: 8px;\n  margin: 0 0 10px !important;\n  padding: 8px 10px !important;\n  border: 1px solid var(--r34g-line);\n  border-radius: 8px;\n  background: rgba(20, 26, 20, .9);\n  text-align: left;\n}\nhtml body .r34g-dl-name {\n  color: var(--r34g-text-soft);\n  font: 11.5px monospace;\n  word-break: break-all;\n}\n/* Barra del analizador de etiquetas: va justo encima de la barra «Miniaturas» (fuera de Ajustes) */\nhtml body #r34g-tags-bar {\n  display: flex !important;\n  align-items: center;\n  flex-wrap: wrap;\n  gap: 8px;\n  margin: 0 0 8px !important;\n  padding: 5px 9px !important;\n  border: 1px solid var(--r34g-line);\n  border-radius: 8px;\n  background: rgba(20, 26, 20, .9);\n  text-align: left;\n  font: 11.5px verdana, sans-serif;\n}\nhtml body #r34g-tags-bar .r34g-tags-bar-title {\n  display: inline-flex;\n  align-items: center;\n  gap: 6px;\n  padding: 2px 6px !important;\n  margin: 0 !important;\n  border: 1px solid transparent !important;\n  border-radius: 6px !important;\n  background: transparent !important;\n  color: var(--r34g-link) !important;\n  font: bold 11.5px verdana, sans-serif !important;\n  cursor: pointer;\n}\nhtml body #r34g-tags-bar .r34g-tags-bar-title:hover {\n  border-color: var(--r34g-line) !important;\n  color: #ffffff !important;\n}\nhtml body #r34g-tags-bar .r34g-tags-bar-title svg {\n  width: 14px;\n  height: 14px;\n}\nhtml body #r34g-tags-bar .r34g-tags-bar-caret {\n  display: inline-block;\n  color: var(--r34g-text-soft);\n  font-size: 10px;\n  transition: transform .15s ease;\n}\nhtml body #r34g-tags-bar.r34g-tags-bar-on .r34g-tags-bar-caret {\n  transform: rotate(90deg);\n}\nhtml body #r34g-tags-bar > .r34g-note {\n  flex: 1 1 auto;\n  min-width: 0;\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  text-align: right;\n}\nhtml body #r34g-tags-bar .r34g-mini {\n  flex: 0 0 auto;\n}\nhtml body #r34g-tags-bar #r34g-tags-panel {\n  flex: 1 1 100%;\n  max-width: none;\n  margin: 4px 0 2px !important;\n}\n\nhtml body #r34g-grid-bar {\n  display: flex !important;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n  margin: 0 0 10px !important;\n  padding: 5px 9px !important;\n  border: 1px solid var(--r34g-line);\n  border-radius: 8px;\n  background: rgba(20, 26, 20, .9);\n  text-align: left;\n  font: 11.5px verdana, sans-serif;\n}\nhtml[data-r34g-gridbar=\"off\"] body #r34g-grid-bar {\n  display: none !important;\n}\nhtml body .r34g-grid-label {\n  color: var(--r34g-text-soft);\n  text-transform: uppercase;\n  letter-spacing: .04em;\n  font-size: 10.5px;\n}\nhtml body .r34g-grid-btn {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  min-width: 22px;\n  padding: 2px 7px !important;\n  margin: 0 !important;\n  border: 1px solid var(--r34g-line) !important;\n  border-radius: 5px !important;\n  background: var(--r34g-bg-alt) !important;\n  color: var(--r34g-text) !important;\n  font: 11.5px verdana, sans-serif !important;\n  line-height: 1.35 !important;\n  cursor: pointer;\n}\nhtml body .r34g-grid-btn:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #fff !important;\n}\nhtml body .r34g-grid-range {\n  -webkit-appearance: none !important;\n  appearance: none !important;\n  width: 132px !important;\n  height: 4px !important;\n  margin: 0 !important;\n  padding: 0 !important;\n  border: 0 !important;\n  border-radius: 3px !important;\n  background: #465046 !important;\n  cursor: pointer;\n}\nhtml body .r34g-grid-range:focus {\n  outline: none !important;\n}\nhtml body .r34g-grid-range::-webkit-slider-thumb {\n  -webkit-appearance: none !important;\n  appearance: none !important;\n  width: 13px !important;\n  height: 13px !important;\n  border: 1px solid rgba(255, 255, 255, .4) !important;\n  border-radius: 50% !important;\n  background: var(--r34g-link, #b0e0b0) !important;\n  cursor: pointer;\n}\nhtml body .r34g-grid-range::-moz-range-thumb {\n  width: 12px !important;\n  height: 12px !important;\n  border: 1px solid rgba(255, 255, 255, .4) !important;\n  border-radius: 50% !important;\n  background: var(--r34g-link, #b0e0b0) !important;\n  cursor: pointer;\n}\nhtml body .r34g-grid-val {\n  min-width: 96px;\n  color: var(--r34g-link);\n  font: 11.5px monospace;\n}\n\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-sel-box {\n  width: 20px;\n  height: 20px;\n  left: 7px;\n  top: 33px;\n  border-radius: 5px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-sel-box svg {\n  width: 13px;\n  height: 13px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-dl-btn {\n  width: 20px;\n  height: 20px;\n  left: 7px;\n  top: 33px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-dl-btn svg {\n  width: 12px;\n  height: 12px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-seen-badge {\n  width: 20px;\n  height: 20px;\n  top: 5px;\n  right: 5px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-seen-badge svg {\n  width: 13px;\n  height: 13px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-dl-badge {\n  width: 17px;\n  height: 17px;\n  top: 27px;\n  right: 5px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-dl-badge svg {\n  width: 11px;\n  height: 11px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb > a > .score-info {\n  display: none !important;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-meta {\n  display: none !important;\n}\n\nhtml body #r34g-dl-batch {\n  display: flex !important;\n  align-items: center;\n  gap: 10px;\n  margin: 0 0 12px !important;\n  text-align: left;\n}\n\nhtml body .image-list .thumb .r34g-sel-box {\n  position: absolute;\n  left: 7px;\n  top: 34px;\n  z-index: 6;\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 24px;\n  height: 24px;\n  padding: 0 !important;\n  margin: 0 !important;\n  border: 1px solid rgba(255, 255, 255, .38) !important;\n  border-radius: 6px;\n  background: rgba(10, 14, 10, .72);\n  color: #e6f6e6;\n  cursor: pointer;\n  opacity: 0;\n  transform: translateY(-3px);\n  transition: opacity .16s, transform .16s, background .16s, border-color .16s;\n  pointer-events: none;\n}\nhtml body.r34g-selecting .image-list .thumb .r34g-sel-box {\n  opacity: 1;\n  transform: none;\n  pointer-events: auto;\n}\nhtml body.r34g-selecting .image-list .thumb .r34g-dl-btn {\n  display: none !important;\n}\nhtml body .image-list .thumb .r34g-sel-box svg {\n  width: 15px;\n  height: 15px;\n  opacity: 0;\n  transition: opacity .12s;\n}\nhtml body .image-list .thumb .r34g-sel-box:hover {\n  border-color: var(--r34g-accent) !important;\n  background: rgba(30, 46, 30, .92);\n}\nhtml body .image-list .thumb .r34g-sel-box.r34g-on {\n  background: #3f7a44;\n  border-color: #a8ddac !important;\n  color: #ffffff;\n}\nhtml body .image-list .thumb .r34g-sel-box.r34g-on svg {\n  opacity: 1;\n}\nhtml body.r34g-selecting .image-list .thumb.r34g-picked > a::before {\n  content: \"\";\n  position: absolute;\n  inset: 0;\n  z-index: 3;\n  pointer-events: none;\n  box-shadow: inset 0 0 0 3px rgba(150, 226, 160, .9);\n  border-radius: var(--r34g-radius);\n}\nhtml body .r34g-sel-note {\n  color: var(--r34g-link);\n  font-size: 11.5px;\n  font-weight: bold;\n}\nhtml body #r34g-dl-selpill {\n  position: fixed !important;\n  right: 18px !important;\n  bottom: 18px !important;\n  z-index: calc(var(--r34g-z) - 3) !important;\n  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  gap: 8px;\n  max-width: 620px;\n  padding: 8px 10px !important;\n  border: 1px solid var(--r34g-line);\n  border-radius: 10px;\n  background: rgba(18, 24, 18, .97);\n  color: var(--r34g-text);\n  box-shadow: var(--r34g-shadow);\n  font: 11.5px verdana, sans-serif;\n  text-align: left;\n}\nhtml body #r34g-dl-selpill .r34g-selpill-info {\n  color: var(--r34g-text-soft);\n}\nhtml body #r34g-dl-selpill .r34g-selpill-info b {\n  color: var(--r34g-link);\n  font-size: 14px;\n}\nhtml body #r34g-dl-selpill .r34g-selpill-x {\n  padding: 6px 9px !important;\n}\nhtml body #r34g-dl-selpill .r34g-selpill-info {\n  display: inline-flex !important;\n  align-items: baseline;\n  gap: 5px;\n  padding: 3px 8px !important;\n  margin: 0 !important;\n  border: 1px solid transparent !important;\n  border-radius: 6px !important;\n  background: transparent !important;\n  color: var(--r34g-text-soft) !important;\n  font: inherit !important;\n  cursor: pointer;\n}\nhtml body #r34g-dl-selpill .r34g-selpill-info:hover {\n  border-color: var(--r34g-line) !important;\n  color: #ffffff !important;\n}\nhtml body button.r34g-sel-note {\n  padding: 3px 8px !important;\n  margin: 0 !important;\n  border: 1px solid transparent !important;\n  border-radius: 6px !important;\n  background: transparent !important;\n  color: var(--r34g-link) !important;\n  font: bold 11.5px verdana, sans-serif !important;\n  cursor: pointer;\n}\nhtml body button.r34g-sel-note:hover {\n  border-color: var(--r34g-line) !important;\n  color: #ffffff !important;\n}\nhtml body #r34g-dl-batch .r34g-selgo {\n  background: linear-gradient(#3d4b3d, #2f3b2f) !important;\n  border-color: var(--r34g-accent) !important;\n  color: var(--r34g-link) !important;\n}\n\n/* ---- Descargas: lista de lo seleccionado ---- */\nhtml body #r34g-dl-selpanel {\n  position: fixed !important;\n  right: 18px !important;\n  bottom: 78px !important;\n  z-index: calc(var(--r34g-z) - 3) !important;\n  display: flex;\n  flex-direction: column;\n  width: 370px;\n  max-width: 48vw;\n  max-height: 52vh;\n  border: 1px solid var(--r34g-line);\n  border-radius: 10px;\n  background: rgba(18, 24, 18, .97);\n  color: var(--r34g-text);\n  box-shadow: var(--r34g-shadow);\n  font: 11.5px verdana, sans-serif;\n  text-align: left;\n}\nhtml body .r34g-dlsp-head {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  padding: 7px 9px;\n  border-bottom: 1px solid var(--r34g-line);\n}\nhtml body .r34g-dlsp-head b {\n  color: var(--r34g-link);\n  font-size: 12.5px;\n}\nhtml body .r34g-dlsp-count {\n  flex: 1;\n  color: var(--r34g-text-soft);\n  font-size: 10.5px;\n}\nhtml body .r34g-dlsp-head .r34g-mini,\nhtml body .r34g-dlsp-x {\n  padding: 3px 8px !important;\n  margin: 0 !important;\n  border: 1px solid var(--r34g-line) !important;\n  border-radius: 6px !important;\n  background: var(--r34g-bg-alt) !important;\n  color: var(--r34g-text) !important;\n  font: 11px verdana, sans-serif !important;\n  line-height: 1.2 !important;\n  cursor: pointer;\n}\nhtml body .r34g-dlsp-head .r34g-mini:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #ffffff !important;\n}\nhtml body .r34g-dlsp-x:hover {\n  border-color: #ff8f8f !important;\n  color: #ffd0d0 !important;\n}\nhtml body .r34g-dlsp-list {\n  overflow: auto;\n  padding: 4px 0;\n}\nhtml body .r34g-dlsp-item {\n  display: grid;\n  grid-template-columns: 46px 1fr auto;\n  gap: 8px;\n  align-items: center;\n  padding: 4px 9px;\n}\nhtml body .r34g-dlsp-thumb {\n  display: block;\n  width: 46px;\n  height: 34px;\n  object-fit: cover;\n  border-radius: 4px;\n  background: rgba(255, 255, 255, .07);\n}\nhtml body .r34g-dlsp-info {\n  display: flex;\n  flex-direction: column;\n  overflow: hidden;\n}\nhtml body .r34g-dlsp-info b {\n  color: #dbe6db;\n  font-size: 11.5px;\n}\nhtml body .r34g-dlsp-tags {\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  color: var(--r34g-text-soft);\n  font-size: 10px;\n}\nhtml body .r34g-dlsp-item.r34g-dlsp-other .r34g-dlsp-info b {\n  color: #ffd479;\n}\nhtml body .r34g-dlsp-foot {\n  display: flex;\n  gap: 8px;\n  padding: 7px 9px;\n  border-top: 1px solid var(--r34g-line);\n}\nhtml body .r34g-dlg-sel {\n  padding: 9px 11px;\n  margin: 0 0 10px;\n  border: 1px solid var(--r34g-accent);\n  border-radius: 8px;\n  background: rgba(60, 84, 60, .28);\n}\nhtml body .r34g-dlg-sel > b {\n  color: var(--r34g-link);\n  font-size: 12.5px;\n}\nhtml body .r34g-dlg-sel .r34g-dlg-actions {\n  justify-content: flex-start;\n  margin-top: 8px;\n}\nhtml body .r34g-dlg-sel .r34g-hint {\n  margin: 8px 0 0;\n}\nhtml body .r34g-dlg-est {\n  margin: 0 0 10px !important;\n  color: #ffd479;\n  font-weight: bold;\n}\nhtml body .r34g-btn[disabled] {\n  opacity: .5;\n  cursor: default;\n}\n\nhtml body #r34g-dlq {\n  position: fixed !important;\n  left: 18px !important;\n  bottom: 18px !important;\n  z-index: calc(var(--r34g-z) - 3) !important;\n  display: flex;\n  flex-direction: column;\n  width: 340px;\n  max-width: 46vw;\n  max-height: 44vh;\n  border: 1px solid var(--r34g-line);\n  border-radius: 10px;\n  background: rgba(18, 24, 18, .97);\n  color: var(--r34g-text);\n  box-shadow: var(--r34g-shadow);\n  font: 11.5px verdana, sans-serif;\n  text-align: left;\n}\nhtml body .r34g-dlq-head {\n  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  gap: 8px;\n  padding: 7px 9px;\n  border-bottom: 1px solid var(--r34g-line);\n}\nhtml body .r34g-dlq-head b {\n  color: var(--r34g-link);\n  font-size: 12.5px;\n}\nhtml body .r34g-dlq-count {\n  flex: 1;\n  min-width: 0;\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  color: var(--r34g-text-soft);\n}\nhtml body .r34g-dlq-list {\n  overflow: auto;\n  padding: 4px 0;\n}\nhtml body .r34g-dlq-item {\n  display: grid;\n  grid-template-columns: 1fr 70px;\n  gap: 3px 8px;\n  align-items: center;\n  padding: 5px 9px;\n}\nhtml body .r34g-dlq-name {\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  color: #dbe6db;\n}\nhtml body .r34g-dlq-state {\n  grid-column: 1 / -1;\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  color: var(--r34g-text-soft);\n  font-size: 10.5px;\n}\nhtml body .r34g-dlq-bar {\n  height: 6px;\n  border-radius: 4px;\n  background: rgba(255, 255, 255, .1);\n  overflow: hidden;\n}\nhtml body .r34g-dlq-bar > i {\n  display: block;\n  width: 0;\n  height: 100%;\n  background: linear-gradient(90deg, #6f9a6f, #a9d3a9);\n  transition: width .2s ease;\n}\nhtml body .r34g-dlq-item[data-state=\"error\"] .r34g-dlq-state { color: #ffb3ae; }\nhtml body .r34g-dlq-item[data-state=\"done\"] .r34g-dlq-state { color: #a9f0a9; }\nhtml body .r34g-dlq-item[data-state=\"skip\"] .r34g-dlq-state,\nhtml body .r34g-dlq-item[data-state=\"open\"] .r34g-dlq-state { color: #ffd479; }\nhtml body .r34g-dlq-item[data-state=\"hold\"] .r34g-dlq-state { color: #ffd479; }\nhtml body .r34g-dlq-item[data-state=\"hold\"] .r34g-dlq-bar > i {\n  background: repeating-linear-gradient(45deg, #6f7a6f 0 6px, #8b968b 6px 12px);\n}\n\nhtml body .r34g-dlq-restore {\n  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  gap: 6px;\n  margin: 7px 9px 3px;\n  padding: 6px 8px;\n  border: 1px solid rgba(255, 212, 121, .4);\n  border-radius: 8px;\n  background: rgba(255, 212, 121, .09);\n}\nhtml body .r34g-dlq-restore[hidden] {\n  display: none !important;\n}\nhtml body .r34g-dlq-restore-txt {\n  flex: 1 1 100%;\n  color: #ffd479;\n  font-size: 11px;\n  line-height: 1.35;\n}\n\nhtml body .r34g-dlg {\n  position: fixed !important;\n  inset: 0;\n  z-index: 2147482090 !important;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  padding: 20px;\n  background: rgba(6, 9, 6, .62);\n}\nhtml body .r34g-dlg-box {\n  width: 430px;\n  max-width: 92vw;\n  max-height: 86vh;\n  overflow: auto;\n  padding: 16px 18px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 10px;\n  background: var(--r34g-bg);\n  color: var(--r34g-text);\n  box-shadow: var(--r34g-shadow);\n  font: 12px/1.5 verdana, sans-serif;\n  text-align: left;\n}\nhtml body .r34g-dlg-box.r34g-dlg-wide {\n  width: 620px;\n}\nhtml body .r34g-dlg-box h5 {\n  margin: 0 0 8px;\n  color: var(--r34g-link);\n  font-size: 14px;\n}\nhtml body .r34g-dlg-box p {\n  margin: 0 0 9px;\n}\nhtml body .r34g-dlg-head {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  margin-bottom: 10px;\n}\nhtml body .r34g-dlg-head b {\n  flex: 1;\n  color: var(--r34g-link);\n  font-size: 14px;\n}\nhtml body .r34g-dlg .r34g-close {\n  padding: 0 6px !important;\n  border: 0 !important;\n  background: transparent !important;\n  color: var(--r34g-text-soft) !important;\n  font: bold 18px/1 verdana, sans-serif !important;\n  cursor: pointer;\n}\nhtml body .r34g-dlg .r34g-close:hover {\n  color: #ffffff !important;\n}\nhtml body .r34g-dlg-row {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  margin: 0 0 8px;\n}\nhtml body .r34g-dlg-row input[type=\"number\"] {\n  width: 72px;\n  padding: 3px 7px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 5px;\n  background: var(--r34g-bg-alt);\n  color: var(--r34g-text);\n  font: 12px verdana, sans-serif;\n}\nhtml body .r34g-dlg-actions {\n  display: flex;\n  flex-wrap: wrap;\n  justify-content: flex-end;\n  gap: 8px;\n  margin-top: 12px;\n}\nhtml body .r34g-dlg-status {\n  min-height: 16px;\n  color: var(--r34g-text-soft);\n  font-size: 11.5px;\n}\nhtml body #r34g-warn .r34g-notes {\n  margin: 0 0 10px 18px;\n  padding: 0;\n  color: var(--r34g-text-soft);\n  font-size: 11.5px;\n}\nhtml body #r34g-warn .r34g-hint {\n  color: var(--r34g-text-soft);\n  font-size: 11.5px;\n}\n\n/* ---- Vista rápida: la imagen o el vídeo encima de la galería ---- */\nhtml body.r34g-lb-open {\n  overflow: hidden !important;\n}\nhtml body #r34g-lb {\n  position: fixed !important;\n  inset: 0;\n  z-index: calc(var(--r34g-z) + 60) !important;\n  display: flex;\n  flex-direction: column;\n  background: rgba(7, 10, 7, .95);\n  color: #e8f2e8;\n  font: 12px verdana, sans-serif;\n  text-align: left;\n}\nhtml body #r34g-lb .r34g-lb-top {\n  display: flex;\n  align-items: center;\n  gap: 10px;\n  padding: 8px 12px;\n  border-bottom: 1px solid var(--r34g-line);\n  background: rgba(18, 24, 18, .92);\n}\nhtml body #r34g-lb .r34g-lb-pos {\n  color: var(--r34g-link);\n  font-size: 13px;\n  font-weight: bold;\n}\nhtml body #r34g-lb .r34g-lb-id {\n  color: #dbe6db;\n  font-weight: bold;\n}\nhtml body #r34g-lb .r34g-lb-seen {\n  color: #a9f0a9;\n  font-size: 11px;\n}\nhtml body #r34g-lb .r34g-lb-tags {\n  flex: 1 1 auto;\n  min-width: 0;\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  color: var(--r34g-text-soft);\n  font-size: 11px;\n}\nhtml body #r34g-lb .r34g-lb-gap {\n  display: none;\n}\nhtml body #r34g-lb a.r34g-btn {\n  text-decoration: none !important;\n}\nhtml body #r34g-lb .r34g-lb-stage {\n  position: relative;\n  flex: 1 1 auto;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  min-height: 0;\n  padding: 12px 58px;\n}\nhtml body #r34g-lb .r34g-lb-media {\n  position: relative;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  width: 100%;\n  height: 100%;\n}\nhtml body #r34g-lb .r34g-lb-media img,\nhtml body #r34g-lb .r34g-lb-media video {\n  max-width: 100%;\n  max-height: 100%;\n  border-radius: 6px;\n  background: #05070a;\n  box-shadow: 0 12px 44px rgba(0, 0, 0, .6);\n}\nhtml body #r34g-lb .r34g-lb-media video {\n  outline: none;\n}\nhtml body #r34g-lb .r34g-lb-img {\n  cursor: zoom-in;\n  object-fit: contain;\n}\nhtml body #r34g-lb .r34g-lb-quick {\n  filter: blur(1.5px);\n}\nhtml body #r34g-lb .r34g-lb-stage.r34g-lb-zoom {\n  align-items: flex-start;\n  justify-content: flex-start;\n  overflow: auto;\n}\nhtml body #r34g-lb .r34g-lb-stage.r34g-lb-zoom .r34g-lb-media {\n  width: auto;\n  height: auto;\n  min-width: 100%;\n  min-height: 100%;\n}\nhtml body #r34g-lb .r34g-lb-stage.r34g-lb-zoom .r34g-lb-img {\n  max-width: none;\n  max-height: none;\n  cursor: zoom-out;\n}\nhtml body #r34g-lb .r34g-lb-nav {\n  position: absolute !important;\n  top: 50%;\n  transform: translateY(-50%);\n  width: 44px;\n  height: 86px;\n  padding: 0 !important;\n  margin: 0 !important;\n  border: 1px solid var(--r34g-line) !important;\n  border-radius: 8px;\n  background: rgba(18, 24, 18, .84) !important;\n  color: var(--r34g-link) !important;\n  font: bold 30px/1 verdana, sans-serif !important;\n  cursor: pointer;\n}\nhtml body #r34g-lb .r34g-lb-nav:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #ffffff !important;\n}\nhtml body #r34g-lb .r34g-lb-prev {\n  left: 7px;\n}\nhtml body #r34g-lb .r34g-lb-next {\n  right: 7px;\n}\nhtml body #r34g-lb .r34g-lb-foot {\n  display: flex;\n  align-items: center;\n  gap: 12px;\n  padding: 7px 12px;\n  border-top: 1px solid var(--r34g-line);\n  background: rgba(18, 24, 18, .92);\n  color: var(--r34g-text-soft);\n  font-size: 11px;\n}\nhtml body #r34g-lb .r34g-lb-file {\n  color: #dbe6db;\n}\nhtml body #r34g-lb .r34g-lb-keys {\n  flex: 1 1 auto;\n  text-align: right;\n}\nhtml body #r34g-lb .r34g-lb-note {\n  position: absolute;\n  top: 50%;\n  left: 50%;\n  transform: translate(-50%, -50%);\n  display: flex;\n  align-items: center;\n  gap: 9px;\n  padding: 10px 14px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 8px;\n  background: rgba(18, 24, 18, .94);\n  color: var(--r34g-text);\n  font-size: 12px;\n}\nhtml body #r34g-lb .r34g-lb-note.r34g-lb-bad {\n  color: #ffb3ae;\n  border-color: #6c4040;\n}\n";
+  var css = "html {\n  --r34g-cols: 5;\n  --r34g-aspect: 1 / 1;\n  --r34g-gap: 12px;\n  --r34g-radius: 8px;\n  --r34g-card: #232a23;\n  --r34g-card-hover: #2a322a;\n  --r34g-line: #3d473d;\n  --r34g-accent: var(--c-link-soft, #93b393);\n  --r34g-bg: var(--c-bg, #303a30);\n  --r34g-bg-alt: var(--c-bg-alt, #293129);\n  --r34g-bg-deep: var(--c-bg-deep, #303030);\n  --r34g-text: var(--c-text, #c0c0c0);\n  --r34g-text-soft: var(--c-text-soft, #878787);\n  --r34g-link: var(--c-link, #b0e0b0);\n  --r34g-shadow: 0 18px 48px rgba(0, 0, 0, .55);\n  --r34g-vwidth: 1000px;\n  --r34g-z: 2147482000;\n}\n\nhtml[data-r34g-cols=\"3\"] { --r34g-cols: 3; }\nhtml[data-r34g-cols=\"4\"] { --r34g-cols: 4; }\nhtml[data-r34g-cols=\"5\"] { --r34g-cols: 5; }\nhtml[data-r34g-cols=\"6\"] { --r34g-cols: 6; }\nhtml[data-r34g-cols=\"7\"] { --r34g-cols: 7; }\nhtml[data-r34g-aspect=\"1\"] { --r34g-aspect: 1 / 1; }\nhtml[data-r34g-aspect=\"4/5\"] { --r34g-aspect: 4 / 5; }\nhtml[data-r34g-aspect=\"3x4\"] { --r34g-aspect: 3 / 4; }\nhtml[data-r34g-aspect=\"auto\"] { --r34g-aspect: auto; }\nhtml[data-r34g-aspect=\"auto\"] { --r34g-fit: contain; }\nhtml[data-r34g-fit=\"contain\"] { --r34g-fit: contain; }\nhtml[data-r34g-fit=\"cover\"] { --r34g-fit: cover; }\nhtml[data-r34g-hover=\"off\"] .image-list .thumb img.preview { transform: none !important; }\n\n#r34g-nav-item a {\n  display: inline-flex;\n  align-items: center;\n  gap: 5px;\n  cursor: pointer;\n}\n\n#r34g-nav-item a b {\n  font-weight: normal;\n  font-size: 1.15em;\n  line-height: 1;\n}\n\n#r34g-nav-item a:hover {\n  color: var(--c-link, #b0e0b0) !important;\n}\n\n#r34g-nav-item a svg {\n  width: 14px;\n  height: 14px;\n}\n\n#r34g-nav-item.r34g-active a {\n  color: var(--c-link, #b0e0b0) !important;\n  text-shadow: 0 0 0 currentColor;\n}\n\nhtml body #r34g-modal .r34g-title svg {\n  width: 15px;\n  height: 15px;\n}\n\nhtml body #post-list > .content,\nhtml body .image-list {\n  min-width: 0;\n}\n\nhtml body #post-list > .content {\n  flex: 1 1 auto !important;\n  width: auto !important;\n  max-width: none !important;\n}\n\nhtml body .image-list {\n  display: grid !important;\n  grid-template-columns: repeat(var(--r34g-cols), minmax(0, 1fr)) !important;\n  gap: var(--r34g-gap) !important;\n  align-items: start !important;\n  align-content: start !important;\n  justify-content: stretch !important;\n  width: 100% !important;\n  margin: 0 !important;\n  padding: 0 !important;\n}\n\nhtml body .image-list > .thumb {\n  position: relative !important;\n  display: block !important;\n  width: auto !important;\n  height: auto !important;\n  min-width: 0 !important;\n  margin: 0 !important;\n  padding: 0 !important;\n  border-radius: var(--r34g-radius) !important;\n  background: var(--r34g-card);\n  overflow: hidden;\n  box-shadow: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 2px 10px rgba(0, 0, 0, .28);\n  transition: background .18s ease, box-shadow .18s ease, transform .18s ease;\n}\n\nhtml body .image-list > .thumb::before {\n  content: \"\";\n  display: block;\n  padding-top: 0;\n}\n\nhtml body .image-list > .thumb > a {\n  position: relative !important;\n  display: block !important;\n  width: 100% !important;\n  height: 100% !important;\n  aspect-ratio: var(--r34g-aspect) !important;\n  text-align: center !important;\n  overflow: hidden;\n  border-radius: var(--r34g-radius) !important;\n  background: linear-gradient(160deg, rgba(255, 255, 255, .03), rgba(0, 0, 0, .25));\n  outline: 1px solid rgba(255, 255, 255, .05);\n  outline-offset: -1px;\n}\n\nhtml body .image-list > .thumb:hover {\n  background: var(--r34g-card-hover);\n  transform: translateY(-2px);\n  box-shadow: 0 6px 20px rgba(0, 0, 0, .45);\n}\n\nhtml body .image-list > .thumb:hover > a {\n  outline-color: rgba(147, 179, 147, .6);\n}\n\nhtml body .image-list > .thumb:hover img.preview,\nhtml body .image-list > .thumb:hover img.r34g-ready {\n  filter: brightness(1.06) saturate(1.04);\n}\n\nhtml body .image-list > .thumb > a::after {\n  content: \"\";\n  position: absolute;\n  inset: 0;\n  background: linear-gradient(to top, rgba(0, 0, 0, .78) 0%, rgba(0, 0, 0, .32) 32%, rgba(0, 0, 0, 0) 62%);\n  opacity: 0;\n  transition: opacity .2s ease;\n  pointer-events: none;\n}\n\nhtml body .image-list > .thumb:hover > a::after {\n  opacity: 1;\n}\n\nhtml body .image-list > .thumb img.preview,\nhtml body .image-list > .thumb img,\nhtml body .image-list > .thumb video {\n  display: block !important;\n  width: 100% !important;\n  height: 100% !important;\n  max-width: none !important;\n  max-height: none !important;\n  margin: 0 !important;\n  object-fit: var(--r34g-fit, cover) !important;\n  object-position: center 22%;\n  border: 0 !important;\n  box-sizing: border-box !important;\n  opacity: 0;\n  transition: opacity .35s ease, transform .3s ease, filter .3s ease;\n}\n\nhtml body .image-list > .thumb img.r34g-ready {\n  opacity: 1;\n}\n\nhtml body .image-list > .thumb:hover img.preview,\nhtml body .image-list > .thumb:hover img.r34g-ready {\n  transform: scale(1.045);\n}\n\nhtml body .image-list > .thumb img.webm-thumb {\n  border: 0 !important;\n  outline: 0 !important;\n}\n\nhtml body .image-list > .thumb > a > .score-info {\n  position: absolute !important;\n  right: 7px !important;\n  bottom: 7px !important;\n  z-index: 3;\n  display: inline-flex !important;\n  align-items: center;\n  gap: 4px;\n  margin: 0 !important;\n  padding: 2px 7px !important;\n  border-radius: 999px !important;\n  background: rgba(0, 0, 0, .62) !important;\n  border: 1px solid rgba(255, 255, 255, .12);\n  border-left-width: 3px;\n  color: #e8e8e8 !important;\n  font-size: 11px !important;\n  line-height: 1.45 !important;\n  letter-spacing: .2px;\n  text-align: center !important;\n  backdrop-filter: blur(3px);\n  transition: background .2s ease, transform .2s ease, border-color .2s ease;\n}\n\nhtml body .image-list > .thumb:hover > a > .score-info {\n  background: rgba(0, 0, 0, .85) !important;\n  transform: translateY(-1px);\n}\n\nhtml body .image-list > .thumb > a > .score-info.low {\n  border-left-color: #d9534f !important;\n}\n\nhtml body .image-list > .thumb > a > .score-info.medium {\n  border-left-color: #f0ad4e !important;\n}\n\nhtml body .image-list > .thumb > a > .score-info.high {\n  border-left-color: #5cb85c !important;\n}\n\nhtml[data-r34g-score=\"off\"] .image-list .thumb > a > .score-info {\n  display: none !important;\n}\n\nhtml body .image-list .thumb .r34g-badges {\n  position: absolute;\n  top: 7px;\n  left: 7px;\n  z-index: 3;\n  display: flex;\n  gap: 5px;\n  opacity: .92;\n  transition: opacity .2s ease;\n}\n\nhtml body .image-list .thumb:hover .r34g-badges {\n  opacity: 1;\n}\n\nhtml body .image-list .thumb .r34g-badge {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  min-width: 20px;\n  height: 20px;\n  padding: 0 5px;\n  border-radius: 6px;\n  background: rgba(0, 0, 0, .68);\n  border: 1px solid rgba(255, 255, 255, .14);\n  color: #f2f2f2;\n  font-size: 10px;\n  font-weight: bold;\n  letter-spacing: .3px;\n  line-height: 1;\n  backdrop-filter: blur(3px);\n}\n\nhtml body .image-list .thumb .r34g-badge.r34g-video {\n  color: #8fd0ff;\n  border-color: rgba(143, 208, 255, .4);\n}\n\nhtml body .image-list .thumb .r34g-badge.r34g-gif {\n  color: #ffd479;\n  border-color: rgba(255, 212, 121, .4);\n}\n\nhtml body .image-list .thumb .r34g-badge.r34g-sound {\n  color: #a9f0a9;\n  border-color: rgba(169, 240, 169, .4);\n}\n\nhtml[data-r34g-badges=\"off\"] .image-list .thumb .r34g-badges {\n  display: none !important;\n}\n\nhtml body .image-list .thumb .r34g-meta {\n  position: absolute;\n  left: 0;\n  right: 0;\n  bottom: 0;\n  z-index: 2;\n  padding: 22px 8px 7px;\n  text-align: left;\n  font-size: 10px;\n  color: #d8d8d8;\n  text-shadow: 0 1px 2px rgba(0, 0, 0, .9);\n  opacity: 0;\n  transform: translateY(4px);\n  transition: opacity .2s ease, transform .2s ease;\n  pointer-events: none;\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n}\n\nhtml body .image-list .thumb:hover .r34g-meta {\n  opacity: 1;\n  transform: none;\n}\n\nhtml body .image-list .thumb .r34g-meta .r34g-taglist {\n  display: block;\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  color: #cfd8cf;\n}\n\nhtml body .image-list > .thumb.r34g-hidden-by-filter {\n  display: none !important;\n}\n\nhtml body .r34g-ad-hidden {\n  display: none !important;\n}\n\nhtml.r34g-drawer-open {\n  overflow: hidden;\n}\n\nhtml body .sidebar {\n  align-self: flex-start;\n  max-height: calc(100vh - 12px);\n  position: sticky;\n  top: 8px;\n  overflow-y: auto;\n  overflow-x: hidden;\n  padding: 0 10px 14px 0;\n  scrollbar-width: thin;\n  scrollbar-color: #4b564b rgba(0, 0, 0, .25);\n  z-index: 4;\n}\n\nhtml body #r34g-drawer-head {\n  display: none;\n  align-items: center;\n  gap: 8px;\n  margin: 0 0 8px;\n  padding-bottom: 7px;\n  border-bottom: 1px solid var(--r34g-line);\n}\n\nhtml body #r34g-drawer-head h5 {\n  flex: 1;\n  margin: 0 !important;\n  color: var(--r34g-link);\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 12.5px;\n  letter-spacing: .06em;\n  text-transform: uppercase;\n}\n\nhtml body #r34g-drawer-close {\n  width: 30px;\n  height: 30px;\n  padding: 0;\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 7px;\n  background: #333d33;\n  color: var(--r34g-text) !important;\n  font-size: 16px;\n  line-height: 1;\n  cursor: pointer;\n}\n\nhtml body #r34g-drawer-close:hover {\n  border-color: var(--r34g-accent);\n  color: #eafaea !important;\n}\n\nhtml body .tag-search input[type=\"text\"],\nhtml body .tag-search input[type=\"search\"] {\n  width: 100% !important;\n  box-sizing: border-box !important;\n  padding: 4px 7px !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 5px !important;\n  background: var(--r34g-bg-deep) !important;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 12px !important;\n  outline: none;\n}\n\nhtml body .tag-search input[type=\"text\"]:focus,\nhtml body .tag-search input[type=\"search\"]:focus {\n  border-color: var(--r34g-accent) !important;\n}\n\nhtml body .tag-search input[type=\"submit\"] {\n  margin-top: 5px;\n  padding: 4px 12px !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 5px !important;\n  background: #333d33 !important;\n  color: var(--r34g-link) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 12px !important;\n  cursor: pointer;\n}\n\nhtml body .tag-search input[type=\"submit\"]:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #eafaea !important;\n}\n\nhtml body .sidebar small {\n  display: block;\n  margin-top: 4px;\n  color: var(--r34g-text-soft);\n  font-size: 10.5px;\n}\n\nhtml[data-r34g-sticky=\"off\"] body .sidebar {\n  position: static;\n  max-height: none;\n  overflow: visible;\n}\n\nhtml body .sidebar::-webkit-scrollbar {\n  width: 9px;\n}\n\nhtml body .sidebar::-webkit-scrollbar-thumb {\n  background: #4b564b;\n  border-radius: 6px;\n}\n\nhtml body .sidebar::-webkit-scrollbar-track {\n  background: rgba(0, 0, 0, .2);\n}\n\nhtml body .tag-search h5,\nhtml body #r34g-sidebar-tags-title {\n  margin: 0 0 6px !important;\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 12px !important;\n  letter-spacing: .08em;\n  text-transform: uppercase;\n  color: var(--r34g-text-soft) !important;\n  border-bottom: 1px solid var(--r34g-line);\n  padding-bottom: 5px;\n}\n\nhtml body #r34g-tag-filter {\n  width: 100% !important;\n  box-sizing: border-box !important;\n  margin: 0 0 7px !important;\n  padding: 4px 6px !important;\n  background: var(--r34g-bg-deep) !important;\n  color: var(--r34g-text) !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 4px !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 11px !important;\n  outline: none;\n}\n\nhtml body #r34g-tag-filter:focus {\n  border-color: var(--r34g-accent) !important;\n}\n\nhtml body #r34g-tag-filter::placeholder {\n  color: #6f7a6f;\n}\n\nhtml[data-r34g-filter=\"off\"] body #r34g-tag-filter {\n  display: none !important;\n}\n\nhtml body .sidebar ul {\n  list-style: none;\n  padding: 0;\n  margin: 0;\n}\n\nhtml body .sidebar li {\n  padding: 1px 0 !important;\n  line-height: 1.45;\n}\n\nhtml body .sidebar li a {\n  font-size: 13px !important;\n  line-height: 1.5;\n  color: var(--c-link-metadata, #90d9ed);\n}\n\nhtml body .sidebar li a:hover {\n  text-decoration: underline;\n  color: #d9f4ff;\n}\n\nhtml body .sidebar li {\n  display: flex !important;\n  align-items: flex-start;\n  gap: 6px;\n  padding: 1px 2px !important;\n  line-height: 1.5;\n  border-radius: 4px;\n  transition: background .12s ease;\n}\n\nhtml body .sidebar li > a {\n  flex: 1 1 auto;\n  min-width: 0;\n  overflow-wrap: anywhere;\n}\n\nhtml body .sidebar .tag-count {\n  flex: 0 0 auto;\n  min-width: 46px;\n  text-align: right;\n  color: var(--r34g-text-soft) !important;\n  font-size: 10.5px !important;\n  line-height: 1.85;\n  padding-left: 6px;\n}\n\nhtml body .sidebar li > a[href^=\"https://rule34.xxx/\"],\nhtml body .sidebar li > a[href*=\"page=wiki\"] {\n  order: 3;\n  flex: 0 0 auto;\n  width: 0;\n  overflow: hidden;\n  opacity: 0;\n  padding-left: 3px;\n  color: var(--r34g-text-soft) !important;\n  font-size: 11px !important;\n  line-height: 1.9;\n  text-decoration: none;\n  transition: width .15s ease, opacity .15s ease;\n}\n\nhtml body .sidebar li:hover > a[href^=\"https://rule34.xxx/\"],\nhtml body .sidebar li:hover > a[href*=\"page=wiki\"] {\n  width: 13px;\n  opacity: 1;\n  text-align: center;\n}\n\nhtml body .sidebar li > a[href*=\"page=post\"] {\n  order: 1;\n}\n\nhtml body .sidebar li > .tag-count {\n  order: 2;\n}\n\nhtml body .sidebar li:hover {\n  background: rgba(255, 255, 255, .045);\n}\n\nhtml body .sidebar .tag-type-general a { color: var(--c-link-metadata, #90d9ed); }\nhtml body .sidebar .tag-type-artist a { color: var(--c-link-artist, #f0a0a0); }\nhtml body .sidebar .tag-type-character a { color: var(--c-link-character, #f0f0a0); }\nhtml body .sidebar .tag-type-copyright a { color: var(--c-link-copyright, #f0a0f0); }\n\nhtml body .sidebar .tag-count {\n  color: var(--r34g-text-soft) !important;\n  font-size: 10.5px !important;\n  padding-left: 3px;\n}\n\nhtml body .sidebar li.r34g-tag-hidden {\n  display: none !important;\n}\n\n/* Botones + / − de cada etiqueta del panel lateral: la añaden o la excluyen de la caja de búsqueda\n   sin buscar todavía (la búsqueda se lanza con «Search»). */\nhtml body .sidebar li > .r34g-tag-act {\n  order: 4 !important;\n  flex: 0 0 auto;\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 15px !important;\n  height: 15px !important;\n  margin: 3px 0 0 2px !important;\n  padding: 0 !important;\n  border: 1px solid var(--r34g-line) !important;\n  border-radius: 4px;\n  background: rgba(255, 255, 255, .05) !important;\n  color: var(--r34g-text-soft) !important;\n  font: bold 11px/1 verdana, sans-serif !important;\n  line-height: 1 !important;\n  text-decoration: none !important;\n  opacity: .32;\n  cursor: pointer;\n  transition: opacity .12s, border-color .12s, color .12s, background .12s;\n}\nhtml body .sidebar li:hover > .r34g-tag-act,\nhtml body .sidebar li > .r34g-tag-act:focus-visible {\n  opacity: 1;\n}\nhtml body .sidebar li > .r34g-tag-act:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #ffffff !important;\n  background: rgba(255, 255, 255, .12) !important;\n}\nhtml body .sidebar li > .r34g-tag-act.r34g-on {\n  opacity: 1;\n}\nhtml body .sidebar li > .r34g-tag-add.r34g-on {\n  border-color: #8fd08f !important;\n  color: #d6f5d6 !important;\n  background: rgba(120, 190, 120, .22) !important;\n}\nhtml body .sidebar li > .r34g-tag-sub.r34g-on {\n  border-color: #e08f8f !important;\n  color: #ffd3d3 !important;\n  background: rgba(200, 110, 110, .22) !important;\n}\nhtml body .sidebar li.r34g-tag-in > a[href*=\"tags=\"] {\n  color: #b7e6b7 !important;\n}\nhtml body .sidebar li.r34g-tag-out > a[href*=\"tags=\"] {\n  color: #ffb3ae !important;\n  text-decoration: line-through !important;\n}\n\n/* Aviso en la caja de búsqueda cada vez que se añade o se quita una etiqueta */\nhtml body .tag-search input.r34g-flash {\n  border-color: var(--r34g-accent) !important;\n  box-shadow: 0 0 0 3px rgba(147, 179, 147, .35) !important;\n}\n\nhtml body #r34g-sidebar-section {\n  border-top: 1px solid var(--r34g-line);\n  margin-top: 10px;\n  padding-top: 9px;\n}\n\nhtml body #r34g-sidebar-toggle {\n  display: none;\n  position: fixed;\n  left: 12px;\n  bottom: 14px;\n  z-index: calc(var(--r34g-z) - 5);\n  align-items: center;\n  gap: 6px;\n  padding: 8px 12px;\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 999px;\n  background: var(--r34g-bg-alt);\n  color: var(--r34g-link) !important;\n  font-family: verdana, sans-serif;\n  font-size: 12px;\n  cursor: pointer;\n  box-shadow: 0 6px 18px rgba(0, 0, 0, .5);\n}\n\nhtml body #r34g-sidebar-toggle:hover {\n  border-color: var(--r34g-accent);\n  color: #dff0df !important;\n}\n\nhtml body #r34g-drawer-backdrop {\n  display: none;\n  position: fixed;\n  inset: 0;\n  z-index: calc(var(--r34g-z) - 6);\n  background: rgba(0, 0, 0, .6);\n}\n\nhtml body #r34g-to-top {\n  position: fixed;\n  right: 12px;\n  bottom: 14px;\n  z-index: calc(var(--r34g-z) - 5);\n  width: 38px;\n  height: 38px;\n  padding: 0;\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 50%;\n  background: var(--r34g-bg-alt);\n  color: var(--r34g-link) !important;\n  font-size: 15px;\n  cursor: pointer;\n  opacity: 0;\n  pointer-events: none;\n  transition: opacity .25s ease, border-color .2s ease;\n  box-shadow: 0 6px 18px rgba(0, 0, 0, .5);\n}\n\nhtml body #r34g-to-top.r34g-visible {\n  opacity: .92;\n  pointer-events: auto;\n}\n\nhtml body #r34g-to-top:hover {\n  border-color: var(--r34g-accent);\n}\n\nhtml body #paginator {\n  margin-top: 14px !important;\n}\n\nhtml body #paginator .pagination {\n  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  justify-content: center;\n  gap: 4px;\n  row-gap: 6px;\n  padding: 7px 8px;\n  background: var(--r34g-bg-alt);\n  border: 1px solid var(--r34g-line);\n  border-radius: var(--r34g-radius);\n}\n\nhtml body #paginator #manualpage {\n  display: inline-flex !important;\n  align-items: center;\n  gap: 4px;\n  margin-left: 6px;\n  padding-left: 8px;\n  border-left: 1px solid var(--r34g-line);\n}\n\nhtml body #paginator #manualpage input[type=\"text\"] {\n  width: 62px !important;\n  height: 28px;\n  box-sizing: border-box;\n  padding: 0 7px !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 6px !important;\n  background: var(--r34g-bg-deep) !important;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 12px !important;\n  outline: none;\n}\n\nhtml body #paginator #manualpage input[type=\"text\"]:focus {\n  border-color: var(--r34g-accent) !important;\n}\n\nhtml body #paginator #manualpage input[type=\"text\"]::placeholder {\n  color: #6f7a6f;\n}\n\nhtml body #paginator #manualpage input[type=\"submit\"] {\n  height: 28px;\n  padding: 0 10px !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 6px !important;\n  background: #333d33;\n  color: var(--r34g-link) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 12px !important;\n  cursor: pointer;\n}\n\nhtml body #paginator #manualpage input[type=\"submit\"]:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #eafaea !important;\n}\n\nhtml body #paginator .pagination a,\nhtml body #paginator .pagination b,\nhtml body #paginator .pagination span {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  min-width: 30px;\n  height: 28px;\n  padding: 0 9px !important;\n  border: 1px solid transparent;\n  border-radius: 6px;\n  color: var(--r34g-link) !important;\n  font-size: 12.5px !important;\n  line-height: 1 !important;\n  transition: background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease;\n}\n\nhtml body #paginator .pagination a:hover {\n  background: var(--c-bg-highlight, #505a50);\n  border-color: rgba(147, 179, 147, .55);\n  color: #eafaea !important;\n  transform: translateY(-1px);\n}\n\nhtml body #paginator .pagination b {\n  background: var(--r34g-accent);\n  border-color: rgba(255, 255, 255, .25);\n  color: var(--r34g-bg) !important;\n  font-weight: bold;\n  box-shadow: 0 2px 8px rgba(0, 0, 0, .35);\n}\n\nhtml body #paginator .pagination a.arrow,\nhtml body #paginator .pagination a[alt] {\n  color: var(--r34g-text-soft) !important;\n}\n\nhtml body #paginator .pagination a.arrow:hover,\nhtml body #paginator .pagination a[alt]:hover {\n  color: #eafaea !important;\n}\n\nhtml body .image-list + br,\nhtml body #post-list > br {\n  display: none;\n}\n\nhtml body #r34g-modal {\n  position: fixed;\n  inset: 0;\n  z-index: var(--r34g-z);\n  display: none;\n  align-items: center;\n  justify-content: center;\n  padding: 24px 16px;\n  background: rgba(0, 0, 0, .66);\n  backdrop-filter: blur(2px);\n  font-family: verdana, sans-serif;\n  text-align: left;\n  color-scheme: dark;\n}\n\nhtml body #r34g-modal.r34g-open {\n  display: flex;\n}\n\nhtml body #r34g-modal .r34g-dialog {\n  display: flex;\n  flex-direction: column;\n  width: min(880px, 100%);\n  max-height: min(84vh, 780px);\n  background: var(--r34g-bg-alt);\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 10px;\n  box-shadow: var(--r34g-shadow);\n  color: var(--r34g-text);\n  font-size: 12.8px;\n  overflow: hidden;\n}\n\nhtml body #r34g-modal .r34g-head {\n  display: flex;\n  align-items: center;\n  gap: 14px;\n  padding: 10px 14px 0;\n  border-bottom: 1px solid var(--r34g-line);\n  background: linear-gradient(#2d362d, var(--r34g-bg-alt));\n}\n\nhtml body #r34g-modal .r34g-title {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  padding-bottom: 9px;\n  color: var(--r34g-link);\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 13px;\n  font-weight: bold;\n  letter-spacing: .06em;\n  text-transform: uppercase;\n  white-space: nowrap;\n}\n\nhtml body #r34g-modal .r34g-tabs {\n  display: flex;\n  align-items: flex-end;\n  gap: 4px;\n  flex: 1;\n  overflow-x: auto;\n  scrollbar-width: none;\n}\n\nhtml body #r34g-modal .r34g-tabs::-webkit-scrollbar {\n  display: none;\n}\n\nhtml body #r34g-modal .r34g-tab {\n  padding: 7px 13px;\n  border: 1px solid transparent;\n  border-bottom: 0;\n  border-radius: 7px 7px 0 0;\n  background: transparent;\n  color: var(--r34g-link) !important;\n  font-family: verdana, sans-serif;\n  font-size: 12px;\n  white-space: nowrap;\n  cursor: pointer;\n  position: relative;\n  bottom: -1px;\n}\n\nhtml body #r34g-modal .r34g-tab:hover {\n  background: rgba(255, 255, 255, .045);\n  color: #dff0df !important;\n}\n\nhtml body #r34g-modal .r34g-tab.r34g-tab-active {\n  background: var(--r34g-bg);\n  border-color: var(--r34g-line);\n  border-bottom: 1px solid var(--r34g-bg);\n  color: #ffffff !important;\n}\n\nhtml body #r34g-modal .r34g-tab-short {\n  display: none;\n}\n\nhtml body #r34g-modal .r34g-close {\n  width: 30px;\n  height: 30px;\n  margin-bottom: 8px;\n  padding: 0;\n  border: 1px solid transparent;\n  border-radius: 6px;\n  background: transparent;\n  color: var(--r34g-text-soft) !important;\n  font-size: 17px;\n  line-height: 1;\n  cursor: pointer;\n}\n\nhtml body #r34g-modal .r34g-close:hover {\n  background: rgba(217, 83, 79, .16);\n  border-color: rgba(217, 83, 79, .5);\n  color: #ff9a96 !important;\n}\n\nhtml body #r34g-modal .r34g-body {\n  flex: 1;\n  min-height: 0;\n  overflow-y: auto;\n  padding: 14px 16px;\n  background: var(--r34g-bg);\n  scrollbar-width: thin;\n  scrollbar-color: #4b564b rgba(0, 0, 0, .25);\n}\n\nhtml body #r34g-modal .r34g-body::-webkit-scrollbar {\n  width: 10px;\n}\n\nhtml body #r34g-modal .r34g-body::-webkit-scrollbar-thumb {\n  background: #4b564b;\n  border-radius: 6px;\n}\n\nhtml body #r34g-modal .r34g-panel {\n  display: none;\n}\n\nhtml body #r34g-modal .r34g-panel.r34g-panel-active {\n  display: block;\n}\n\nhtml body #r34g-modal .r34g-foot {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  padding: 10px 14px;\n  border-top: 1px solid var(--r34g-line);\n  background: var(--r34g-bg-alt);\n}\n\nhtml body #r34g-modal .r34g-foot .r34g-spacer {\n  flex: 1;\n}\n\nhtml body #r34g-modal .r34g-foot button,\nhtml body #r34g-modal .r34g-btn {\n  padding: 6px 14px;\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 6px;\n  background: #333d33;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif;\n  font-size: 12px;\n  cursor: pointer;\n  transition: background .15s ease, border-color .15s ease, color .15s ease;\n}\n\nhtml body #r34g-modal .r34g-foot button:hover,\nhtml body #r34g-modal .r34g-btn:hover {\n  border-color: var(--r34g-accent);\n  color: #eafaea !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettingsSave {\n  background: var(--r34g-accent);\n  border-color: var(--r34g-accent);\n  color: var(--r34g-bg) !important;\n  font-weight: bold;\n}\n\nhtml body #r34g-modal #ibenhancerSettingsSave:hover {\n  background: var(--c-link, #b0e0b0);\n  color: #22301f !important;\n}\n\nhtml body #r34g-modal .r34g-section {\n  margin: 0 0 16px;\n}\n\nhtml body #r34g-modal .r34g-section > h6 {\n  margin: 0 0 4px;\n  padding-bottom: 5px;\n  border-bottom: 1px solid var(--r34g-line);\n  color: var(--r34g-link);\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 11.5px;\n  font-weight: bold;\n  letter-spacing: .09em;\n  text-transform: uppercase;\n}\n\nhtml body #r34g-modal .r34g-hint {\n  margin: 2px 0 8px;\n  color: var(--r34g-text-soft);\n  font-size: 11px;\n  line-height: 1.5;\n}\n\nhtml body #r34g-modal .r34g-row {\n  display: flex;\n  align-items: center;\n  gap: 10px;\n  min-height: 30px;\n  padding: 3px 2px;\n  border-bottom: 1px dashed rgba(255, 255, 255, .055);\n}\n\nhtml body #r34g-modal .r34g-row:last-child {\n  border-bottom: 0;\n}\n\nhtml body #r34g-modal .r34g-row > .r34g-label {\n  flex: 1;\n  min-width: 0;\n  line-height: 1.45;\n  color: var(--r34g-text);\n}\n\nhtml body #r34g-modal .r34g-row > .r34g-value {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  flex: 0 0 auto;\n}\n\nhtml body #r34g-modal .r34g-row > .r34g-value label {\n  display: inline-flex !important;\n  align-items: center;\n  gap: 6px;\n}\n\nhtml.r34g-modal-open {\n  overflow: hidden !important;\n}\n\nhtml body #r34g-modal .r34g-row .r34g-note {\n  display: block;\n  color: var(--r34g-text-soft);\n  font-size: 10.5px;\n}\n\nhtml body #r34g-modal .r34g-seg {\n  display: inline-flex;\n  gap: 3px;\n  padding: 2px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 7px;\n  background: var(--r34g-bg-deep);\n}\n\nhtml body #r34g-modal .r34g-seg button {\n  padding: 4px 10px;\n  border: 0;\n  border-radius: 5px;\n  background: transparent;\n  color: var(--r34g-text-soft) !important;\n  font-family: verdana, sans-serif;\n  font-size: 11.5px;\n  cursor: pointer;\n}\n\nhtml body #r34g-modal .r34g-seg button:hover {\n  color: #eafaea !important;\n}\n\nhtml body #r34g-modal .r34g-seg button.r34g-on {\n  background: var(--r34g-accent);\n  color: #22301f !important;\n  font-weight: bold;\n}\n\nhtml body .r34g-switch {\n  position: relative;\n  display: inline-block;\n  flex: 0 0 auto;\n  width: 40px;\n  height: 20px;\n  vertical-align: middle;\n}\n\nhtml body .r34g-switch > input {\n  position: absolute;\n  inset: 0;\n  width: 100% !important;\n  height: 100% !important;\n  margin: 0 !important;\n  opacity: 0 !important;\n  cursor: pointer;\n  z-index: 2;\n}\n\nhtml body .r34g-switch > .r34g-slider {\n  position: absolute;\n  inset: 0;\n  border: 1px solid var(--r34g-line);\n  border-radius: 999px;\n  background: #3b453b;\n  transition: background .2s ease, border-color .2s ease;\n}\n\nhtml body .r34g-switch > .r34g-slider::before {\n  content: \"\";\n  position: absolute;\n  top: 2px;\n  left: 2px;\n  width: 14px;\n  height: 14px;\n  border-radius: 50%;\n  background: #c9cfc9;\n  transition: transform .2s ease, background .2s ease;\n}\n\nhtml body .r34g-switch > input:checked + .r34g-slider {\n  background: var(--r34g-accent);\n  border-color: var(--r34g-accent);\n}\n\nhtml body .r34g-switch > input:checked + .r34g-slider::before {\n  transform: translateX(20px);\n  background: #f4fff4;\n}\n\nhtml body .r34g-switch > input:focus-visible + .r34g-slider {\n  box-shadow: 0 0 0 2px rgba(147, 179, 147, .45);\n}\n\nhtml body #r34g-modal #ibenhancerSettings-options {\n  overflow: visible !important;\n  width: auto !important;\n  height: auto !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettings-options > .r34g-moved,\nhtml body #r34g-modal #ibenhancerSettings-options > br {\n  display: none !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettings-options label {\n  white-space: normal !important;\n  display: flex !important;\n  align-items: center;\n  gap: 10px;\n  width: 100%;\n  line-height: 1.45;\n}\n\nhtml body #r34g-modal #ibenhancerSettings input[type=\"checkbox\"] {\n  flex: 0 0 auto;\n  margin: 0 !important;\n  width: auto !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettings input[type=\"number\"],\nhtml body #r34g-modal #ibenhancerSettings select {\n  margin: 0 !important;\n  padding: 3px 5px !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 5px !important;\n  background: var(--r34g-bg-deep) !important;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 11.5px !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettings button {\n  padding: 4px 9px !important;\n  margin: 0 !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 5px !important;\n  background: #333d33 !important;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 11.5px !important;\n  cursor: pointer;\n}\n\nhtml body #r34g-modal #ibenhancerSettings button:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #eafaea !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettings .tooltip-140 {\n  position: relative;\n}\n\nhtml body #r34g-modal #r34g-icon-grid {\n  display: grid;\n  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));\n  gap: 1px 14px;\n  margin-top: 6px;\n  padding: 8px 10px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 7px;\n  background: rgba(0, 0, 0, .16);\n}\n\nhtml body #r34g-modal #r34g-icon-grid label {\n  display: flex !important;\n  align-items: center;\n  gap: 8px;\n  padding: 1px 0;\n  font-size: 11.5px !important;\n}\n\nhtml body #r34g-modal #r34g-icon-grid .r34g-icon-text {\n  flex: 1;\n  min-width: 0;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\nhtml body #r34g-modal #r34g-icon-grid .r34g-switch {\n  width: 34px;\n  height: 17px;\n}\n\nhtml body #r34g-modal #r34g-icon-grid .r34g-switch > .r34g-slider::before {\n  width: 11px;\n  height: 11px;\n}\n\nhtml body #r34g-modal #r34g-icon-grid .r34g-switch > input:checked + .r34g-slider::before {\n  transform: translateX(17px);\n}\n\nhtml body #r34g-modal #r34g-actions-row {\n  gap: 6px;\n}\n\nhtml body #r34g-modal #ibenhancer-favorite-tags,\nhtml body #r34g-modal #ibenhancer-changelog {\n  background: transparent !important;\n  border: 0 !important;\n  padding: 0 !important;\n  width: auto !important;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 12.8px !important;\n}\n\nhtml body #r34g-modal #ibenhancer-favorite-tags *,\nhtml body #r34g-modal #ibenhancer-changelog * {\n  color: var(--r34g-text) !important;\n  font-size: 12px !important;\n}\n\nhtml body #r34g-modal #ibenhancer-changelog-updates > div,\nhtml body #r34g-modal #ibenhancer-changelog > div {\n  border-bottom: 1px dashed rgba(255, 255, 255, .07);\n  padding: 5px 0;\n  line-height: 1.5;\n}\n\nhtml body #r34g-modal #ibenhancer-changelog > div:first-child,\nhtml body #r34g-modal #ibenhancer-changelog > a {\n  color: var(--r34g-link) !important;\n  font-weight: bold;\n}\n\nhtml body #r34g-sidebar-favs {\n  margin-top: 10px;\n  padding-top: 9px;\n  border-top: 1px solid var(--r34g-line);\n}\n\nhtml body #ibenhancer {\n  display: block;\n}\n\nhtml.r34g-integrated body #ibenhancer {\n  display: none !important;\n}\n\nhtml body #ibenhancerSettings-blocker {\n  display: none !important;\n}\n\nhtml.r34g-integrated body #ibenhancerSettings.show {\n  display: none !important;\n}\n\n@media (max-width: 900px) {\n  html body #r34g-sidebar-toggle {\n    display: inline-flex;\n  }\n\n  html body #r34g-drawer-head {\n    display: flex;\n  }\n\n  html {\n    --r34g-gap: 10px;\n  }\n\n  html body .sidebar {\n    position: fixed !important;\n    top: 0;\n    left: 0;\n    bottom: 0;\n    width: min(320px, 88vw) !important;\n    min-width: 0 !important;\n    max-width: none !important;\n    max-height: none !important;\n    padding: 12px 12px 24px;\n    background: var(--r34g-bg-alt);\n    border-right: 1px solid var(--c-bg-highlight, #505a50);\n    box-shadow: 12px 0 32px rgba(0, 0, 0, .5);\n    transform: translateX(-102%);\n    transition: transform .24s ease;\n    z-index: calc(var(--r34g-z) - 4);\n    overflow-y: auto;\n  }\n\n  html.r34g-drawer-open body .sidebar {\n    transform: none;\n  }\n\n  html.r34g-drawer-open body #r34g-drawer-backdrop {\n    display: block;\n  }\n\n  html body #post-list > .content {\n    flex: 1 1 100% !important;\n    margin: 0 !important;\n  }\n}\n\n@media (max-width: 620px) {\n  html body #r34g-modal .r34g-head {\n    flex-wrap: wrap;\n    gap: 6px 10px;\n    padding: 9px 12px 0;\n  }\n\n  html body #r34g-modal .r34g-title {\n    padding-bottom: 0;\n  }\n\n  html body #r34g-modal .r34g-tabs {\n    order: 3;\n    flex: 1 1 100%;\n    flex-wrap: wrap;\n    overflow-x: visible;\n    gap: 4px 6px;\n    padding-bottom: 0;\n  }\n\n  html body #r34g-modal .r34g-tab {\n    padding: 6px 10px;\n    font-size: 11.5px;\n  }\n\n  html body #r34g-modal .r34g-tab-long {\n    display: none;\n  }\n\n  html body #r34g-modal .r34g-tab-short {\n    display: inline;\n  }\n\n  html body #r34g-modal .r34g-close {\n    margin-left: auto;\n    margin-bottom: 0;\n  }\n\n  html body #r34g-modal .r34g-body {\n    padding: 12px 12px;\n  }\n\n  html body #r34g-modal .r34g-row {\n    flex-wrap: wrap;\n    row-gap: 4px;\n    padding: 5px 2px;\n  }\n\n  html body #r34g-modal .r34g-row > .r34g-seg {\n    flex: 1 1 100%;\n    justify-content: space-between;\n  }\n\n  html body #r34g-modal .r34g-foot {\n    flex-wrap: wrap;\n    gap: 6px;\n  }\n\n  html body #r34g-modal .r34g-foot #r34g-reset {\n    flex: 1 1 100%;\n    text-align: center;\n  }\n\n  html body #r34g-modal .r34g-foot .r34g-spacer {\n    display: none;\n  }\n\n  html body #r34g-modal #r34g-icon-grid {\n    grid-template-columns: 1fr;\n  }\n\n  html body #r34g-modal .r34g-dialog {\n    max-height: 90vh;\n  }\n  html {\n    --r34g-gap: 8px;\n    --r34g-radius: 6px;\n  }\n\n  html[data-r34g-cols] {\n    --r34g-cols: 3;\n  }\n\n  html body #post-list {\n    padding: 0 8px !important;\n  }\n\n  html body #paginator .pagination {\n    gap: 3px;\n    padding: 6px;\n  }\n\n  html body #paginator .pagination a,\n  html body #paginator .pagination b,\n  html body #paginator .pagination span {\n    min-width: 24px;\n    height: 24px;\n    padding: 0 6px !important;\n  }\n\n  html body #r34g-modal .r34g-dialog {\n    max-height: 90vh;\n  }\n\n  html body #r34g-modal .r34g-title span.r34g-title-text {\n    display: none;\n  }\n}\n\nhtml body .image-list .thumb .r34g-seen-badge {\n  position: absolute;\n  top: 7px;\n  right: 7px;\n  z-index: 4;\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 24px;\n  height: 24px;\n  border-radius: 50%;\n  background: rgba(6, 12, 6, .74);\n  border: 1px solid rgba(147, 179, 147, .55);\n  color: #d9f4d9;\n  box-shadow: 0 2px 8px rgba(0, 0, 0, .5);\n}\n\nhtml body .image-list .thumb .r34g-seen-badge svg {\n  width: 15px;\n  height: 15px;\n}\n\nhtml body .image-list .thumb.r34g-seen > a::before {\n  content: \"\";\n  position: absolute;\n  inset: 0;\n  z-index: 1;\n  pointer-events: none;\n  box-shadow: inset 0 0 0 2px rgba(147, 179, 147, .5);\n  border-radius: var(--r34g-radius);\n}\n\nhtml[data-r34g-seen=\"off\"] body .image-list .thumb .r34g-seen-badge {\n  display: none !important;\n}\n\nhtml[data-r34g-seendim=\"on\"] body .image-list .thumb.r34g-seen img {\n  filter: grayscale(.5) brightness(.6) !important;\n}\n\nhtml[data-r34g-seendim=\"on\"] body .image-list .thumb.r34g-seen:hover img {\n  filter: grayscale(.15) brightness(.92) !important;\n}\n\nhtml body #r34g-toasts {\n  position: fixed;\n  left: 50%;\n  bottom: 22px;\n  transform: translateX(-50%);\n  z-index: 2147482100;\n  display: flex;\n  flex-direction: column;\n  gap: 6px;\n  align-items: center;\n  pointer-events: none;\n}\n\nhtml body .r34g-toast {\n  max-width: 460px;\n  padding: 8px 14px;\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 7px;\n  background: rgba(24, 32, 24, .96);\n  color: #d8e6d8;\n  font: 12px/1.45 verdana, sans-serif;\n  box-shadow: 0 10px 30px rgba(0, 0, 0, .6);\n  transition: opacity .28s ease, transform .28s ease;\n}\n\nhtml body .r34g-toast.r34g-toast-out {\n  opacity: 0;\n  transform: translateY(6px);\n}\n\nhtml body .r34g-search {\n  margin: 0 0 12px;\n}\n\nhtml body .r34g-search input {\n  width: 100%;\n  box-sizing: border-box;\n  padding: 6px 9px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  background: var(--r34g-bg-deep);\n  color: var(--r34g-text);\n  font: 12px verdana, sans-serif;\n  outline: none;\n}\n\nhtml body .r34g-search input:focus {\n  border-color: var(--r34g-accent);\n}\n\nhtml body #r34g-modal .r34g-mini,\nhtml body #r34g-tags-panel .r34g-mini {\n  padding: 4px 10px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  background: #333d33;\n  color: var(--r34g-link) !important;\n  font: 11.5px verdana, sans-serif;\n  cursor: pointer;\n}\n\nhtml body #r34g-modal .r34g-mini:hover,\nhtml body #r34g-tags-panel .r34g-mini:hover {\n  border-color: var(--r34g-accent);\n  color: #eafaea !important;\n}\n\nhtml body .r34g-mini-row {\n  display: inline-flex;\n  gap: 6px;\n  flex-wrap: wrap;\n  align-items: center;\n}\n\nhtml body #r34g-modal .r34g-num,\nhtml body #r34g-modal .r34g-text,\nhtml body #r34g-modal .r34g-select,\nhtml body #r34g-modal .r34g-textarea {\n  box-sizing: border-box;\n  padding: 3px 6px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 5px;\n  background: var(--r34g-bg-deep);\n  color: var(--r34g-text);\n  font: 11.5px verdana, sans-serif;\n  outline: none;\n}\n\nhtml body #r34g-modal .r34g-num:focus,\nhtml body #r34g-modal .r34g-text:focus,\nhtml body #r34g-modal .r34g-select:focus,\nhtml body #r34g-modal .r34g-textarea:focus {\n  border-color: var(--r34g-accent);\n}\n\nhtml body #r34g-modal .r34g-text {\n  width: 100%;\n  min-width: 180px;\n}\n\nhtml body #r34g-modal .r34g-textarea {\n  width: 100%;\n  min-height: 66px;\n  resize: vertical;\n  line-height: 1.45;\n}\n\nhtml body #r34g-modal .r34g-mono {\n  font-family: monospace, monospace;\n}\n\nhtml body #r34g-modal .r34g-value-wide {\n  flex: 0 1 56%;\n  max-width: 56%;\n}\n\nhtml body #r34g-modal .r34g-stack {\n  display: block;\n}\n\nhtml body #r34g-modal .r34g-row.r34g-filtered-out,\nhtml body #r34g-modal #r34g-icon-grid label.r34g-filtered-out,\nhtml body #r34g-modal .r34g-section.r34g-filtered-out {\n  display: none !important;\n}\n\n/* El atributo hidden manda siempre dentro del panel: se usa para dejar a la vista solo los campos\n   que pide el proveedor de IA elegido (y para cualquier otro uso de hidden). */\nhtml body #r34g-modal [hidden] {\n  display: none !important;\n}\n\nhtml body #r34g-modal .r34g-section.r34g-collapsed {\n  display: none !important;\n}\n\nhtml body #r34g-modal .r34g-enh-sticky {\n  position: sticky;\n  top: -14px;\n  z-index: 3;\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n  margin: -14px -16px 14px;\n  padding: 10px 16px;\n  background: var(--r34g-bg-alt);\n  border-bottom: 1px solid var(--r34g-line);\n}\n\nhtml body #r34g-modal .r34g-enh-sticky .r34g-note {\n  flex: 1 1 220px;\n}\n\nhtml body #r34g-modal .r34g-notes {\n  margin: 4px 0 0;\n  padding-left: 18px;\n  color: var(--r34g-text);\n  font-size: 12px;\n  line-height: 1.6;\n}\n\nhtml body #r34g-modal .r34g-notes li {\n  margin-bottom: 3px;\n}\n\nhtml body #r34g-modal .r34g-panel-actions {\n  display: inline-flex;\n  gap: 6px;\n  align-items: center;\n}\n\nhtml body .r34g-vhost {\n  flex: 1 1 auto !important;\n  width: auto !important;\n  min-width: 0 !important;\n  max-width: none !important;\n}\n\nhtml body #gelcomVideoContainer,\nhtml body .r34g-vwrap {\n  position: relative !important;\n  width: 100% !important;\n  max-width: var(--r34g-vwidth) !important;\n  margin: 0 auto !important;\n  background: #000;\n  overflow: hidden;\n}\n\nhtml[data-r34g-vbg=\"ninguno\"] body #gelcomVideoContainer,\nhtml[data-r34g-vbg=\"ninguno\"] body .r34g-vwrap {\n  background: transparent;\n}\n\nhtml[data-r34g-vradius=\"on\"] body #gelcomVideoContainer,\nhtml[data-r34g-vradius=\"on\"] body .r34g-vwrap {\n  border-radius: 10px;\n}\n\nhtml[data-r34g-vshadow=\"on\"] body #gelcomVideoContainer,\nhtml[data-r34g-vshadow=\"on\"] body .r34g-vwrap {\n  box-shadow: 0 14px 40px rgba(0, 0, 0, .55);\n}\n\nhtml[data-r34g-vcinema=\"on\"] body::before {\n  content: \"\";\n  position: fixed;\n  inset: 0;\n  z-index: 60;\n  background: rgba(0, 0, 0, .84);\n}\n\nhtml[data-r34g-vcinema=\"on\"] body #gelcomVideoContainer,\nhtml[data-r34g-vcinema=\"on\"] body .r34g-vwrap {\n  z-index: 61 !important;\n}\n\nhtml body .r34g-vwrap .r34g-vbackdrop {\n  position: absolute;\n  inset: -30px;\n  z-index: 0;\n  background-size: cover;\n  background-position: center;\n  filter: blur(26px) brightness(.45) saturate(1.25);\n  opacity: .9;\n  pointer-events: none;\n}\n\nhtml body .r34g-vwrap video,\nhtml body #gelcomVideoPlayer {\n  position: relative;\n  z-index: 1;\n  display: block !important;\n  width: 100% !important;\n  height: auto !important;\n  max-height: 84vh !important;\n  margin: 0 auto !important;\n  background: #000;\n  object-fit: contain;\n}\n\nhtml[data-r34g-vfit=\"cover\"] body .r34g-vwrap video {\n  object-fit: cover !important;\n}\n\nhtml[data-r34g-vfit=\"contain\"] body .r34g-vwrap video {\n  object-fit: contain !important;\n}\n\nhtml body .r34g-vbar {\n  position: absolute;\n  left: 0;\n  right: 0;\n  bottom: 0;\n  z-index: 6;\n  display: flex;\n  flex-direction: column;\n  gap: 3px;\n  padding: 26px 10px 7px;\n  background: linear-gradient(to top, rgba(0, 0, 0, .88) 0%, rgba(0, 0, 0, .5) 55%, rgba(0, 0, 0, 0) 100%);\n  color: #ececec;\n  font-family: verdana, sans-serif;\n  transition: opacity .25s ease;\n}\n\nhtml body .r34g-vbar.r34g-idle {\n  opacity: 0;\n}\n\nhtml body .r34g-vbar:hover {\n  opacity: 1 !important;\n}\n\nhtml body .r34g-vbar-top {\n  display: flex;\n  align-items: center;\n}\n\nhtml body .r34g-vbar input[type=\"range\"] {\n  width: 100%;\n  height: 16px;\n  margin: 0;\n  padding: 0;\n  accent-color: var(--r34g-accent);\n  cursor: pointer;\n  background: transparent;\n}\n\nhtml body .r34g-vbar .r34g-vvolume {\n  width: 74px;\n}\n\nhtml body .r34g-vbar-bottom {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n}\n\nhtml body .r34g-vbar .r34g-vgrow {\n  flex: 1;\n}\n\nhtml body .r34g-vbar-main {\n  display: flex;\n  align-items: center;\n  gap: 3px;\n}\n\nhtml body .r34g-vbar .r34g-vbtn {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 28px;\n  height: 28px;\n  padding: 0;\n  border: 1px solid transparent;\n  border-radius: 6px;\n  background: transparent;\n  color: #e4e4e4 !important;\n  font: bold 11.5px/1 verdana, sans-serif;\n  cursor: pointer;\n  transition: background .15s ease, border-color .15s ease, color .15s ease;\n}\n\nhtml body .r34g-vbar .r34g-vbtn svg {\n  width: 16px;\n  height: 16px;\n}\n\nhtml body .r34g-vbar .r34g-vbtn:hover {\n  background: rgba(255, 255, 255, .12);\n  border-color: rgba(147, 179, 147, .55);\n  color: #fff !important;\n}\n\nhtml body .r34g-vbar .r34g-vbtn.r34g-on {\n  color: var(--r34g-accent) !important;\n  border-color: rgba(147, 179, 147, .55);\n}\n\nhtml body .r34g-vbar .r34g-vspeed {\n  width: auto;\n  min-width: 42px;\n  padding: 0 7px;\n}\n\nhtml body .r34g-vbar .r34g-vtime {\n  font-size: 11.5px;\n  line-height: 1;\n  min-width: 96px;\n  color: #dcdcdc;\n  text-shadow: 0 1px 2px rgba(0, 0, 0, .8);\n}\n\nhtml body .r34g-vbar .r34g-vvol {\n  display: flex;\n  align-items: center;\n  gap: 2px;\n}\n\nhtml.r34g-vbar-on .fluid_controls_container,\nhtml.r34g-vbar-on .fluid_video_wrapper > .fluid_controls_container,\nhtml.r34g-vbar-on .fluid_control_video,\nhtml.r34g-vbar-on .video-js .vjs-control-bar {\n  display: none !important;\n}\n\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_play_button,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_duration,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_theatre,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_playback_rate,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_fullscreen,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_video_volume,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_download,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_card,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_vast_skip {\n  display: none !important;\n}\n\nhtml body #r34g-tags-panel {\n  box-sizing: border-box;\n  max-width: var(--r34g-vwidth);\n  margin: 14px auto;\n  padding: 10px 12px;\n  background: var(--r34g-bg-alt);\n  border: 1px solid var(--r34g-line);\n  border-radius: 10px;\n  color: var(--r34g-text);\n  font-family: verdana, sans-serif;\n  font-size: 12px;\n  text-align: left;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-launch {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-toggle {\n  flex: 1 1 220px;\n  display: inline-flex;\n  align-items: center;\n  justify-content: flex-start;\n  gap: 8px;\n  padding: 2px 0;\n  border: 0;\n  background: transparent;\n  color: var(--r34g-link) !important;\n  font: bold 13px verdana, sans-serif;\n  cursor: pointer;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-toggle svg {\n  width: 16px;\n  height: 16px;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-head {\n  display: flex;\n  align-items: center;\n  gap: 10px;\n  flex-wrap: wrap;\n  margin: 8px 0;\n  padding-bottom: 7px;\n  border-bottom: 1px solid var(--r34g-line);\n}\n\nhtml body #r34g-tags-panel .r34g-tp-head b {\n  color: var(--r34g-link);\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 12px;\n  letter-spacing: .06em;\n  text-transform: uppercase;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-count {\n  flex: 1;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-group {\n  margin-bottom: 9px;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-group-head {\n  display: flex;\n  align-items: baseline;\n  gap: 8px;\n  flex-wrap: wrap;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-group-head b {\n  color: #dff0df;\n  font-size: 12px;\n}\n\nhtml body #r34g-tags-panel .r34g-chips {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 5px;\n  margin-top: 5px;\n  min-width: 0;\n}\n\nhtml body .r34g-chip {\n  display: inline-flex;\n  align-items: center;\n  gap: 5px;\n  max-width: 100%;\n  min-width: 0;\n  box-sizing: border-box;\n  padding: 3px 9px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 999px;\n  background: var(--r34g-bg-deep);\n  color: var(--r34g-text) !important;\n  font: 11.5px/1.4 verdana, sans-serif;\n  cursor: pointer;\n  transition: border-color .15s ease, opacity .15s ease, background .15s ease;\n}\n\nhtml body .r34g-chip .r34g-chip-name {\n  overflow-wrap: anywhere;\n}\n\nhtml body .r34g-chip:hover {\n  border-color: var(--r34g-accent);\n  background: #364236;\n}\n\nhtml body .r34g-chip.r34g-chip-off {\n  opacity: .66;\n  border-color: rgba(217, 83, 79, .55);\n}\n\nhtml body .r34g-chip.r34g-chip-off .r34g-chip-name {\n  text-decoration: line-through;\n  color: #ffb3ae;\n}\n\nhtml body .r34g-chip .r34g-chip-count {\n  color: var(--r34g-text-soft);\n  font-size: 9.5px;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-outputwrap {\n  margin: 10px 0 0;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-output {\n  width: 100%;\n  box-sizing: border-box;\n  min-height: 58px;\n  padding: 7px 9px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  background: var(--r34g-bg-deep);\n  color: #cfe8cf;\n  font: 12px/1.5 monospace, monospace;\n  resize: vertical;\n}\n\nhtml body #r34g-tags-panel .r34g-hint,\nhtml body .r34g-hint {\n  color: var(--r34g-text-soft);\n}\n\n/* Prompt para otras apps */\nhtml body #r34g-tags-panel .r34g-tp-prompt {\n  margin: 12px 0 2px;\n  padding: 8px 10px 7px;\n  border: 1px solid rgba(147, 179, 147, .3);\n  border-left: 3px solid var(--r34g-accent);\n  border-radius: 6px;\n  background: rgba(147, 179, 147, .06);\n}\n\nhtml body #r34g-tags-panel .r34g-tp-prompt-head {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n  margin-bottom: 6px;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-prompt-head b {\n  color: var(--r34g-link);\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 12px;\n  letter-spacing: .06em;\n  text-transform: uppercase;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-prompt-head > .r34g-note {\n  flex: 1 1 170px;\n  min-width: 0;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-prompt-head .r34g-mini-row {\n  gap: 6px;\n}\n\nhtml body #r34g-tags-panel .r34g-prompt-opt {\n  padding: 1px 8px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 999px;\n  background: transparent;\n  color: var(--r34g-text-soft) !important;\n  font: 10.5px verdana, sans-serif;\n  cursor: pointer;\n}\n\nhtml body #r34g-tags-panel .r34g-prompt-opt:hover {\n  border-color: var(--r34g-accent);\n}\n\nhtml body #r34g-tags-panel .r34g-prompt-opt.r34g-on {\n  border-color: var(--r34g-accent);\n  background: rgba(147, 179, 147, .18);\n  color: #eaf6ea !important;\n}\n\n/* La pestaña «IA» mientras el motor trabaja: se queda encendida y late, en vez de caerse a «Local». */\nhtml body #r34g-tags-panel .r34g-prompt-opt.r34g-wait {\n  border-color: var(--r34g-accent);\n  color: #eaf6ea !important;\n  animation: r34g-prompt-wait 1.1s ease-in-out infinite;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-prompt.r34g-prompt-wait .r34g-prompt-out {\n  opacity: .7;\n}\n\n@keyframes r34g-prompt-wait {\n  0%, 100% {\n    opacity: 1;\n  }\n  50% {\n    opacity: .4;\n  }\n}\n\nhtml body #r34g-tags-panel .r34g-prompt-out {\n  display: block;\n  width: 100%;\n  box-sizing: border-box;\n  min-height: 64px;\n  padding: 7px 9px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  background: var(--r34g-bg-deep);\n  color: #eef7ee;\n  font: 12px/1.55 monospace, monospace;\n  resize: vertical;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-prompt .r34g-hint {\n  margin: 5px 0 0;\n  font-size: 11px;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-status {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  margin-top: 8px;\n  color: var(--r34g-text-soft);\n  font-size: 11.5px;\n}\n\nhtml body .r34g-spinner {\n  width: 14px;\n  height: 14px;\n  border: 2px solid rgba(255, 255, 255, .25);\n  border-top-color: var(--r34g-accent);\n  border-radius: 50%;\n  animation: r34g-spin .8s linear infinite;\n}\n\nhtml body #r34g-tags-panel .r34g-rel {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n  padding: 3px 0;\n  border-bottom: 1px dashed rgba(255, 255, 255, .06);\n}\n\nhtml body #r34g-tags-panel .r34g-rel:last-child {\n  border-bottom: 0;\n}\n\nhtml body #r34g-tags-panel .r34g-rel-text {\n  flex: 1 1 240px;\n  color: #cfd8cf;\n  font-size: 11.5px;\n}\n\n@keyframes r34g-spin {\n  to {\n    transform: rotate(360deg);\n  }\n}\n\n\n/* API de rule34: diagnóstico en Ajustes → Etiquetas */\n.r34g-probe {\n  margin: 8px 0 0;\n  padding: 8px 10px;\n  background: rgba(0, 0, 0, .18);\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  color: var(--r34g-text-soft);\n  font-size: 11.5px;\n  text-align: left;\n}\n\n.r34g-probe:empty {\n  display: none;\n}\n\n.r34g-probe-line + .r34g-probe-line {\n  margin-top: 4px;\n}\n\n.r34g-probe-line b {\n  color: var(--r34g-accent);\n}\n\n.r34g-probe-bad b {\n  color: #d98b7f;\n}\n\n/* Sugerencias de etiquetas (API) bajo el buscador del panel lateral */\nhtml body #r34g-tag-filter + .r34g-suggest {\n  display: block;\n}\n\nhtml body .r34g-suggest {\n  position: relative;\n  z-index: 30;\n  margin: 4px 0 6px;\n  max-height: 224px;\n  overflow-y: auto;\n  background: var(--r34g-bg-deep);\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  box-shadow: 0 10px 26px rgba(0, 0, 0, .45);\n  text-align: left;\n}\n\nhtml body .r34g-suggest[hidden] {\n  display: none !important;\n}\n\nhtml body .r34g-suggest-row {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 8px;\n  width: 100%;\n  padding: 4px 8px;\n  border: 0;\n  border-bottom: 1px solid rgba(255, 255, 255, .04);\n  background: transparent;\n  color: var(--r34g-text);\n  font: 11.5px verdana, sans-serif;\n  text-align: left;\n  cursor: pointer;\n}\n\nhtml body .r34g-suggest-row:last-child {\n  border-bottom: 0;\n}\n\nhtml body .r34g-suggest-row:hover {\n  background: var(--r34g-card-hover);\n  color: #eaf6ea;\n}\n\nhtml body .r34g-suggest-name {\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\nhtml body .r34g-suggest-count {\n  flex: 0 0 auto;\n  color: var(--r34g-text-soft);\n  font-size: 10.5px;\n}\n\n/* ---- Botón flotante de Ajustes: siempre accesible (clave de rule34, IA, opciones) ---- */\nhtml body #r34g-fab {\n  position: fixed !important;\n  right: 18px !important;\n  bottom: 18px !important;\n  z-index: calc(var(--r34g-z) - 4) !important;\n  display: inline-flex !important;\n  align-items: center;\n  gap: 7px;\n  margin: 0 !important;\n  padding: 9px 14px 9px 12px !important;\n  border: 1px solid var(--r34g-accent) !important;\n  border-radius: 999px !important;\n  background: linear-gradient(#3a463a, #2c362c) !important;\n  color: var(--r34g-link) !important;\n  font: bold 12.5px verdana, sans-serif !important;\n  cursor: pointer;\n  box-shadow: 0 8px 22px rgba(0, 0, 0, .5);\n  opacity: .92;\n  transition: opacity .15s, transform .15s;\n}\nhtml body #r34g-fab:hover {\n  opacity: 1;\n  transform: translateY(-1px);\n}\nhtml body #r34g-fab svg {\n  width: 14px;\n  height: 14px;\n  fill: currentColor;\n}\nhtml[data-r34g-fab=\"off\"] #r34g-fab {\n  display: none !important;\n}\nhtml.r34g-modal-open #r34g-fab {\n  display: none !important;\n}\n\n/* ---- Descargas: botones, barra del post, cola y dialogos ---- */\nhtml body .r34g-btn,\nhtml body .r34g-dlq .r34g-mini {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  gap: 6px;\n  padding: 6px 12px !important;\n  margin: 0 !important;\n  border: 1px solid var(--r34g-line) !important;\n  border-radius: 6px !important;\n  background: var(--r34g-bg-alt) !important;\n  color: var(--r34g-text) !important;\n  font: 12px verdana, sans-serif !important;\n  line-height: 1.2 !important;\n  text-decoration: none !important;\n  cursor: pointer;\n}\nhtml body .r34g-dlq .r34g-mini {\n  padding: 3px 9px !important;\n  font-size: 11px !important;\n  white-space: nowrap;\n}\nhtml body .r34g-btn:hover,\nhtml body .r34g-dlq .r34g-mini:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #ffffff !important;\n}\nhtml body .r34g-btn.r34g-on {\n  background: linear-gradient(#3d4b3d, #2f3b2f) !important;\n  border-color: var(--r34g-accent) !important;\n  color: var(--r34g-link) !important;\n}\nhtml body .r34g-btn svg,\nhtml body .r34g-dlq .r34g-mini svg {\n  width: 14px;\n  height: 14px;\n}\nhtml body .r34g-note {\n  color: var(--r34g-text-soft);\n  font-size: 11px;\n}\n\nhtml body .image-list .thumb .r34g-dl-btn {\n  position: absolute;\n  left: 7px;\n  top: 34px;\n  z-index: 5;\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 28px;\n  height: 28px;\n  padding: 0 !important;\n  margin: 0 !important;\n  border: 1px solid rgba(255, 255, 255, .22) !important;\n  border-radius: 50%;\n  background: rgba(10, 14, 10, .78);\n  color: #e8f4e8;\n  cursor: pointer;\n  opacity: 0;\n  transform: translateY(3px);\n  transition: opacity .16s, transform .16s, background .16s;\n}\nhtml body .image-list .thumb:hover .r34g-dl-btn,\nhtml body .image-list .thumb .r34g-dl-btn:focus-visible {\n  opacity: 1;\n  transform: none;\n}\nhtml body .image-list .thumb .r34g-dl-btn:hover {\n  background: #38513a;\n  border-color: var(--r34g-accent) !important;\n}\nhtml body .image-list .thumb .r34g-dl-btn svg {\n  width: 16px;\n  height: 16px;\n}\nhtml body .image-list .thumb .r34g-dl-btn.r34g-busy {\n  opacity: 1;\n  transform: none;\n  animation: r34g-dl-pulse 1.1s ease-in-out infinite;\n}\n@keyframes r34g-dl-pulse {\n  0%, 100% { box-shadow: 0 0 0 0 rgba(147, 179, 147, 0); }\n  50% { box-shadow: 0 0 0 5px rgba(147, 179, 147, .28); }\n}\nhtml body .image-list .thumb .r34g-dl-badge {\n  position: absolute;\n  top: 37px;\n  right: 7px;\n  z-index: 4;\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 20px;\n  height: 20px;\n  border-radius: 50%;\n  background: rgba(8, 18, 8, .78);\n  border: 1px solid rgba(147, 179, 147, .5);\n  color: #cfeccf;\n}\nhtml body .image-list .thumb .r34g-dl-badge svg {\n  width: 13px;\n  height: 13px;\n}\n\nhtml body #r34g-dl-bar {\n  display: flex !important;\n  flex-wrap: wrap;\n  align-items: center;\n  gap: 8px;\n  margin: 0 0 10px !important;\n  padding: 8px 10px !important;\n  border: 1px solid var(--r34g-line);\n  border-radius: 8px;\n  background: rgba(20, 26, 20, .9);\n  text-align: left;\n}\nhtml body .r34g-dl-name {\n  color: var(--r34g-text-soft);\n  font: 11.5px monospace;\n  word-break: break-all;\n}\n/* Barra del analizador de etiquetas: va justo encima de la barra «Miniaturas» (fuera de Ajustes) */\nhtml body #r34g-tags-bar {\n  display: flex !important;\n  align-items: center;\n  flex-wrap: wrap;\n  gap: 8px;\n  margin: 0 0 8px !important;\n  padding: 5px 9px !important;\n  border: 1px solid var(--r34g-line);\n  border-radius: 8px;\n  background: rgba(20, 26, 20, .9);\n  text-align: left;\n  font: 11.5px verdana, sans-serif;\n}\nhtml body #r34g-tags-bar .r34g-tags-bar-title {\n  display: inline-flex;\n  align-items: center;\n  gap: 6px;\n  padding: 2px 6px !important;\n  margin: 0 !important;\n  border: 1px solid transparent !important;\n  border-radius: 6px !important;\n  background: transparent !important;\n  color: var(--r34g-link) !important;\n  font: bold 11.5px verdana, sans-serif !important;\n  cursor: pointer;\n}\nhtml body #r34g-tags-bar .r34g-tags-bar-title:hover {\n  border-color: var(--r34g-line) !important;\n  color: #ffffff !important;\n}\nhtml body #r34g-tags-bar .r34g-tags-bar-title svg {\n  width: 14px;\n  height: 14px;\n}\nhtml body #r34g-tags-bar .r34g-tags-bar-caret {\n  display: inline-block;\n  color: var(--r34g-text-soft);\n  font-size: 10px;\n  transition: transform .15s ease;\n}\nhtml body #r34g-tags-bar.r34g-tags-bar-on .r34g-tags-bar-caret {\n  transform: rotate(90deg);\n}\nhtml body #r34g-tags-bar > .r34g-note {\n  flex: 1 1 auto;\n  min-width: 0;\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  text-align: right;\n}\nhtml body #r34g-tags-bar .r34g-mini {\n  flex: 0 0 auto;\n}\nhtml body #r34g-tags-bar #r34g-tags-panel {\n  flex: 1 1 100%;\n  max-width: none;\n  margin: 4px 0 2px !important;\n}\n\nhtml body #r34g-grid-bar {\n  display: flex !important;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n  margin: 0 0 10px !important;\n  padding: 5px 9px !important;\n  border: 1px solid var(--r34g-line);\n  border-radius: 8px;\n  background: rgba(20, 26, 20, .9);\n  text-align: left;\n  font: 11.5px verdana, sans-serif;\n}\nhtml[data-r34g-gridbar=\"off\"] body #r34g-grid-bar {\n  display: none !important;\n}\nhtml body .r34g-grid-label {\n  color: var(--r34g-text-soft);\n  text-transform: uppercase;\n  letter-spacing: .04em;\n  font-size: 10.5px;\n}\nhtml body .r34g-grid-btn {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  min-width: 22px;\n  padding: 2px 7px !important;\n  margin: 0 !important;\n  border: 1px solid var(--r34g-line) !important;\n  border-radius: 5px !important;\n  background: var(--r34g-bg-alt) !important;\n  color: var(--r34g-text) !important;\n  font: 11.5px verdana, sans-serif !important;\n  line-height: 1.35 !important;\n  cursor: pointer;\n}\nhtml body .r34g-grid-btn:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #fff !important;\n}\nhtml body .r34g-grid-range {\n  -webkit-appearance: none !important;\n  appearance: none !important;\n  width: 132px !important;\n  height: 4px !important;\n  margin: 0 !important;\n  padding: 0 !important;\n  border: 0 !important;\n  border-radius: 3px !important;\n  background: #465046 !important;\n  cursor: pointer;\n}\nhtml body .r34g-grid-range:focus {\n  outline: none !important;\n}\nhtml body .r34g-grid-range::-webkit-slider-thumb {\n  -webkit-appearance: none !important;\n  appearance: none !important;\n  width: 13px !important;\n  height: 13px !important;\n  border: 1px solid rgba(255, 255, 255, .4) !important;\n  border-radius: 50% !important;\n  background: var(--r34g-link, #b0e0b0) !important;\n  cursor: pointer;\n}\nhtml body .r34g-grid-range::-moz-range-thumb {\n  width: 12px !important;\n  height: 12px !important;\n  border: 1px solid rgba(255, 255, 255, .4) !important;\n  border-radius: 50% !important;\n  background: var(--r34g-link, #b0e0b0) !important;\n  cursor: pointer;\n}\nhtml body .r34g-grid-val {\n  min-width: 96px;\n  color: var(--r34g-link);\n  font: 11.5px monospace;\n}\n\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-sel-box {\n  width: 20px;\n  height: 20px;\n  left: 7px;\n  top: 33px;\n  border-radius: 5px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-sel-box svg {\n  width: 13px;\n  height: 13px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-dl-btn {\n  width: 20px;\n  height: 20px;\n  left: 7px;\n  top: 33px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-dl-btn svg {\n  width: 12px;\n  height: 12px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-seen-badge {\n  width: 20px;\n  height: 20px;\n  top: 5px;\n  right: 5px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-seen-badge svg {\n  width: 13px;\n  height: 13px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-dl-badge {\n  width: 17px;\n  height: 17px;\n  top: 27px;\n  right: 5px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-dl-badge svg {\n  width: 11px;\n  height: 11px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb > a > .score-info {\n  display: none !important;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-meta {\n  display: none !important;\n}\n\nhtml body #r34g-dl-batch {\n  display: flex !important;\n  align-items: center;\n  gap: 10px;\n  margin: 0 0 12px !important;\n  text-align: left;\n}\n\nhtml body .image-list .thumb .r34g-sel-box {\n  position: absolute;\n  left: 7px;\n  top: 34px;\n  z-index: 6;\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 24px;\n  height: 24px;\n  padding: 0 !important;\n  margin: 0 !important;\n  border: 1px solid rgba(255, 255, 255, .38) !important;\n  border-radius: 6px;\n  background: rgba(10, 14, 10, .72);\n  color: #e6f6e6;\n  cursor: pointer;\n  opacity: 0;\n  transform: translateY(-3px);\n  transition: opacity .16s, transform .16s, background .16s, border-color .16s;\n  pointer-events: none;\n}\nhtml body.r34g-selecting .image-list .thumb .r34g-sel-box {\n  opacity: 1;\n  transform: none;\n  pointer-events: auto;\n}\nhtml body.r34g-selecting .image-list .thumb .r34g-dl-btn {\n  display: none !important;\n}\nhtml body .image-list .thumb .r34g-sel-box svg {\n  width: 15px;\n  height: 15px;\n  opacity: 0;\n  transition: opacity .12s;\n}\nhtml body .image-list .thumb .r34g-sel-box:hover {\n  border-color: var(--r34g-accent) !important;\n  background: rgba(30, 46, 30, .92);\n}\nhtml body .image-list .thumb .r34g-sel-box.r34g-on {\n  background: #3f7a44;\n  border-color: #a8ddac !important;\n  color: #ffffff;\n}\nhtml body .image-list .thumb .r34g-sel-box.r34g-on svg {\n  opacity: 1;\n}\nhtml body.r34g-selecting .image-list .thumb.r34g-picked > a::before {\n  content: \"\";\n  position: absolute;\n  inset: 0;\n  z-index: 3;\n  pointer-events: none;\n  box-shadow: inset 0 0 0 3px rgba(150, 226, 160, .9);\n  border-radius: var(--r34g-radius);\n}\nhtml body .r34g-sel-note {\n  color: var(--r34g-link);\n  font-size: 11.5px;\n  font-weight: bold;\n}\nhtml body #r34g-dl-selpill {\n  position: fixed !important;\n  right: 18px !important;\n  bottom: 18px !important;\n  z-index: calc(var(--r34g-z) - 3) !important;\n  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  gap: 8px;\n  max-width: 620px;\n  padding: 8px 10px !important;\n  border: 1px solid var(--r34g-line);\n  border-radius: 10px;\n  background: rgba(18, 24, 18, .97);\n  color: var(--r34g-text);\n  box-shadow: var(--r34g-shadow);\n  font: 11.5px verdana, sans-serif;\n  text-align: left;\n}\nhtml body #r34g-dl-selpill .r34g-selpill-info {\n  color: var(--r34g-text-soft);\n}\nhtml body #r34g-dl-selpill .r34g-selpill-info b {\n  color: var(--r34g-link);\n  font-size: 14px;\n}\nhtml body #r34g-dl-selpill .r34g-selpill-x {\n  padding: 6px 9px !important;\n}\nhtml body #r34g-dl-selpill .r34g-selpill-info {\n  display: inline-flex !important;\n  align-items: baseline;\n  gap: 5px;\n  padding: 3px 8px !important;\n  margin: 0 !important;\n  border: 1px solid transparent !important;\n  border-radius: 6px !important;\n  background: transparent !important;\n  color: var(--r34g-text-soft) !important;\n  font: inherit !important;\n  cursor: pointer;\n}\nhtml body #r34g-dl-selpill .r34g-selpill-info:hover {\n  border-color: var(--r34g-line) !important;\n  color: #ffffff !important;\n}\nhtml body button.r34g-sel-note {\n  padding: 3px 8px !important;\n  margin: 0 !important;\n  border: 1px solid transparent !important;\n  border-radius: 6px !important;\n  background: transparent !important;\n  color: var(--r34g-link) !important;\n  font: bold 11.5px verdana, sans-serif !important;\n  cursor: pointer;\n}\nhtml body button.r34g-sel-note:hover {\n  border-color: var(--r34g-line) !important;\n  color: #ffffff !important;\n}\nhtml body #r34g-dl-batch .r34g-selgo {\n  background: linear-gradient(#3d4b3d, #2f3b2f) !important;\n  border-color: var(--r34g-accent) !important;\n  color: var(--r34g-link) !important;\n}\n\n/* ---- Descargas: lista de lo seleccionado ---- */\nhtml body #r34g-dl-selpanel {\n  position: fixed !important;\n  right: 18px !important;\n  bottom: 78px !important;\n  z-index: calc(var(--r34g-z) - 3) !important;\n  display: flex;\n  flex-direction: column;\n  width: 370px;\n  max-width: 48vw;\n  max-height: 52vh;\n  border: 1px solid var(--r34g-line);\n  border-radius: 10px;\n  background: rgba(18, 24, 18, .97);\n  color: var(--r34g-text);\n  box-shadow: var(--r34g-shadow);\n  font: 11.5px verdana, sans-serif;\n  text-align: left;\n}\nhtml body .r34g-dlsp-head {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  padding: 7px 9px;\n  border-bottom: 1px solid var(--r34g-line);\n}\nhtml body .r34g-dlsp-head b {\n  color: var(--r34g-link);\n  font-size: 12.5px;\n}\nhtml body .r34g-dlsp-count {\n  flex: 1;\n  color: var(--r34g-text-soft);\n  font-size: 10.5px;\n}\nhtml body .r34g-dlsp-head .r34g-mini,\nhtml body .r34g-dlsp-x {\n  padding: 3px 8px !important;\n  margin: 0 !important;\n  border: 1px solid var(--r34g-line) !important;\n  border-radius: 6px !important;\n  background: var(--r34g-bg-alt) !important;\n  color: var(--r34g-text) !important;\n  font: 11px verdana, sans-serif !important;\n  line-height: 1.2 !important;\n  cursor: pointer;\n}\nhtml body .r34g-dlsp-head .r34g-mini:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #ffffff !important;\n}\nhtml body .r34g-dlsp-x:hover {\n  border-color: #ff8f8f !important;\n  color: #ffd0d0 !important;\n}\nhtml body .r34g-dlsp-list {\n  overflow: auto;\n  padding: 4px 0;\n}\nhtml body .r34g-dlsp-item {\n  display: grid;\n  grid-template-columns: 46px 1fr auto;\n  gap: 8px;\n  align-items: center;\n  padding: 4px 9px;\n}\nhtml body .r34g-dlsp-thumb {\n  display: block;\n  width: 46px;\n  height: 34px;\n  object-fit: cover;\n  border-radius: 4px;\n  background: rgba(255, 255, 255, .07);\n}\nhtml body .r34g-dlsp-info {\n  display: flex;\n  flex-direction: column;\n  overflow: hidden;\n}\nhtml body .r34g-dlsp-info b {\n  color: #dbe6db;\n  font-size: 11.5px;\n}\nhtml body .r34g-dlsp-tags {\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  color: var(--r34g-text-soft);\n  font-size: 10px;\n}\nhtml body .r34g-dlsp-item.r34g-dlsp-other .r34g-dlsp-info b {\n  color: #ffd479;\n}\nhtml body .r34g-dlsp-foot {\n  display: flex;\n  gap: 8px;\n  padding: 7px 9px;\n  border-top: 1px solid var(--r34g-line);\n}\nhtml body .r34g-dlg-sel {\n  padding: 9px 11px;\n  margin: 0 0 10px;\n  border: 1px solid var(--r34g-accent);\n  border-radius: 8px;\n  background: rgba(60, 84, 60, .28);\n}\nhtml body .r34g-dlg-sel > b {\n  color: var(--r34g-link);\n  font-size: 12.5px;\n}\nhtml body .r34g-dlg-sel .r34g-dlg-actions {\n  justify-content: flex-start;\n  margin-top: 8px;\n}\nhtml body .r34g-dlg-sel .r34g-hint {\n  margin: 8px 0 0;\n}\nhtml body .r34g-dlg-est {\n  margin: 0 0 10px !important;\n  color: #ffd479;\n  font-weight: bold;\n}\nhtml body .r34g-btn[disabled] {\n  opacity: .5;\n  cursor: default;\n}\n\nhtml body #r34g-dlq {\n  position: fixed !important;\n  left: 18px !important;\n  bottom: 18px !important;\n  z-index: calc(var(--r34g-z) - 3) !important;\n  display: flex;\n  flex-direction: column;\n  width: 340px;\n  max-width: 46vw;\n  max-height: 44vh;\n  border: 1px solid var(--r34g-line);\n  border-radius: 10px;\n  background: rgba(18, 24, 18, .97);\n  color: var(--r34g-text);\n  box-shadow: var(--r34g-shadow);\n  font: 11.5px verdana, sans-serif;\n  text-align: left;\n}\nhtml body .r34g-dlq-head {\n  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  gap: 8px;\n  padding: 7px 9px;\n  border-bottom: 1px solid var(--r34g-line);\n}\nhtml body .r34g-dlq-head b {\n  color: var(--r34g-link);\n  font-size: 12.5px;\n}\nhtml body .r34g-dlq-count {\n  flex: 1;\n  min-width: 0;\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  color: var(--r34g-text-soft);\n}\nhtml body .r34g-dlq-list {\n  overflow: auto;\n  padding: 4px 0;\n}\nhtml body .r34g-dlq-item {\n  display: grid;\n  grid-template-columns: 1fr 70px;\n  gap: 3px 8px;\n  align-items: center;\n  padding: 5px 9px;\n}\nhtml body .r34g-dlq-name {\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  color: #dbe6db;\n}\nhtml body .r34g-dlq-state {\n  grid-column: 1 / -1;\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  color: var(--r34g-text-soft);\n  font-size: 10.5px;\n}\nhtml body .r34g-dlq-bar {\n  height: 6px;\n  border-radius: 4px;\n  background: rgba(255, 255, 255, .1);\n  overflow: hidden;\n}\nhtml body .r34g-dlq-bar > i {\n  display: block;\n  width: 0;\n  height: 100%;\n  background: linear-gradient(90deg, #6f9a6f, #a9d3a9);\n  transition: width .2s ease;\n}\nhtml body .r34g-dlq-item[data-state=\"error\"] .r34g-dlq-state { color: #ffb3ae; }\nhtml body .r34g-dlq-item[data-state=\"done\"] .r34g-dlq-state { color: #a9f0a9; }\nhtml body .r34g-dlq-item[data-state=\"skip\"] .r34g-dlq-state,\nhtml body .r34g-dlq-item[data-state=\"open\"] .r34g-dlq-state { color: #ffd479; }\nhtml body .r34g-dlq-item[data-state=\"hold\"] .r34g-dlq-state { color: #ffd479; }\nhtml body .r34g-dlq-item[data-state=\"hold\"] .r34g-dlq-bar > i {\n  background: repeating-linear-gradient(45deg, #6f7a6f 0 6px, #8b968b 6px 12px);\n}\n\nhtml body .r34g-dlq-restore {\n  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  gap: 6px;\n  margin: 7px 9px 3px;\n  padding: 6px 8px;\n  border: 1px solid rgba(255, 212, 121, .4);\n  border-radius: 8px;\n  background: rgba(255, 212, 121, .09);\n}\nhtml body .r34g-dlq-restore[hidden] {\n  display: none !important;\n}\nhtml body .r34g-dlq-restore-txt {\n  flex: 1 1 100%;\n  color: #ffd479;\n  font-size: 11px;\n  line-height: 1.35;\n}\n\nhtml body .r34g-dlg {\n  position: fixed !important;\n  inset: 0;\n  z-index: 2147482090 !important;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  padding: 20px;\n  background: rgba(6, 9, 6, .62);\n}\nhtml body .r34g-dlg-box {\n  width: 430px;\n  max-width: 92vw;\n  max-height: 86vh;\n  overflow: auto;\n  padding: 16px 18px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 10px;\n  background: var(--r34g-bg);\n  color: var(--r34g-text);\n  box-shadow: var(--r34g-shadow);\n  font: 12px/1.5 verdana, sans-serif;\n  text-align: left;\n}\nhtml body .r34g-dlg-box.r34g-dlg-wide {\n  width: 620px;\n}\nhtml body .r34g-dlg-box h5 {\n  margin: 0 0 8px;\n  color: var(--r34g-link);\n  font-size: 14px;\n}\nhtml body .r34g-dlg-box p {\n  margin: 0 0 9px;\n}\nhtml body .r34g-dlg-head {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  margin-bottom: 10px;\n}\nhtml body .r34g-dlg-head b {\n  flex: 1;\n  color: var(--r34g-link);\n  font-size: 14px;\n}\nhtml body .r34g-dlg .r34g-close {\n  padding: 0 6px !important;\n  border: 0 !important;\n  background: transparent !important;\n  color: var(--r34g-text-soft) !important;\n  font: bold 18px/1 verdana, sans-serif !important;\n  cursor: pointer;\n}\nhtml body .r34g-dlg .r34g-close:hover {\n  color: #ffffff !important;\n}\nhtml body .r34g-dlg-row {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  margin: 0 0 8px;\n}\nhtml body .r34g-dlg-row input[type=\"number\"] {\n  width: 72px;\n  padding: 3px 7px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 5px;\n  background: var(--r34g-bg-alt);\n  color: var(--r34g-text);\n  font: 12px verdana, sans-serif;\n}\nhtml body .r34g-dlg-actions {\n  display: flex;\n  flex-wrap: wrap;\n  justify-content: flex-end;\n  gap: 8px;\n  margin-top: 12px;\n}\nhtml body .r34g-dlg-status {\n  min-height: 16px;\n  color: var(--r34g-text-soft);\n  font-size: 11.5px;\n}\nhtml body #r34g-warn .r34g-notes {\n  margin: 0 0 10px 18px;\n  padding: 0;\n  color: var(--r34g-text-soft);\n  font-size: 11.5px;\n}\nhtml body #r34g-warn .r34g-hint {\n  color: var(--r34g-text-soft);\n  font-size: 11.5px;\n}\n\n/* ---- Vista rápida: la imagen o el vídeo encima de la galería ---- */\nhtml body.r34g-lb-open {\n  overflow: hidden !important;\n}\nhtml body #r34g-lb {\n  position: fixed !important;\n  inset: 0;\n  z-index: calc(var(--r34g-z) + 60) !important;\n  display: flex;\n  flex-direction: column;\n  background: rgba(7, 10, 7, .95);\n  color: #e8f2e8;\n  font: 12px verdana, sans-serif;\n  text-align: left;\n}\nhtml body #r34g-lb .r34g-lb-top {\n  display: flex;\n  align-items: center;\n  gap: 10px;\n  padding: 8px 12px;\n  border-bottom: 1px solid var(--r34g-line);\n  background: rgba(18, 24, 18, .92);\n}\nhtml body #r34g-lb .r34g-lb-pos {\n  color: var(--r34g-link);\n  font-size: 13px;\n  font-weight: bold;\n}\nhtml body #r34g-lb .r34g-lb-id {\n  color: #dbe6db;\n  font-weight: bold;\n}\nhtml body #r34g-lb .r34g-lb-seen {\n  color: #a9f0a9;\n  font-size: 11px;\n}\nhtml body #r34g-lb .r34g-lb-tags {\n  flex: 1 1 auto;\n  min-width: 0;\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  color: var(--r34g-text-soft);\n  font-size: 11px;\n}\nhtml body #r34g-lb .r34g-lb-gap {\n  display: none;\n}\nhtml body #r34g-lb a.r34g-btn {\n  text-decoration: none !important;\n}\nhtml body #r34g-lb .r34g-lb-stage {\n  position: relative;\n  flex: 1 1 auto;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  min-height: 0;\n  padding: 12px 58px;\n}\nhtml body #r34g-lb .r34g-lb-media {\n  position: relative;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  width: 100%;\n  height: 100%;\n}\nhtml body #r34g-lb .r34g-lb-media img,\nhtml body #r34g-lb .r34g-lb-media video {\n  max-width: 100%;\n  max-height: 100%;\n  border-radius: 6px;\n  background: #05070a;\n  box-shadow: 0 12px 44px rgba(0, 0, 0, .6);\n}\nhtml body #r34g-lb .r34g-lb-media video {\n  outline: none;\n}\nhtml body #r34g-lb .r34g-lb-img {\n  cursor: zoom-in;\n  object-fit: contain;\n}\nhtml body #r34g-lb .r34g-lb-quick {\n  filter: blur(1.5px);\n}\nhtml body #r34g-lb .r34g-lb-stage.r34g-lb-zoom {\n  align-items: flex-start;\n  justify-content: flex-start;\n  overflow: auto;\n}\nhtml body #r34g-lb .r34g-lb-stage.r34g-lb-zoom .r34g-lb-media {\n  width: auto;\n  height: auto;\n  min-width: 100%;\n  min-height: 100%;\n}\nhtml body #r34g-lb .r34g-lb-stage.r34g-lb-zoom .r34g-lb-img {\n  max-width: none;\n  max-height: none;\n  cursor: zoom-out;\n}\nhtml body #r34g-lb .r34g-lb-nav {\n  position: absolute !important;\n  top: 50%;\n  transform: translateY(-50%);\n  width: 44px;\n  height: 86px;\n  padding: 0 !important;\n  margin: 0 !important;\n  border: 1px solid var(--r34g-line) !important;\n  border-radius: 8px;\n  background: rgba(18, 24, 18, .84) !important;\n  color: var(--r34g-link) !important;\n  font: bold 30px/1 verdana, sans-serif !important;\n  cursor: pointer;\n}\nhtml body #r34g-lb .r34g-lb-nav:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #ffffff !important;\n}\nhtml body #r34g-lb .r34g-lb-prev {\n  left: 7px;\n}\nhtml body #r34g-lb .r34g-lb-next {\n  right: 7px;\n}\nhtml body #r34g-lb .r34g-lb-foot {\n  display: flex;\n  align-items: center;\n  gap: 12px;\n  padding: 7px 12px;\n  border-top: 1px solid var(--r34g-line);\n  background: rgba(18, 24, 18, .92);\n  color: var(--r34g-text-soft);\n  font-size: 11px;\n}\nhtml body #r34g-lb .r34g-lb-file {\n  color: #dbe6db;\n}\nhtml body #r34g-lb .r34g-lb-keys {\n  flex: 1 1 auto;\n  text-align: right;\n}\nhtml body #r34g-lb .r34g-lb-note {\n  position: absolute;\n  top: 50%;\n  left: 50%;\n  transform: translate(-50%, -50%);\n  display: flex;\n  align-items: center;\n  gap: 9px;\n  padding: 10px 14px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 8px;\n  background: rgba(18, 24, 18, .94);\n  color: var(--r34g-text);\n  font-size: 12px;\n}\nhtml body #r34g-lb .r34g-lb-note.r34g-lb-bad {\n  color: #ffb3ae;\n  border-color: #6c4040;\n}\n";
   var style = document.createElement("style");
   style.id = "r34g-styles";
   style.textContent = css;
@@ -39,7 +39,7 @@
   if (R.core) return;
   R.core = true;
 
-  R.VERSION = "0.8.4";
+  R.VERSION = "0.8.8";
   R.NAME = "Rule34 Gallery Suite";
 
   var SETTINGS_KEY = "r34g.settings.v2";
@@ -85,6 +85,8 @@
     tKey: "",
     tPromptFmt: "comas",
     tPromptArt: true,
+    tPromptArtPos: "first",
+    tPromptArtW: "1",
     tPromptMeta: false,
     tPromptPre: "",
     tPromptSuf: "",
@@ -1996,8 +1998,9 @@
     });
     var runAi = util.el("button", "r34g-mini", "Analizar con IA");
     runAi.type = "button";
-    runAi.title = "Usa el motor de IA configurado en Ajustes \u2192 Etiquetas";
+    runAi.title = "Usa la IA para repartir y afinar las etiquetas. De f\u00e1brica es gratis y no hay que configurar nada";
     runAi.addEventListener("click", function () {
+      if (R.ai && R.ai.warm) R.ai.warm();
       runAnalysis(true);
     });
     bar.appendChild(run);
@@ -3358,41 +3361,49 @@
     "Eres un experto en etiquetado de imageboards (rule34). Recibes las etiquetas de un post y la lista de personajes detectados.",
     "Haz tres cosas:",
     "1) Reparte las etiquetas generales entre los personajes a los que describen realmente. Si una etiqueta describe a varios personajes o a la escena en general, ponla en \"shared\". Si describe a uno solo, ponla con ese personaje.",
-    "2) Detecta etiquetas redundantes (sinónimos, singular/plural, o una que ya queda cubierta por otra con más posts) y ponlas en \"discard\" indicando con \"kept\" la etiqueta que se queda.",
-    "3) Escribe en \"prompt\" un prompt en inglés de una sola línea, separado por comas, para pegar en una app de generación de imágenes: primero el sujeto y su apariencia, después la escena y las acciones, luego la serie y al final el estilo o el artista. No repitas etiquetas, no juntes sinónimos de lo mismo y deja fuera las etiquetas de medio o formato (video, webm, animated, sound, watermark).",
+    "2) Detecta etiquetas redundantes (sinónimos, singular/plural, o una que ya queda cubierta por otra con más posts) y ponlas en \"discard\" indicando con \"kept\" la etiqueta que se queda. Las etiquetas que el mensaje marca como ya descartadas por las reglas locales no las incluyas en \"characters\" ni en \"shared\", y no las repitas en \"discard\".",
+    "3) Escribe en \"prompt\" un prompt en inglés de una sola línea, separado por comas, para pegar en una app de generación de imágenes: empieza por el artista (si lo hay, puesto delante es lo que más fija su estilo), después el sujeto y su apariencia, luego la escena y las acciones y al final la serie. No repitas etiquetas, no juntes sinónimos de lo mismo y deja fuera las etiquetas de medio o formato (video, webm, animated, sound, watermark).",
     "No inventes etiquetas que no estén en la lista. Responde SOLO con JSON válido, sin texto adicional, con esta forma exacta:",
     '{"characters":[{"tag":"tag_del_personaje","tags":["..."]}],"shared":["..."],"discard":[{"tag":"...","kept":"..."}],"prompt":"prompt en inglés separado por comas","notas":"..."}'
   ].join(" ");
 
-  // Cualquier endpoint compatible con OpenAI sirve. Los tres primeros tienen nivel gratuito
-  // (con clave gratuita) y suelen ir mejor que la cola p\u00fablica de Pollinations.
+  // Cualquier endpoint compatible con OpenAI sirve. Los dos primeros son gratis y no piden nada:
+  // el puente de Perchance (usa este generador de relevo) y Pollinations; los dem\u00e1s, si acaso, con
+  // su clave gratuita.
   // El compilador sustituye "on" por "on" u "off" según el panel Proyecto.
   var BRIDGE_MODE = "on";
 
   var AI_PROVIDERS = [
     {
+      value: "perchance",
+      label: "IA de Perchance (gratis, sin clave)",
+      free: true,
+      bridge: true
+    },
+    {
+      value: "pollinations",
+      label: "Pollinations (gratis, sin clave)",
+      endpoint: "https://text.pollinations.ai/openai",
+      model: "openai",
+      free: true
+    },
+    {
       value: "groq",
-      label: "Groq (nivel gratis)",
+      label: "Groq (nivel gratis, con clave)",
       endpoint: "https://api.groq.com/openai/v1/chat/completions",
       model: "llama-3.1-8b-instant"
     },
     {
       value: "gemini",
-      label: "Google Gemini (nivel gratis)",
+      label: "Google Gemini (nivel gratis, con clave)",
       endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
       model: "gemini-2.0-flash"
     },
     {
       value: "openrouter",
-      label: "OpenRouter (modelos :free)",
+      label: "OpenRouter (modelos :free, con clave)",
       endpoint: "https://openrouter.ai/api/v1/chat/completions",
       model: "meta-llama/llama-3.1-8b-instruct:free"
-    },
-    {
-      value: "pollinations",
-      label: "Pollinations (sin clave, con cola)",
-      endpoint: "https://text.pollinations.ai/openai",
-      model: "openai"
     },
     {
       value: "openai",
@@ -3412,19 +3423,20 @@
       endpoint: "http://localhost:11434/v1/chat/completions",
       model: "llama3.1"
     },
-    {
-      value: "perchance",
-      label: "IA de Perchance (gratis, sin clave)",
-      bridge: true
-    },
     { value: "custom", label: "Personalizado" }
   ];
 
-  function providerOf(endpoint) {
-    var found = AI_PROVIDERS.filter(function (p) {
-      return p.endpoint && p.endpoint === endpoint;
-    })[0];
-    return found ? found.value : "custom";
+  // Los proveedores que funcionan sin configurar nada (sin clave y sin registro).
+  function keylessProviders() {
+    return AI_PROVIDERS.filter(function (p) {
+      return p.free;
+    });
+  }
+
+  function providerShort(value) {
+    var p = providerByKey(value);
+    if (!p) return String(value);
+    return p.label.replace(/\s*\([^)]*\)\s*$/, "");
   }
 
   function providerByKey(key) {
@@ -3433,18 +3445,53 @@
     })[0];
   }
 
+  // Versi\u00f3n del bloque de IA guardado en el navegador: al subirla se aplican las mejoras de golpe
+  // (la instrucci\u00f3n nueva, el motor gratuito por defecto) sin que el usuario toque nada.
+  var AI_VERSION = 3;
+
+  // Gratis y sin configurar nada: el puente de Perchance si la copia lo lleva; si no, Pollinations.
+  function freeDefault() {
+    return BRIDGE_MODE !== "off" ? "perchance" : "pollinations";
+  }
+
+  // Marca de la instrucci\u00f3n actual: si la guardada no la lleva (y el usuario no la edit\u00f3 a mano), es
+  // una versi\u00f3n vieja de la de por defecto y se cambia por la nueva.
+  var AI_INSTRUCTION_MARK = "ya descartadas por las reglas locales";
+
+  // La instrucci\u00f3n guardada puede ser una versi\u00f3n vieja de la de por defecto (por ejemplo, la que
+  // todav\u00eda no ped\u00eda el prompt). Si el usuario no la edit\u00f3, se cambia por la actual.
+  function legacyInstruction(text) {
+    if (!text) return true;
+    var s = String(text);
+    if (s.indexOf('"prompt"') === -1) return true;
+    return s.indexOf(AI_INSTRUCTION_MARK) === -1;
+  }
+
   function loadAI() {
     var stored = null;
     try {
       stored = JSON.parse(localStorage.getItem(AI_KEY) || "null");
     } catch (e) {}
     var cfg = stored && typeof stored === "object" ? stored : {};
+    var migrated = false;
+    if ((Number(cfg.v) || 0) < AI_VERSION) {
+      if (!cfg.customInstruction && legacyInstruction(cfg.instruction)) cfg.instruction = AI_DEFAULT_INSTRUCTION;
+      if (cfg.provider === "pollinations" && !cfg.key && BRIDGE_MODE !== "off") cfg.provider = "perchance";
+      cfg.v = AI_VERSION;
+      migrated = true;
+    }
     cfg.endpoint = cfg.endpoint || R.settings.tEndpoint || "https://text.pollinations.ai/openai";
     cfg.model = cfg.model || "openai";
     cfg.key = cfg.key || "";
     cfg.instruction = cfg.instruction || AI_DEFAULT_INSTRUCTION;
-    cfg.provider = cfg.provider || providerOf(cfg.endpoint);
+    cfg.provider = cfg.provider || freeDefault();
     cfg.bridge = cfg.bridge || R.settings.tBridge || "";
+    cfg.v = AI_VERSION;
+    if (migrated) {
+      try {
+        localStorage.setItem(AI_KEY, JSON.stringify(cfg));
+      } catch (e) {}
+    }
     return cfg;
   }
 
@@ -3520,6 +3567,10 @@
     } catch (e) {}
   };
 
+  // El panel de Ajustes se engancha aqu\u00ed para ense\u00f1ar solo los campos que hacen falta con el
+  // proveedor elegido (el puente de Perchance solo pide su direcci\u00f3n; los gratuitos, nada).
+  var providerSync = null;
+
   ai.applyProvider = function (value) {
     ai.config.provider = value;
     var p = providerByKey(value);
@@ -3529,6 +3580,7 @@
     }
     ai.save();
     if (R.refreshControls) R.refreshControls();
+    if (providerSync) providerSync();
   };
 
   // Puente con este mismo generador de Perchance: el userscript abre su p\u00e1gina en un iframe
@@ -3573,20 +3625,39 @@
     });
     return new Promise(function (resolve, reject) {
       var id = "r34g-" + ++bridgeSeq + "-" + Date.now();
-      var timer = setTimeout(function () {
+      var done = false;
+      var entry = { res: resolve, rej: reject };
+      // Una sola salida: o contesta el generador, o salta el aviso de que no carg\u00f3, o se agota el tiempo.
+      var settle = function (fn) {
+        if (done) return;
+        done = true;
         delete bridgeWaiting[id];
-        reject(new Error("la IA de Perchance no respondi\u00f3 a tiempo"));
+        clearTimeout(entry.timer);
+        clearTimeout(entry.guard);
+        fn();
+      };
+      entry.timer = setTimeout(function () {
+        settle(function () {
+          reject(new Error("la IA de Perchance tard\u00f3 demasiado en responder"));
+        });
       }, 120000);
-      bridgeWaiting[id] = { res: resolve, rej: reject, timer: timer };
+      entry.guard = setTimeout(function () {
+        if (entry.sent) return;
+        settle(function () {
+          reject(new Error("el generador de Perchance no carg\u00f3 (\u00bfest\u00e1 guardado y es p\u00fablico?)"));
+        });
+      }, 30000);
+      entry.settle = settle;
+      bridgeWaiting[id] = entry;
       var frame = bridgeFrameFor(url);
       var send = function () {
-        if (!bridgeWaiting[id]) return;
+        entry.sent = true;
         try {
           frame.contentWindow.postMessage({ r34g: "ai-request", id: id, system: system, user: user }, "*");
         } catch (e) {
-          clearTimeout(timer);
-          delete bridgeWaiting[id];
-          reject(new Error("no se pudo hablar con el generador"));
+          settle(function () {
+            reject(new Error("no se pudo hablar con el generador"));
+          });
         }
       };
       if (frame.dataset.r34gReady === "1") setTimeout(send, 250);
@@ -3602,33 +3673,101 @@
     if (!/\.perchance\.org$/.test((e.origin || "").replace(/^https?:\/\//, ""))) return;
     var w = bridgeWaiting[d.id];
     if (!w) return;
-    clearTimeout(w.timer);
-    delete bridgeWaiting[d.id];
-    if (d.error) w.rej(new Error(String(d.error).slice(0, 180)));
-    else w.res(String(d.text == null ? "" : d.text));
+    w.settle(function () {
+      if (d.error) w.rej(new Error(String(d.error).slice(0, 180)));
+      else w.res(String(d.text == null ? "" : d.text));
+    });
   });
 
-  // Proveedor "IA de Perchance" con red de seguridad: si el generador no responde (privado,
-  // renombrado o borrado), seguimos con Pollinations, que es gratis y no pide clave.
-  function perchanceAsk(messages) {
-    return bridgeAsk(messages).catch(function (err) {
-      util.toast("La IA de Perchance no respondi\u00f3 (" + ((err && err.message) || err) + "). Sigo con Pollinations, que no necesita clave.");
-      return directAsk(FALLBACK, messages);
+  // El iframe del puente tarda en cargar la p\u00e1gina del generador la primera vez. Arrancarlo un poco
+  // antes (al abrir el an\u00e1lisis) evita que esa espera se sume a la consulta.
+  ai.warm = function () {
+    try {
+      if (BRIDGE_MODE !== "off") {
+        var url = bridgeUrl();
+        if (url) bridgeFrameFor(url);
+      }
+    } catch (e) {}
+  };
+
+  // Transporte http. En rule34.xxx el script corre bajo Tampermonkey, as\u00ed que si hay
+  // GM_xmlhttpRequest se usa \u00e9l: la petici\u00f3n sale por el gestor de userscripts y se salta el CORS del
+  // sitio. En el laboratorio (o si el gestor no lo ofrece) se usa fetch normal.
+  function gmXhr() {
+    try {
+      if (typeof GM_xmlhttpRequest === "function") return GM_xmlhttpRequest;
+    } catch (e) {}
+    try {
+      if (typeof window !== "undefined" && typeof window.GM_xmlhttpRequest === "function") return window.GM_xmlhttpRequest;
+    } catch (e) {}
+    return null;
+  }
+
+  function hostOf(url) {
+    return String(url || "")
+      .replace(/^https?:\/\//i, "")
+      .split("/")[0];
+  }
+
+  function viaFetch(url, headers, body) {
+    return fetch(url, { method: "POST", headers: headers, body: body }).then(function (res) {
+      return res.text().then(function (text) {
+        return { status: res.status, ok: res.ok, text: text };
+      });
     });
   }
 
-  // Petición directa a un endpoint compatible con OpenAI (Groq, Gemini, OpenRouter, Pollinations…).
+  function httpPost(url, headers, body) {
+    var gm = gmXhr();
+    if (!gm) return viaFetch(url, headers, body);
+    return new Promise(function (resolve, reject) {
+      var done = false;
+      var finish = function (fn) {
+        if (done) return;
+        done = true;
+        fn();
+      };
+      try {
+        gm({
+          method: "POST",
+          url: url,
+          headers: headers,
+          data: body,
+          timeout: 180000,
+          onload: function (res) {
+            finish(function () {
+              var status = Number(res.status) || 0;
+              resolve({ status: status, ok: status >= 200 && status < 300, text: res.responseText || "" });
+            });
+          },
+          onerror: function () {
+            finish(function () {
+              reject(new Error("no se pudo conectar con " + hostOf(url)));
+            });
+          },
+          ontimeout: function () {
+            finish(function () {
+              reject(new Error("se agot\u00f3 el tiempo conectando con " + hostOf(url)));
+            });
+          }
+        });
+      } catch (e) {
+        finish(function () {
+          reject(new Error(String((e && e.message) || e)));
+        });
+      }
+    });
+  }
+
+  // Petici\u00f3n directa a un endpoint compatible con OpenAI (Groq, Gemini, OpenRouter, Pollinations\u2026).
   function directAsk(cfg, messages) {
-    if (!cfg.endpoint) return Promise.reject(new Error("falta la direcci\u00f3n del motor de IA"));
+    if (!cfg || !cfg.endpoint) return Promise.reject(new Error("falta la direcci\u00f3n del motor de IA"));
     var headers = { "Content-Type": "application/json" };
     if (cfg.key) headers.Authorization = "Bearer " + cfg.key;
-    return fetch(cfg.endpoint, {
-      method: "POST",
-      headers: headers,
-      body: JSON.stringify({ model: cfg.model, messages: messages, temperature: 0.2 })
-    }).then(function (res) {
-      if (!res.ok) {
-        return res.text().then(function (body) {
+    return httpPost(cfg.endpoint, headers, JSON.stringify({ model: cfg.model, messages: messages, temperature: 0.2 }))
+      .then(function (res) {
+        if (!res.ok) {
+          var body = res.text || "";
           var detail = "";
           try {
             var j = JSON.parse(body);
@@ -3636,47 +3775,103 @@
             detail = detail ? String(detail) : "";
           } catch (e) {}
           if (!detail) detail = String(body || "").slice(0, 120);
+          if (!res.status) throw new Error("no se pudo conectar con " + hostOf(cfg.endpoint));
           if (res.status === 429) {
-            var wait = res.headers ? res.headers.get("retry-after") : "";
-            throw new Error(
-              "l\u00edmite alcanzado" + (wait ? " (reintentar en " + wait + " s)" : "") + ". Usa el an\u00e1lisis local o cambia de proveedor."
-            );
+            throw new Error("l\u00edmite alcanzado (429). Prueba en un rato, usa el an\u00e1lisis local o cambia de proveedor.");
           }
           if (res.status === 401 || res.status === 403) {
             throw new Error("clave rechazada (" + res.status + "). Rev\u00edsala o cambia de proveedor.");
           }
-          throw new Error("HTTP " + res.status + (detail ? ": " + detail.slice(0, 140) : ""));
-        });
-      }
-      return res.text().then(function (body) {
+          throw new Error("HTTP " + res.status + " en " + hostOf(cfg.endpoint) + (detail ? ": " + detail.slice(0, 140) : ""));
+        }
         var data;
         try {
-          data = JSON.parse(body);
+          data = JSON.parse(res.text);
         } catch (e) {
-          return body;
+          return res.text;
         }
         if (data && data.choices && data.choices[0] && data.choices[0].message) return data.choices[0].message.content || "";
         if (typeof data === "string") return data;
         if (data && typeof data.text === "string") return data.text;
         return JSON.stringify(data);
+      })
+      .catch(function (e) {
+        var msg = (e && e.message) || String(e);
+        if (/failed to fetch|network ?error|load failed|err_/i.test(msg)) {
+          throw new Error("no se pudo conectar con " + hostOf(cfg.endpoint) + " (sin red o bloqueado; puede ser el bloqueador de anuncios)");
+        }
+        throw e;
       });
-    }).catch(function (e) {
-      var msg = (e && e.message) || String(e);
-      if (/failed to fetch|network ?error|load failed|err_/i.test(msg)) {
-        throw new Error("no se pudo conectar (revisa la direcci\u00f3n, la conexi\u00f3n o el CORS del proveedor)");
-      }
-      throw e;
-    });
   }
 
   // Proveedor de reserva: gratis y sin clave.
   var FALLBACK = { endpoint: "https://text.pollinations.ai/openai", model: "openai", key: "" };
 
+  // Config con la que se pregunta a cada proveedor: para el elegido se respeta lo que haya guardado el
+  // usuario (direcci\u00f3n, modelo y clave); los de reserva van con los valores de f\u00e1brica y sin clave.
+  function cfgForProvider(key) {
+    if (key === ai.config.provider && ai.config.endpoint) return ai.config;
+    if (key === "pollinations") return { endpoint: FALLBACK.endpoint, model: FALLBACK.model, key: "" };
+    var p = providerByKey(key);
+    return { endpoint: p && p.endpoint, model: p && p.model, key: "" };
+  }
+
+  // Cadena de intentos: primero lo que eligi\u00f3 el usuario y despu\u00e9s, como red, los proveedores que no
+  // piden nada. As\u00ed \u00abAnalizar con IA\u00bb conecta aunque no se haya configurado absolutamente nada.
+  function askChain() {
+    var chain = [];
+    var primary = ai.config.provider;
+    if (primary === "perchance" && BRIDGE_MODE === "off") primary = "pollinations";
+    chain.push(primary);
+    if (BRIDGE_MODE !== "off") chain.push("perchance");
+    chain.push("pollinations");
+    keylessProviders().forEach(function (p) {
+      if (chain.indexOf(p.value) === -1) chain.push(p.value);
+    });
+    return chain.filter(function (key, n) {
+      return key && chain.indexOf(key) === n;
+    });
+  }
+
+  function askProvider(key, messages) {
+    if (key === "perchance") return bridgeAsk(messages);
+    return directAsk(cfgForProvider(key), messages);
+  }
+
+  function chainError(errors) {
+    if (!errors.length) return new Error("no hay ning\u00fan proveedor de IA disponible");
+    return new Error(
+      errors
+        .map(function (e) {
+          return e.who + ": " + e.msg;
+        })
+        .join(" \u00b7 ")
+    );
+  }
+
   ai.request = function (messages) {
     if (typeof window.__r34gAIHook === "function") return Promise.resolve(window.__r34gAIHook(messages));
-    var cfg = ai.config;
-    if (cfg.provider === "perchance" && BRIDGE_MODE !== "off") return perchanceAsk(messages);
-    return directAsk(cfg, messages);
+    if (ai.warm) ai.warm();
+    var chain = askChain();
+    var errors = [];
+    function attempt(n) {
+      if (n >= chain.length) return Promise.reject(chainError(errors));
+      var key = chain[n];
+      if (n > 0) {
+        util.toast("\u00ab" + providerShort(chain[n - 1]) + "\u00bb no respondi\u00f3; pruebo con \u00ab" + providerShort(key) + "\u00bb\u2026", 2600);
+      }
+      return askProvider(key, messages)
+        .then(function (text) {
+          if (text == null || !String(text).trim()) throw new Error("devolvi\u00f3 una respuesta vac\u00eda");
+          ai.lastProvider = key;
+          return text;
+        })
+        .catch(function (e) {
+          errors.push({ who: providerShort(key), msg: (e && e.message) || String(e) });
+          return attempt(n + 1);
+        });
+    }
+    return attempt(0);
   };
 
   R.ai = ai;
@@ -3719,7 +3914,8 @@
   }
 
   function roleOf(tag) {
-    if (META_TAGS[norm(tag.name)]) return "meta";
+    var n = norm(tag.name);
+    if (META_TAGS[n] || META_TAGS[n.replace(/\s+/g, "_")]) return "meta";
     var t = (tag.type || "").toLowerCase();
     if (t === "character") return "character";
     if (t === "copyright") return "copyright";
@@ -3728,8 +3924,12 @@
     return "general";
   }
 
-  function parse() {
-    var side = document.getElementById("tag-sidebar");
+  // `root` puede ser el documento de la página o cualquier documento/elemento con el panel de
+  // etiquetas dentro (así se puede analizar una copia guardada del post sin abrirla).
+  function parse(root) {
+    root = root || document;
+    var side = root.getElementById ? root.getElementById("tag-sidebar") : null;
+    if (!side) side = root.querySelector ? root.querySelector("#tag-sidebar") : null;
     if (!side) return [];
     var out = [];
     var group = "";
@@ -3887,11 +4087,10 @@
     return { redundant: redundant, related: related, dropped: dropped };
   }
 
-  function analyze(list) {
-    var tags = list.map(function (t) {
-      return { name: t.name, label: t.label || norm(t.name), type: t.type || "", count: t.count || 0, role: t.role || roleOf(t) };
-    });
-    var criterion = R.settings.tRed === "off" ? "none" : R.settings.tRed;
+  // Reglas locales de redundancia: sinónimos, singular/plural y una etiqueta que ya queda cubierta
+  // por otra. Es la única fuente de verdad de lo que sobra: la IA no puede resucitar lo que aquí se
+  // descarta ni descartar la que aquí se queda (si no, cada respuesta suya daría un resultado distinto).
+  function localRedundancy(tags, criterion) {
     var red = criterion === "none" ? { redundant: [], related: [], dropped: {} } : redundancy(tags, criterion);
     if (R.settings.tAlias === false && criterion !== "none") {
       red.redundant = red.redundant.filter(function (item) {
@@ -3903,6 +4102,15 @@
       });
       red.dropped = dropped;
     }
+    return red;
+  }
+
+  function analyze(list) {
+    var tags = list.map(function (t) {
+      return { name: t.name, label: t.label || norm(t.name), type: t.type || "", count: t.count || 0, role: t.role || roleOf(t) };
+    });
+    var criterion = R.settings.tRed === "off" ? "none" : R.settings.tRed;
+    var red = localRedundancy(tags, criterion);
 
     var characters = tags
       .filter(function (t) {
@@ -4023,33 +4231,65 @@
   // Prompt para otras apps (esta suite no genera imágenes). Se arma con las etiquetas que
   // quedan activas en el panel, ordenadas por sujeto, escena, serie, artista y medio, y sin
   // repetir ninguna: una etiqueta que describe a varios personajes no sale dos veces.
+  // (El análisis lo ofrece en Local o redactado por la IA, y el usuario lo copia a su app.)
+  // El artista va primero por defecto: es lo que más pesa para clavar el estilo del dibujante.
+  function artistTokens(result) {
+    var seen = {};
+    var out = [];
+    result.artists.forEach(function (a) {
+      var key = norm(a.name);
+      if (!key || seen[key]) return;
+      seen[key] = 1;
+      out.push(String(a.name).replace(/_/g, " ").replace(/\s+/g, " ").trim());
+    });
+    return out;
+  }
+
+  function artistWeight() {
+    var n = parseInt(R.settings.tPromptArtW, 10);
+    if (isNaN(n) || n < 1) n = 1;
+    if (n > 3) n = 3;
+    return n;
+  }
+
   function promptTags(result) {
     var seen = {};
     var out = [];
     function push(name) {
-      if (!name || result.discarded[name]) return;
+      if (!name || result.discarded[name]) return false;
       var key = norm(name);
-      if (!key || seen[key]) return;
+      if (!key || seen[key]) return false;
       seen[key] = 1;
       out.push(String(name).replace(/_/g, " ").replace(/\s+/g, " ").trim());
+      return true;
     }
+    function pushArtists() {
+      var weight = artistWeight();
+      artistTokens(result).forEach(function (name) {
+        if (!push(name)) return;
+        for (var i = 1; i < weight; i++) out.push(name);
+      });
+    }
+    var withArtist = R.settings.tPromptArt !== false;
+    var artistFirst = R.settings.tPromptArtPos !== "last";
+    if (withArtist && artistFirst) pushArtists();
     result.characters.forEach(function (c) {
       push(c.tag);
       c.tags.forEach(push);
     });
-    var buckets = { general: [], copyright: [], artist: [], meta: [] };
+    var buckets = { general: [], copyright: [], meta: [] };
     result.tags
       .slice()
       .sort(function (a, b) {
         return (b.count || 0) - (a.count || 0);
       })
       .forEach(function (t) {
-        if (t.role === "character") return;
+        if (t.role === "character" || t.role === "artist") return;
         (buckets[t.role] || buckets.general).push(t.name);
       });
     buckets.general.forEach(push);
     buckets.copyright.forEach(push);
-    if (R.settings.tPromptArt !== false) buckets.artist.forEach(push);
+    if (withArtist && !artistFirst) pushArtists();
     if (R.settings.tPromptMeta === true) buckets.meta.forEach(push);
     return out;
   }
@@ -4071,25 +4311,59 @@
   function promptNote(result) {
     var n = promptTags(result).length;
     var bits = [n + (n === 1 ? " etiqueta lista" : " etiquetas listas") + ", sin repetidas"];
-    var out = result.tags.length - n;
-    if (out > 0) bits.push(out + " fuera");
+    var medio = 0;
     if (R.settings.tPromptMeta !== true) {
-      var meta = result.tags.filter(function (t) {
+      medio = result.tags.filter(function (t) {
         return t.role === "meta";
       }).length;
-      if (meta) bits.push(meta + " de medio fuera");
     }
+    var fuera = result.tags.length - n - medio;
+    if (fuera > 0) bits.push(fuera + " fuera del resultado");
+    if (medio > 0) bits.push(medio + " de medio fuera");
     return bits.join(" \u00b7 ");
   }
 
+  // "ai" = el usuario pidió el prompt a la IA; "local" = el que arma el análisis aquí. Mientras la IA
+  // responde, la elección sigue siendo "ai" (aunque todavía no haya texto): así la pestaña no se cae
+  // sola a «Local» en cuanto cualquier repintado pasa por aquí.
   function promptMode(host, result) {
-    return host && host.dataset.r34gPromptMode === "ai" && result.aiPrompt ? "ai" : "local";
+    var m = host && host.dataset.r34gPromptMode;
+    if (m === "user:local") return "local";
+    if (m === "user:ai") return "ai";
+    return result.aiPrompt ? "ai" : "local";
+  }
+
+  function promptPending(host, result) {
+    return promptMode(host, result) === "ai" && !result.aiPrompt;
+  }
+
+  function paintPromptNote(host, result) {
+    var note = host ? host.querySelector(".r34g-prompt-note") : null;
+    if (!note) return;
+    note.textContent = promptPending(host, result) ? "La IA est\u00e1 redactando el prompt\u2026" : promptNote(result);
+  }
+
+  // Solo se encienden las pestañas Local/IA: la pestaña de posición del artista lleva su propio
+  // estado y no debe apagarse cada vez que la IA termina.
+  function markPromptModes(host, result) {
+    if (!host) return;
+    var active = promptMode(host, result);
+    var wait = promptPending(host, result);
+    Array.prototype.slice.call(host.querySelectorAll(".r34g-prompt-opt[data-mode]")).forEach(function (b) {
+      b.classList.toggle("r34g-on", b.dataset.mode === active);
+      b.classList.toggle("r34g-wait", b.dataset.mode === active && wait);
+    });
+    var box = host.querySelector(".r34g-tp-prompt");
+    if (box) box.classList.toggle("r34g-prompt-wait", wait);
   }
 
   function paintPrompt(host, result) {
     var ta = host ? host.querySelector(".r34g-prompt-out") : null;
     if (!ta) return;
-    ta.value = promptMode(host, result) === "ai" ? result.aiPrompt : promptText(result);
+    // Con la IA aún trabajando se enseña el prompt local (mejor algo que nada) y la nota avisa.
+    ta.value = promptMode(host, result) === "ai" && result.aiPrompt ? result.aiPrompt : promptText(result);
+    paintPromptNote(host, result);
+    markPromptModes(host, result);
   }
 
   function promptValue(host, result) {
@@ -4097,11 +4371,33 @@
     return ta && ta.value ? ta.value : promptText(result);
   }
 
+  // El prompt de la IA ya se guardó para este post: al repintar se recupera solo, así que cambiar de
+  // post y volver (o cualquier reanálisis) no borra el prompt ni devuelve la pestaña a «Local».
+  function loadAiPrompt(result) {
+    if (!result || result.aiPrompt) return;
+    var key = aiCacheId();
+    if (!key) return;
+    var cached = aiCacheGet("prompt-v2:" + key);
+    if (cached && cached.text) result.aiPrompt = cached.text;
+  }
+
+  // Todo lo que cae en el grupo «Redundantes» sale descartado por defecto. Si el usuario lo enciende a
+  // mano (clic en la etiqueta), se respeta su decisión y no se vuelve a apagar.
+  function sealRedundant(result) {
+    result.touched = result.touched || {};
+    result.redundant.forEach(function (item) {
+      var name = item.tag && item.tag.name;
+      if (!name || !item.kept) return;
+      if (result.touched[name]) return;
+      result.discarded[name] = 1;
+    });
+  }
+
   function promptBox(host, result) {
     var box = util.el("div", "r34g-tp-prompt");
     var head = util.el("div", "r34g-tp-prompt-head");
     head.appendChild(util.el("b", null, "Prompt para otra app"));
-    head.appendChild(util.el("span", "r34g-note", promptNote(result)));
+    head.appendChild(util.el("span", "r34g-note r34g-prompt-note", promptNote(result)));
     var row = util.el("span", "r34g-mini-row");
     var modes = [];
     function modeBtn(label, value, title) {
@@ -4110,17 +4406,20 @@
       b.title = title;
       b.dataset.mode = value;
       b.addEventListener("click", function () {
-        host.dataset.r34gPromptMode = value;
+        host.dataset.r34gPromptMode = "user:" + value;
         modes.forEach(function (m) {
           m.el.classList.toggle("r34g-on", m.value === value);
         });
-        paintPrompt(host, result);
+        if (value === "ai" && !result.aiPrompt) askAiPrompt(result, host);
+        else paintPrompt(host, result);
       });
       modes.push({ el: b, value: value });
       return b;
     }
     row.appendChild(modeBtn("Local", "local", "Prompt que arma aqu\u00ed el an\u00e1lisis, sin internet ni claves"));
-    if (result.aiPrompt) row.appendChild(modeBtn("IA", "ai", "Prompt redactado por la IA a partir de las mismas etiquetas"));
+    row.appendChild(
+      modeBtn("IA", "ai", "Prompt redactado por la IA a partir de las mismas etiquetas (una consulta; queda guardado por post)")
+    );
     var copy = util.el("button", "r34g-mini r34g-prompt-copy", "Copiar prompt");
     copy.type = "button";
     copy.title = "Copia el prompt para pegarlo en la app de imagen o de v\u00eddeo que uses";
@@ -4128,6 +4427,19 @@
       util.copy(promptValue(host, result));
     });
     row.appendChild(copy);
+    var posPill = util.el("button", "r34g-prompt-opt");
+    posPill.type = "button";
+    var first = R.settings.tPromptArtPos !== "last";
+    posPill.textContent = first ? "Artista: primero" : "Artista: al final";
+    posPill.title = first
+      ? "El artista abre el prompt, que es donde m\u00e1s pesa para clavar su estilo. Pulsa para mandarlo al final."
+      : "El artista cierra el prompt. Pulsa para ponerlo al principio: lo que va delante pesa m\u00e1s en el estilo.";
+    posPill.classList.toggle("r34g-on", first);
+    posPill.addEventListener("click", function () {
+      R.set("tPromptArtPos", R.settings.tPromptArtPos === "last" ? "first" : "last");
+      renderInto(host, result);
+    });
+    row.appendChild(posPill);
     head.appendChild(row);
     box.appendChild(head);
     var ta = util.el("textarea", "r34g-prompt-out");
@@ -4140,12 +4452,156 @@
     box.appendChild(ta);
     var hint = util.el("p", "r34g-hint");
     hint.textContent =
-      "Etiquetas ordenadas por sujeto, escena, serie, artista y medio, y sin repetir ninguna: p\u00e9galo tal cual en tu app de imagen o de v\u00eddeo. Esta herramienta no genera im\u00e1genes, solo prepara el prompt.";
+      "El prompt sale en ingl\u00e9s (las etiquetas de rule34 ya lo est\u00e1n) y sin repetir ninguna. Con el artista delante, lo primero que lee la app es su estilo; el resto va por sujeto, escena, serie y medio. P\u00e9galo tal cual en tu app de imagen o de v\u00eddeo: esta herramienta no genera im\u00e1genes, solo prepara el texto.";
     box.appendChild(hint);
     modes.forEach(function (m) {
       m.el.classList.toggle("r34g-on", m.value === promptMode(host, result));
     });
+    markPromptModes(host, result);
     return box;
+  }
+
+  var AI_PROMPT_SYSTEM_TAIL = [
+    "No repitas etiquetas, no juntes sinónimos de lo mismo, no incluyas etiquetas de medio o formato (video, webm, animated, sound, watermark) y no añadas nada que no esté en la lista salvo conectores mínimos.",
+    "Si el mensaje trae una lista de etiquetas que no debes usar, ninguna de ellas puede aparecer en el prompt.",
+    "Si las etiquetas son de un vídeo, describe un fotograma fijo de la escena.",
+    "Responde solo con el prompt, sin comillas, sin listas y sin explicaciones."
+  ];
+
+  function aiPromptSystem() {
+    var first = R.settings.tPromptArtPos !== "last";
+    var weight = artistWeight();
+    var head = [
+      "Eres un experto en prompts para modelos de generación de imágenes (Stable Diffusion, Flux, Midjourney, NovelAI).",
+      "Recibes las etiquetas de un post de imageboard y devuelves UN SOLO prompt en inglés, en una línea y separado por comas.",
+      first
+        ? "Empieza el prompt con el artista del post (si lo hay): puesto delante es lo que más fija su estilo. Después el sujeto y su apariencia, luego la escena y las acciones, y al final la serie."
+        : "Empieza el prompt con el sujeto y su apariencia, después la escena y las acciones, luego la serie y al final el artista."
+    ];
+    if (weight > 1) head.push("Menciona al artista otra vez al final del prompt como referencia de estilo.");
+    return head.concat(AI_PROMPT_SYSTEM_TAIL).join(" ");
+  }
+
+  function aiPromptMessages(result) {
+    var ordered = result.tags.slice().sort(function (a, b) {
+      return (b.count || 0) - (a.count || 0);
+    });
+    var lines = ordered
+      .filter(function (t) {
+        return !result.discarded[t.name];
+      })
+      .map(function (t) {
+        return "- " + String(t.name).replace(/_/g, " ") + " [" + t.role + "]";
+      });
+    var fuera = ordered
+      .filter(function (t) {
+        return result.discarded[t.name];
+      })
+      .map(function (t) {
+        return String(t.name).replace(/_/g, " ");
+      });
+    var chars = result.characters.map(function (c) {
+      return "- " + String(c.tag).replace(/_/g, " ");
+    });
+    var user = [
+      "Etiquetas del post (nombre [tipo]):",
+      lines.join("\n"),
+      "",
+      "Personajes detectados:",
+      chars.length ? chars.join("\n") : "- (ninguno)"
+    ];
+    if (fuera.length) {
+      user.push("", "No uses estas etiquetas (redundantes o descartadas): " + fuera.join(", "));
+    }
+    user.push("", "Escribe el prompt en inglés.");
+    return [
+      { role: "system", content: aiPromptSystem() },
+      { role: "user", content: user.join("\n") }
+    ];
+  }
+
+  function cleanPrompt(text) {
+    return String(text == null ? "" : text)
+      .replace(/```[a-z]*/gi, "")
+      .replace(/^\s*(prompt|prompt en ingl\u00e9s)\s*:\s*/i, "")
+      .replace(/^["'\s]+|["'\s]+$/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function setPromptButtons(host, result, mode) {
+    if (mode) host.dataset.r34gPromptMode = mode;
+    paintPrompt(host, result);
+  }
+
+  // Aviso de "la IA est\u00e1 trabajando" con los segundos que lleva: la primera consulta al puente de
+  // Perchance tarda en cargar el iframe, as\u00ed que conviene que se vea que sigue en marcha.
+  function aiStatus(host, label) {
+    var box = util.el("div", "r34g-tp-status");
+    box.appendChild(util.el("span", "r34g-spinner"));
+    var text = util.el("span", null, label);
+    box.appendChild(text);
+    var t0 = Date.now();
+    var timer = setInterval(function () {
+      if (!box.parentNode) {
+        clearInterval(timer);
+        return;
+      }
+      var s = Math.round((Date.now() - t0) / 1000);
+      var wait = s >= 3 ? " " + s + " s" : "";
+      if (s >= 12 && s < 30) wait += " (la primera vez tarda un poco)";
+      text.textContent = label + wait;
+    }, 1000);
+    box.stop = function () {
+      clearInterval(timer);
+    };
+    if (host) host.appendChild(box);
+    return box;
+  }
+
+  function askAiPrompt(result, host) {
+    var key = aiCacheId();
+    var cacheKey = key ? "prompt-v2:" + key : "";
+    var cached = cacheKey ? aiCacheGet(cacheKey) : null;
+    if (cached && cached.text) {
+      result.aiPrompt = cached.text;
+      setPromptButtons(host, result, "user:ai");
+      util.toast("Prompt de la IA recuperado de la cach\u00e9 de este post");
+      return;
+    }
+    var box = host.querySelector(".r34g-tp-prompt");
+    var status = aiStatus(box, "La IA est\u00e1 redactando el prompt\u2026");
+    markPromptModes(host, result);
+    // Si mientras la IA piensa se reanaliza el post (o se cambia de post), el resultado al que hay que
+    // apuntar ya no es el mismo objeto: se resuelve contra el que est\u00e1 en pantalla.
+    function liveResult() {
+      if (R.lastAnalysis && R.lastAnalysis !== result && aiCacheId() === key) return R.lastAnalysis;
+      return result;
+    }
+    ai.request(aiPromptMessages(result)).then(
+      function (text) {
+        status.stop();
+        status.remove();
+        var clean = cleanPrompt(text);
+        if (!clean) {
+          util.toast("La IA no devolvi\u00f3 ning\u00fan prompt");
+          setPromptButtons(host, liveResult(), "user:local");
+          return;
+        }
+        if (cacheKey) aiCachePut(cacheKey, { text: clean });
+        var live = liveResult();
+        live.aiPrompt = clean;
+        if (live !== result) renderInto(host, live);
+        else setPromptButtons(host, result, "user:ai");
+        util.toast("Prompt de la IA listo");
+      },
+      function (err) {
+        status.stop();
+        status.remove();
+        util.toast("La IA fall\u00f3: " + (err && err.message ? err.message : err), 4000);
+        setPromptButtons(host, liveResult(), "user:local");
+      }
+    );
   }
 
   function chip(result, tagName, opts) {
@@ -4162,6 +4618,8 @@
     var reason = opts.reason || "";
     b.title = (reason ? reason + "\n" : "") + "Clic: incluir/excluir \u00b7 Clic derecho: mover a otro grupo";
     b.addEventListener("click", function () {
+      result.touched = result.touched || {};
+      result.touched[tagName] = 1;
       if (result.discarded[tagName]) {
         delete result.discarded[tagName];
         b.classList.remove("r34g-chip-off");
@@ -4188,6 +4646,8 @@
     var cur = groupOf(result, tagName);
     var idx = groups.indexOf(cur);
     var next = groups[(idx + 1) % groups.length];
+    result.touched = result.touched || {};
+    result.touched[tagName] = 1;
     if (next === "discarded") {
       result.discarded[tagName] = 1;
     } else {
@@ -4251,11 +4711,12 @@
   }
 
   function renderInto(host, result) {
+    // El prompt de la IA de este post se recupera de la caché y lo que sobra por las reglas locales
+    // queda descartado (hasta que el usuario toque esa etiqueta a mano) antes de pintar nada.
+    loadAiPrompt(result);
+    sealRedundant(result);
     host.innerHTML = "";
     host.dataset.r34gResult = "1";
-    if (!host.dataset.r34gPromptMode || (host.dataset.r34gPromptMode === "ai" && !result.aiPrompt)) {
-      host.dataset.r34gPromptMode = result.aiPrompt ? "ai" : "local";
-    }
 
     if (!result.tags.length) {
       host.appendChild(util.el("p", "r34g-hint", "No se encontraron etiquetas en este post."));
@@ -4460,7 +4921,7 @@
       return null;
     }
     var result = analyze(list);
-    var pageHost = host || document.getElementById("r34g-tp-body");
+    var pageHost = host || document.getElementById("r34g-tp-page");
     if (pageHost) renderInto(pageHost, result);
     R.lastAnalysis = result;
     if (options.ai) refineWithAI(result, pageHost, options);
@@ -4498,12 +4959,20 @@
     var chars = result.characters.map(function (c) {
       return "- " + c.tag + (c.copyright ? " (" + c.copyright + ")" : "");
     });
+    var fuera = result.tags
+      .filter(function (t) {
+        return result.discarded[t.name];
+      })
+      .map(function (t) {
+        return t.name;
+      });
     var user = [
       "Etiquetas del post (nombre [tipo, posts totales de esa etiqueta]):",
       lines.join("\n"),
       "",
       "Personajes detectados:",
       chars.length ? chars.join("\n") : "- (ninguno)",
+      fuera.length ? "\nEtiquetas que las reglas locales ya descartan (no las incluyas en characters ni en shared, ni las repitas en discard): " + fuera.join(", ") : "",
       "",
       "Devuelve el JSON."
     ].join("\n");
@@ -4519,6 +4988,22 @@
     result.tags.forEach(function (t) {
       known[t.name] = 1;
     });
+    // Las reglas locales mandan sobre la IA: lo que aquí se descarta no se puede reactivar (ni poner
+    // en un personaje) y a la que aquí se queda no se la puede descartar. Si no, cada respuesta de la
+    // IA dejaba las etiquetas redundantes otra vez dentro del resultado y del prompt.
+    var local = localRedundancy(result.tags, result.criterion);
+    var byRules = {};
+    Object.keys(local.dropped).forEach(function (n) {
+      byRules[n] = 1;
+    });
+    var ruleWinner = {};
+    local.redundant.forEach(function (item) {
+      if (item.kept && item.kept.name) ruleWinner[item.kept.name] = item.tag.name;
+    });
+    function revive(name) {
+      if (byRules[name]) return;
+      delete result.discarded[name];
+    }
     var moved = 0;
     if (data.prompt) {
       var aiPrompt = String(data.prompt).replace(/\s+/g, " ").trim();
@@ -4544,7 +5029,7 @@
           result.shared = result.shared.filter(function (n) {
             return n !== name;
           });
-          delete result.discarded[name];
+          revive(name);
           target.tags.push(name);
           result.byTag[name] = target.tag;
           moved++;
@@ -4561,7 +5046,7 @@
             return n !== name;
           });
         });
-        delete result.discarded[name];
+        revive(name);
         if (result.shared.indexOf(name) === -1) result.shared.push(name);
         result.byTag[name] = "shared";
         moved++;
@@ -4573,6 +5058,14 @@
         if (!name) return;
         name = String(name).replace(/\s+/g, "_");
         if (!known[name]) return;
+        // No descarta a la que ya ganó en las reglas locales, y no repite un par que ya está listado.
+        if (ruleWinner[name]) return;
+        if (
+          result.redundant.some(function (item) {
+            return item.tag && item.tag.name === name;
+          })
+        )
+          return;
         result.discarded[name] = 1;
         var kept = typeof entry === "object" && entry ? entry.kept : "";
         result.redundant.push({
@@ -4600,12 +5093,10 @@
       util.toast("IA: usando el an\u00e1lisis ya guardado de este post");
       return;
     }
-    var status = util.el("div", "r34g-tp-status");
-    status.appendChild(util.el("span", "r34g-spinner"));
-    status.appendChild(util.el("span", null, "Consultando a la IA\u2026"));
-    host.appendChild(status);
+    var status = aiStatus(host, "Consultando a la IA\u2026");
     ai.request(aiMessages(result)).then(
       function (text) {
+        status.stop();
         status.remove();
         var data = extractJSON(text);
         if (!data) {
@@ -4618,6 +5109,7 @@
         util.toast("An\u00e1lisis de IA aplicado");
       },
       function (err) {
+        status.stop();
         status.remove();
         util.toast("La IA fall\u00f3: " + (err && err.message ? err.message : err), 4000);
       }
@@ -4630,6 +5122,20 @@
     panel.hidden = false;
     document.documentElement.classList.add("r34g-tags-open");
     if (aiWanted) run(null, { ai: true });
+  }
+
+  // El bloque se pone encima del vídeo o de la imagen del post (arriba del todo de la columna del
+  // medio), que es lo primero que se mira: así no hay que bajar a buscarlo cuando el vídeo ocupa
+  // toda la pantalla. En una lista de búsqueda no hay medio y se usa la barra de encima de la
+  // cuadrícula.
+  function postMediaAnchor() {
+    var view = document.getElementById("post-view");
+    if (!view) return null;
+    return (
+      view.querySelector("#gelcomVideoContainer, .image-container") ||
+      view.querySelector("#image") ||
+      view.querySelector("video, img[src*='wimg']")
+    );
   }
 
   function buildPagePanel() {
@@ -4663,8 +5169,9 @@
     });
     var aiBtn = util.el("button", "r34g-mini", "Analizar con IA");
     aiBtn.type = "button";
-    aiBtn.title = "Env\u00eda las etiquetas a la IA configurada en Ajustes \u2192 Etiquetas";
+    aiBtn.title = "Manda las etiquetas a la IA (gratis y sin configurar nada) y afina el reparto y el prompt";
     aiBtn.addEventListener("click", function () {
+      if (ai.warm) ai.warm();
       show(true, true);
     });
     bar.appendChild(toggle);
@@ -4673,13 +5180,17 @@
     host.appendChild(bar);
     host.appendChild(body);
 
-    var anchor = document.querySelector("#post-view .image-sublinks") || document.querySelector("#post-view h4");
+    var anchor = postMediaAnchor() || document.querySelector("#post-view .image-sublinks") || document.querySelector("#post-view h4");
     if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(host, anchor);
     else document.getElementById("content").appendChild(host);
     if (R.settings.tAuto) setTimeout(function () {
       // con la cach\u00e9 por post, repetir un post no gasta peticiones: solo los nuevos
-      show(!!R.settings.tAutoAI);
+      show(R.settings.tEngine === "ai" && !!R.settings.tAutoAI);
     }, 600);
+    // si el an\u00e1lisis autom\u00e1tico va a usar la IA, se deja cargando ya el puente de Perchance
+    if (ai.warm && R.settings.tEngine === "ai" && R.settings.tAutoAI) setTimeout(function () {
+      ai.warm();
+    }, 1200);
     return host;
   }
 
@@ -4719,7 +5230,7 @@
     var promptSec = ui.section(
       panel,
       "Prompt para otras apps",
-      "El an\u00e1lisis prepara tambi\u00e9n un prompt listo para pegar en cualquier app de imagen o de v\u00eddeo, tanto desde una imagen como desde un v\u00eddeo: se arma con las etiquetas que quedan activas (las tachadas no entran), ordenadas por sujeto, escena, serie, artista y medio, y sin repetir ninguna. Esta herramienta no genera im\u00e1genes: solo te da el texto."
+      "El an\u00e1lisis prepara tambi\u00e9n un prompt en ingl\u00e9s listo para pegar en cualquier app de imagen o de v\u00eddeo, tanto desde una imagen como desde un v\u00eddeo: se arma con las etiquetas que quedan activas (las tachadas no entran) y sin repetir ninguna. El artista abre el prompt (es lo que m\u00e1s fija su estilo) y detr\u00e1s van el sujeto y su apariencia, la escena, la serie y el medio. Esta herramienta no genera im\u00e1genes: solo te da el texto."
     );
     ui.seg({
       section: promptSec,
@@ -4735,7 +5246,27 @@
       section: promptSec,
       key: "tPromptArt",
       title: "Incluir al artista",
-      note: "Va al final del prompt, como referencia de estilo."
+      note: "Es lo que fija el estilo, as\u00ed que va dentro por defecto. Qu\u00edtalo solo si quieres el personaje o la escena con otro estilo."
+    });
+    ui.seg({
+      section: promptSec,
+      key: "tPromptArtPos",
+      title: "D\u00f3nde va el artista",
+      note: "Lo que va delante pesa m\u00e1s, as\u00ed que \u00abprincipio\u00bb clava mejor su estilo; \u00abfinal\u00bb lo deja como coletilla de estilo. Tambi\u00e9n se cambia con el bot\u00f3n del propio recuadro.",
+      options: [
+        { label: "Al principio", value: "first" },
+        { label: "Al final", value: "last" }
+      ]
+    });
+    ui.seg({
+      section: promptSec,
+      key: "tPromptArtW",
+      title: "Peso del artista",
+      note: "\u00abDoble\u00bb escribe su nombre dos veces seguidas (y el bot\u00f3n IA lo repite al final): sirve para reforzar el estilo en apps que no usan pesos entre par\u00e9ntesis.",
+      options: [
+        { label: "Normal", value: "1" },
+        { label: "Doble", value: "2" }
+      ]
     });
     ui.toggle({
       section: promptSec,
@@ -4747,7 +5278,7 @@
       section: promptSec,
       title: "Principio del prompt",
       note: "Opcional. Por ejemplo tus etiquetas de calidad.",
-      placeholder: "masterpiece, best quality, absurdres",
+      placeholder: "masterpiece, best quality",
       get: function () {
         return R.settings.tPromptPre;
       },
@@ -4773,12 +5304,13 @@
     var engine = ui.section(
       panel,
       "Motor de IA",
-      "La clasificaci\u00f3n base es local y no necesita internet. La IA es opcional y sirve para repartir mejor las etiquetas entre personajes. Si el proveedor te deja sin cuota, el an\u00e1lisis local sigue funcionando igual."
+      "El an\u00e1lisis base es local y no necesita internet. La IA es opcional y ya viene lista: no tienes que configurar nada ni pegar ninguna clave. Sirve para repartir mejor las etiquetas entre personajes y para redactar el prompt. Si la IA no responde, el an\u00e1lisis local sigue funcionando igual."
     );
     ui.seg({
       section: engine,
       key: "tEngine",
       title: "Modo",
+      note: "El bot\u00f3n \u00abAnalizar con IA\u00bb funciona siempre. Este interruptor solo decide si el an\u00e1lisis autom\u00e1tico (el de abajo) puede usar la IA.",
       options: [
         { label: "Solo local", value: "local" },
         { label: "IA externa", value: "ai" }
@@ -4787,7 +5319,7 @@
     ui.select({
       section: engine,
       title: "Proveedor",
-      note: "Rellena la direcci\u00f3n y el modelo de golpe. Groq, Gemini y OpenRouter tienen nivel gratuito: pide la clave gratis en su web y p\u00e9gala abajo. Pollinations no pide clave pero tiene cola y devuelve l\u00edmites.",
+      note: "Elige uno y ya est\u00e1: solo se te pide rellenar lo que de verdad haga falta. Los que no piden nada lo dicen en su nombre.",
       options: AI_PROVIDERS.map(function (p) {
         return { label: p.label, value: p.value };
       }),
@@ -4798,11 +5330,19 @@
         ai.applyProvider(v);
       }
     });
+
+    // Aviso para los proveedores que no necesitan nada.
+    var freeHint = util.el("p", "r34g-note r34g-ai-free-hint");
+    engine.appendChild(freeHint);
+
+    // Solo se ense\u00f1an los campos que pide el proveedor elegido: con \u00abIA de Perchance\u00bb solo su
+    // direcci\u00f3n (ya rellena), con los gratuitos ninguno, y con los de clave, direcci\u00f3n y clave.
+    var bridgeRow = null;
     if (ai.config.bridge.indexOf("userscript-maker") !== -1) {
       ai.config.bridge = R.settings.tBridge || ai.config.bridge;
       ai.save();
     }
-    ui.text({
+    var bridgeInput = ui.text({
       section: engine,
       title: "Generador de Perchance",
       note: "Solo para el proveedor \u00abIA de Perchance\u00bb: la direcci\u00f3n de este generador (el que compila el script). Si lo guardas con otro nombre, actual\u00edzala aqu\u00ed.",
@@ -4817,10 +5357,12 @@
       },
       event: "change"
     });
-    ui.text({
+    bridgeRow = bridgeInput.closest(".r34g-row");
+
+    var endpointInput = ui.text({
       section: engine,
       title: "Direcci\u00f3n del servicio",
-      note: "Cualquier API compatible con OpenAI (chat/completions).",
+      note: "La rellena sola el proveedor; solo la cambias si usas uno tuyo.",
       placeholder: "https://text.pollinations.ai/openai",
       mono: true,
       get: function () {
@@ -4832,9 +5374,12 @@
       },
       event: "change"
     });
-    ui.text({
+    var endpointRow = endpointInput.closest(".r34g-row");
+
+    var modelInput = ui.text({
       section: engine,
       title: "Modelo",
+      note: "Tambi\u00e9n viene puesto seg\u00fan el proveedor.",
       placeholder: "openai",
       get: function () {
         return ai.config.model;
@@ -4845,7 +5390,9 @@
       },
       event: "change"
     });
-    ui.text({
+    var modelRow = modelInput.closest(".r34g-row");
+
+    var keyInput = ui.text({
       section: engine,
       title: "Clave de API",
       note: "Opcional. Se guarda solo en este navegador (localStorage).",
@@ -4859,16 +5406,46 @@
       },
       event: "change"
     });
+    var keyRow = keyInput.closest(".r34g-row");
+
+    var aiProbe = util.el("p", "r34g-note r34g-ai-probe");
+    aiProbe.textContent = ai.lastProvider
+      ? "\u00daltima conexi\u00f3n correcta: " + providerShort(ai.lastProvider) + "."
+      : "Sin probar todav\u00eda. El bot\u00f3n de abajo usa la misma cadena que \u00abAnalizar con IA\u00bb (el proveedor elegido y, si falla, los gratuitos).";
+    engine.appendChild(aiProbe);
+
+    // Qu\u00e9 proveedores piden clave y cu\u00e1les una direcci\u00f3n propia. Los que no, no ense\u00f1an nada.
+    var NEEDS_KEY = { groq: 1, gemini: 1, openrouter: 1, openai: 1, mistral: 1, custom: 1 };
+    var HAS_ENDPOINT = { groq: 1, gemini: 1, openrouter: 1, openai: 1, mistral: 1, ollama: 1, custom: 1 };
+    providerSync = function () {
+      var p = ai.config.provider;
+      var own = !!HAS_ENDPOINT[p];
+      var isBridge = p === "perchance";
+      if (bridgeRow) bridgeRow.hidden = !isBridge;
+      if (endpointRow) endpointRow.hidden = !own;
+      if (modelRow) modelRow.hidden = !own;
+      if (keyRow) keyRow.hidden = !NEEDS_KEY[p];
+      if (freeHint) {
+        freeHint.hidden = own;
+        freeHint.textContent = isBridge
+          ? "Gratis y sin clave: la direcci\u00f3n ya viene puesta, solo hay que darle a \u00abAnalizar con IA\u00bb."
+          : "Gratis y sin clave: no hay nada que rellenar, solo darle a \u00abAnalizar con IA\u00bb.";
+      }
+    };
+    providerSync();
+
     ui.textarea({
       section: engine,
       title: "Instrucci\u00f3n para la IA",
-      note: "D\u00e9jalo vac\u00edo para usar la instrucci\u00f3n recomendada. Debe pedir un JSON con characters/shared/discard y un prompt en ingl\u00e9s.",
+      note: "D\u00e9jalo vac\u00edo para usar la instrucci\u00f3n recomendada (pide characters/shared/discard y un prompt en ingl\u00e9s). Si escribes la tuya, se respeta aunque la de f\u00e1brica cambie.",
       rows: 6,
       get: function () {
         return ai.config.instruction === AI_DEFAULT_INSTRUCTION ? "" : ai.config.instruction;
       },
       set: function (v) {
-        ai.config.instruction = v.trim() || AI_DEFAULT_INSTRUCTION;
+        var custom = v.trim();
+        ai.config.instruction = custom || AI_DEFAULT_INSTRUCTION;
+        ai.config.customInstruction = !!custom;
         ai.save();
       },
       event: "change",
@@ -4876,13 +5453,17 @@
         {
           label: "Probar conexi\u00f3n",
           onClick: function () {
-            util.toast("Probando\u2026", 1200);
+            util.toast("Probando\u2026 si el proveedor elegido falla, se prueba con los gratuitos", 2200);
             ai.request([{ role: "user", content: "Responde solo con la palabra OK" }]).then(
               function (t) {
-                util.toast("Respuesta: " + String(t).slice(0, 60));
+                var who = ai.lastProvider ? providerShort(ai.lastProvider) : typeof window.__r34gAIHook === "function" ? "la IA del editor" : "?";
+                if (aiProbe) aiProbe.textContent = "\u00daltima conexi\u00f3n correcta: " + who + " \u2014 " + String(t).replace(/\s+/g, " ").slice(0, 70);
+                var via = ai.lastProvider ? " con " + providerShort(ai.lastProvider) : "";
+                util.toast("Conectado" + via + ": " + String(t).replace(/\s+/g, " ").slice(0, 60), 5000);
               },
               function (e) {
-                util.toast("Error: " + (e && e.message ? e.message : e), 4000);
+                if (aiProbe) aiProbe.textContent = "Sin conexi\u00f3n: " + (e && e.message ? e.message : e);
+                util.toast("No conect\u00f3 ning\u00fan proveedor. " + (e && e.message ? e.message : e), 8000);
               }
             );
           }
@@ -4994,7 +5575,7 @@
       var rebuilt = analyze(result.tags);
       rebuilt.apiAdded = added;
       R.lastAnalysis = rebuilt;
-      var pageHost = host || document.getElementById("r34g-tp-body");
+      var pageHost = host || document.getElementById("r34g-tp-page");
       if (pageHost) renderInto(pageHost, rebuilt);
       util.toast("La API a\u00f1adi\u00f3 " + added + " etiqueta" + (added === 1 ? "" : "s") + " que faltaban", 2500);
     });
@@ -5025,6 +5606,8 @@
     promptTags: promptTags,
     promptText: promptText,
     promptBox: promptBox,
+    aiPrompt: askAiPrompt,
+    artistTokens: artistTokens,
     tagIndex: function (result) {
       return result;
     }
@@ -8599,6 +9182,35 @@
   var ui = R.ui;
 
   var NOTES = [
+    ["0.8.8", [
+      "Ajustes \u2192 Etiquetas \u2192 Motor de IA ahora ense\u00f1a solo lo que hace falta seg\u00fan el proveedor elegido, para no pedir datos que no se usan: con \u00abIA de Perchance\u00bb solo su direcci\u00f3n (que ya viene puesta), con los gratuitos ninguno (con un aviso de que no hay nada que rellenar), con los de clave la direcci\u00f3n, el modelo y la clave, y con \u00abOllama\u00bb y \u00abPersonalizado\u00bb la direcci\u00f3n, el modelo y (en Personalizado) la clave.",
+      "Al cambiar de proveedor, la direcci\u00f3n y el modelo se rellenan solos con los suyos (Groq, Gemini, OpenRouter, OpenAI, Mistral, Ollama\u2026); ya no se queda puesto el de antes."
+    ]],
+    ["0.8.7", [
+      "\u00abAnalizar con IA\u00bb ya conecta sin configurar nada. De f\u00e1brica usa el puente gratuito de Perchance: el script abre este generador en un iframe oculto y le pide el texto, as\u00ed que no hay que pegar ninguna clave ni registrarse en ning\u00fan sitio. Si el puente no responde, se prueba solo con Pollinations y, si tampoco, el aviso cuenta qu\u00e9 ha fallado en cada uno.",
+      "En rule34.xxx las consultas salen por GM_xmlhttpRequest, que va por el gestor de userscripts y se salta el CORS del sitio (si el gestor no lo ofrece, se usa fetch igual que antes). Eso arregla el \u00abno se pudo conectar\u00bb de los proveedores externos.",
+      "Cadena de reserva: si el proveedor elegido falla (clave agotada, sin red, bloqueado por el bloqueador), se prueba autom\u00e1ticamente con los gratuitos y se avisa por el aviso emergente; el error final ya no es un \u00abno conecta\u00bb gen\u00e9rico, dice el proveedor, el estado HTTP y el detalle.",
+      "El proveedor por defecto pasa a ser el gratuito y sin clave, y los navegadores que ya ten\u00edan la configuraci\u00f3n antigua se actualizan solos (incluida la instrucci\u00f3n de IA, que ahora s\u00ed pide el prompt).",
+      "La primera consulta al puente tarda un poco (carga la p\u00e1gina del generador); despu\u00e9s va r\u00e1pido. El aviso del an\u00e1lisis ahora cuenta los segundos que lleva, y el puente se deja cargando antes de que lo necesites.",
+      "El \u00abModo\u00bb (Solo local / IA externa) ya hace algo: decide si el an\u00e1lisis autom\u00e1tico puede usar la IA. El bot\u00f3n \u00abAnalizar con IA\u00bb funciona siempre.",
+      "Arreglado un fallo por el que un an\u00e1lisis lanzado sin bloque visible (por ejemplo desde Ajustes) buscaba el contenedor con un id equivocado (\u00abr34g-tp-body\u00bb en vez de \u00abr34g-tp-page\u00bb) y se quedaba sin pintar el resultado ni llamar a la IA."
+    ]],
+    ["0.8.6", [
+      "El bloque \u00abEtiquetas por personaje\u00bb se coloca ahora justo encima del v\u00eddeo (o de la imagen) del post, en su misma columna. Antes ca\u00eda debajo del medio, entre el v\u00eddeo y los enlaces de Editar/Responder, as\u00ed que en un post de v\u00eddeo hab\u00eda que bajar para encontrarlo; ahora es lo primero que se ve, tambi\u00e9n en los posts que son v\u00eddeo.",
+      "Al desplegarlo, el v\u00eddeo baja y el bloque se queda arriba (no se solapan): la barra se lee antes de darle al play y el an\u00e1lisis no tapa nada.",
+      "Si la p\u00e1gina no trae ni v\u00eddeo ni imagen (un listado, por ejemplo) se mantiene como estaba: el bloque vuelve al sitio de siempre o a la barra \u00abAn\u00e1lisis de etiquetas\u00bb encima de la cuadr\u00edcula."
+    ]],
+    ["0.8.5", [
+      "El prompt ahora abre con el artista. Puesto delante es donde m\u00e1s pesa, as\u00ed que la imagen sale mucho m\u00e1s fiel al estilo del dibujante del post; detr\u00e1s van el sujeto y su apariencia, la escena, la serie y el medio. Se cambia con un bot\u00f3n nuevo en el propio recuadro (\u00abArtista: primero / al final\u00bb) y en Ajustes \u2192 Etiquetas \u2192 Prompt para otras apps.",
+      "Opci\u00f3n de peso: con \u00abDoble\u00bb el nombre del artista se escribe dos veces seguidas (y en el modo IA se repite al final como referencia de estilo), que es la forma de reforzarlo en las apps que no entienden pesos entre par\u00e9ntesis.",
+      "El texto de la secci\u00f3n y las instrucciones de la IA se han reescrito para dejar claro que el artista manda: el prompt de la IA tambi\u00e9n empieza por \u00e9l. Los prompts de IA ya guardados se vuelven a pedir (la cach\u00e9 cambia de clave) para no mezclar los dos estilos."
+    ]],
+    ["0.8.4", [
+      "El an\u00e1lisis de etiquetas ahora saca tambi\u00e9n un prompt en ingl\u00e9s listo para pegar en cualquier app de imagen o de v\u00eddeo (Stable Diffusion, Flux, NovelAI, Midjourney\u2026). Sale en su propio recuadro al final del an\u00e1lisis, con sus botones Local e IA, un bot\u00f3n Copiar prompt en la cabecera del panel y otro en el propio recuadro. Esta herramienta no genera im\u00e1genes: solo te deja el texto listo.",
+      "El prompt se arma con las mismas etiquetas que ves en el panel, as\u00ed que sale sin repetidas (una etiqueta que describe a varios personajes no se escribe dos veces) y sin las tachadas, y en orden de sujeto y apariencia, escena, serie, artista y medio. Se puede retocar a mano ah\u00ed mismo antes de copiarlo.",
+      "Al final del recuadro tienes Local (el prompt que arma el an\u00e1lisis, sin internet ni claves) e IA (el que redacta el motor de IA, que ahora tambi\u00e9n devuelve un prompt en ingl\u00e9s en la misma consulta, sin gastar una petici\u00f3n m\u00e1s).",
+      "En Ajustes \u2192 Etiquetas hay una secci\u00f3n nueva, \u00abPrompt para otras apps\u00bb: formato con comas o con espacios (estilo danbooru), incluir al artista, incluir el medio y los metadatos (video, webm, sound\u2026, fuera por defecto) y un principio y un final opcionales para tus etiquetas de calidad."
+    ]],
     ["0.8.3", [
       "El analizador de etiquetas sale de Ajustes y se pone en la propia p\u00e1gina: en las p\u00e1ginas de lista aparece una barra \u00abAn\u00e1lisis de etiquetas\u00bb justo encima de la barra de miniaturas, con los botones Analizar y Analizar con IA, y los resultados se despliegan ah\u00ed mismo (la barra se titula y se abre/cierra al pulsarla). Ya no hay que entrar en Ajustes para lanzar un an\u00e1lisis.",
       "En un post, el bloque \u00abEtiquetas por personaje\u00bb ya estaba en la p\u00e1gina, pero quedaba escondido del todo si ten\u00edas apagado el an\u00e1lisis autom\u00e1tico: ahora se ve su barra de botones igualmente (los resultados siguen ocultos hasta que pulsas Analizar).",
