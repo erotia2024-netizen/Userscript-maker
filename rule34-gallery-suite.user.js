@@ -1747,7 +1747,9 @@
     );
     var runAnalysis = function (ai) {
       var host = document.getElementById("r34g-tp-page");
-      if (!host || !R.tags || typeof R.tags.run !== "function") {
+      // Solo tiene sentido con un post abierto: en una lista de búsqueda el panel lateral son las
+      // etiquetas de la búsqueda, no las de un post.
+      if (!host || !document.querySelector("#post-view") || !R.tags || typeof R.tags.run !== "function") {
         util.toast("Abre un post para analizar sus etiquetas");
         return;
       }
