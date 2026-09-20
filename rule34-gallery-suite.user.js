@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.16
+// @version      0.8.17
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA opcional) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -3654,14 +3654,16 @@
     else w.res(String(d.text == null ? "" : d.text));
   });
 
-  // Proveedor "IA de Perchance" con red de seguridad: si el generador no responde (privado,
-  // renombrado o borrado), seguimos con Pollinations, que es gratis y no pide clave.
-  function perchanceAsk(messages) {
-    return bridgeAsk(messages).catch(function (err) {
-      util.toast("La IA de Perchance no respondi\u00f3 (" + ((err && err.message) || err) + "). Sigo con Pollinations, que no necesita clave.");
-      return directAsk(FALLBACK, messages);
-    });
-  }
+  // El iframe del puente tarda en cargar la p\u00e1gina del generador la primera vez. Arrancarlo un poco
+  // antes (al abrir el an\u00e1lisis) evita que esa espera se sume a la consulta.
+  ai.warm = function () {
+    try {
+      if (BRIDGE_MODE !== "off") {
+        var url = bridgeUrl();
+        if (url) bridgeFrameFor(url);
+      }
+    } catch (e) {}
+  };
 
   // Petición directa a un endpoint compatible con OpenAI (Groq, Gemini, OpenRouter, Pollinations…).
   function directAsk(cfg, messages) {
