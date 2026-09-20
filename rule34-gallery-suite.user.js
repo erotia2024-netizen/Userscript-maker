@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.25
+// @version      0.8.26
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA gratis sin configurar nada) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -3560,6 +3560,10 @@
     } catch (e) {}
   };
 
+  // El panel de Ajustes se engancha aqu\u00ed para ense\u00f1ar solo los campos que hacen falta con el
+  // proveedor elegido (el puente de Perchance solo pide su direcci\u00f3n; los gratuitos, nada).
+  var providerSync = null;
+
   ai.applyProvider = function (value) {
     ai.config.provider = value;
     var p = providerByKey(value);
@@ -3569,6 +3573,7 @@
     }
     ai.save();
     if (R.refreshControls) R.refreshControls();
+    if (providerSync) providerSync();
   };
 
   // Puente con este mismo generador de Perchance: el userscript abre su p\u00e1gina en un iframe
@@ -5194,7 +5199,7 @@
     ui.select({
       section: engine,
       title: "Proveedor",
-      note: "Los dos primeros son gratis y no piden nada: \u00abIA de Perchance\u00bb usa este generador como puente (va bien desde rule34.xxx) y \u00abPollinations\u00bb es un servicio p\u00fablico con cola. Los dem\u00e1s s\u00ed necesitan que pegues su clave abajo. Si el elegido falla, \u00abAnalizar con IA\u00bb prueba solo con los gratuitos.",
+      note: "Elige uno y ya est\u00e1: solo se te pide rellenar lo que de verdad haga falta. Los que no piden nada lo dicen en su nombre.",
       options: AI_PROVIDERS.map(function (p) {
         return { label: p.label, value: p.value };
       }),
@@ -5205,11 +5210,19 @@
         ai.applyProvider(v);
       }
     });
+
+    // Aviso para los proveedores que no necesitan nada.
+    var freeHint = util.el("p", "r34g-note r34g-ai-free-hint");
+    engine.appendChild(freeHint);
+
+    // Solo se ense\u00f1an los campos que pide el proveedor elegido: con \u00abIA de Perchance\u00bb solo su
+    // direcci\u00f3n (ya rellena), con los gratuitos ninguno, y con los de clave, direcci\u00f3n y clave.
+    var bridgeRow = null;
     if (ai.config.bridge.indexOf("userscript-maker") !== -1) {
       ai.config.bridge = R.settings.tBridge || ai.config.bridge;
       ai.save();
     }
-    ui.text({
+    var bridgeInput = ui.text({
       section: engine,
       title: "Generador de Perchance",
       note: "Solo para el proveedor \u00abIA de Perchance\u00bb: la direcci\u00f3n de este generador (el que compila el script). Si lo guardas con otro nombre, actual\u00edzala aqu\u00ed.",
@@ -5224,10 +5237,12 @@
       },
       event: "change"
     });
-    ui.text({
+    bridgeRow = bridgeInput.closest(".r34g-row");
+
+    var endpointInput = ui.text({
       section: engine,
       title: "Direcci\u00f3n del servicio",
-      note: "Solo se usa con los proveedores de direcci\u00f3n propia (Groq, Gemini, OpenRouter\u2026). Con \u00abIA de Perchance\u00bb y \u00abPollinations\u00bb se ignora.",
+      note: "La rellena sola el proveedor; solo la cambias si usas uno tuyo.",
       placeholder: "https://text.pollinations.ai/openai",
       mono: true,
       get: function () {
@@ -5239,9 +5254,12 @@
       },
       event: "change"
     });
-    ui.text({
+    var endpointRow = endpointInput.closest(".r34g-row");
+
+    var modelInput = ui.text({
       section: engine,
       title: "Modelo",
+      note: "Tambi\u00e9n viene puesto seg\u00fan el proveedor.",
       placeholder: "openai",
       get: function () {
         return ai.config.model;
@@ -5252,7 +5270,9 @@
       },
       event: "change"
     });
-    ui.text({
+    var modelRow = modelInput.closest(".r34g-row");
+
+    var keyInput = ui.text({
       section: engine,
       title: "Clave de API",
       note: "Opcional. Se guarda solo en este navegador (localStorage).",
@@ -5266,11 +5286,34 @@
       },
       event: "change"
     });
+    var keyRow = keyInput.closest(".r34g-row");
+
     var aiProbe = util.el("p", "r34g-note r34g-ai-probe");
     aiProbe.textContent = ai.lastProvider
       ? "\u00daltima conexi\u00f3n correcta: " + providerShort(ai.lastProvider) + "."
       : "Sin probar todav\u00eda. El bot\u00f3n de abajo usa la misma cadena que \u00abAnalizar con IA\u00bb (el proveedor elegido y, si falla, los gratuitos).";
     engine.appendChild(aiProbe);
+
+    // Qu\u00e9 proveedores piden clave y cu\u00e1les una direcci\u00f3n propia. Los que no, no ense\u00f1an nada.
+    var NEEDS_KEY = { groq: 1, gemini: 1, openrouter: 1, openai: 1, mistral: 1 };
+    var HAS_ENDPOINT = { groq: 1, gemini: 1, openrouter: 1, openai: 1, mistral: 1, ollama: 1, custom: 1 };
+    providerSync = function () {
+      var p = ai.config.provider;
+      var own = !!HAS_ENDPOINT[p];
+      var isBridge = p === "perchance";
+      if (bridgeRow) bridgeRow.hidden = !isBridge;
+      if (endpointRow) endpointRow.hidden = !own;
+      if (modelRow) modelRow.hidden = !own;
+      if (keyRow) keyRow.hidden = !NEEDS_KEY[p];
+      if (freeHint) {
+        freeHint.hidden = own;
+        freeHint.textContent = isBridge
+          ? "Gratis y sin clave: la direcci\u00f3n ya viene puesta, solo hay que darle a \u00abAnalizar con IA\u00bb."
+          : "Gratis y sin clave: no hay nada que rellenar, solo darle a \u00abAnalizar con IA\u00bb.";
+      }
+    };
+    providerSync();
+
     ui.textarea({
       section: engine,
       title: "Instrucci\u00f3n para la IA",
