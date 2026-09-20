@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.41
+// @version      0.8.42
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA gratis sin configurar nada) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -3529,6 +3529,9 @@
   // cadenas de reserva: si falla, el aviso dice el motivo y el prompt local sigue estando ahí.
   function geminiAsk(messages) {
     var key = String(ai.config.key || "").trim();
+    if (!key) {
+      return Promise.reject(new Error("falta la clave de Gemini: pégala en Ajustes → Etiquetas → Prompt con IA"));
+    }
     var body = JSON.stringify({ model: GEMINI.model, messages: messages, temperature: 0.2 });
     function send(url, headers) {
       return httpPost(url, headers, body).then(function (res) {
@@ -3550,11 +3553,13 @@
     });
   }
 
-  // Detalle del error que devuelve la API, recortado para que quepa en el aviso.
+  // Detalle del error que devuelve la API, recortado para que quepa en el aviso. Google envuelve el
+  // error en una lista ([{ "error": ... }]), así que se mira también el primer elemento.
   function apiDetail(body) {
     var detail = "";
     try {
       var j = JSON.parse(body);
+      if (Array.isArray(j)) j = j[0] || {};
       detail = (j && j.error && (j.error.message || j.error)) || (j && j.message) || "";
       detail = detail ? String(detail) : "";
     } catch (e) {
@@ -3574,6 +3579,12 @@
         "Gemini rechazó la clave (" + res.status + ")" + (reintento ? ", ya probando las dos formas de mandarla" : "") +
           ". Pega tu clave de Google AI Studio en Ajustes → Etiquetas → Prompt con IA" + cola
       );
+    }
+    if (res.status === 400) {
+      if (/authorization|api key|api_key/i.test(detail)) {
+        return new Error("Gemini no ha visto una clave válida (400). Pega tu clave de Google AI Studio en Ajustes → Etiquetas → Prompt con IA" + cola);
+      }
+      return new Error("Gemini rechazó la petición (400)" + cola);
     }
     if (res.status === 429) {
       return new Error("Gemini dice que no queda cuota (429). Espera un poco; el prompt local sigue ahí" + cola);
