@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.9.1
+// @version      0.9.2
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje que ademas prepara un prompt listo para pegar en cualquier app de imagen o video (con IA opcional via Gemini, tu propia clave), recomendador que puntua los posts de una galeria y dice cuales conviene bajar, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -4307,8 +4307,8 @@
     paintPrompt(host, result);
   }
 
-  // Aviso de "la IA est\u00e1 trabajando" con los segundos que lleva: la primera consulta al puente de
-  // Perchance tarda en cargar el iframe, as\u00ed que conviene que se vea que sigue en marcha.
+  // Aviso de "la IA est\u00e1 trabajando" con los segundos que lleva: Gemini puede tardar unos segundos
+  // en contestar, as\u00ed que conviene que se vea que sigue en marcha.
   function aiStatus(host, label) {
     var box = util.el("div", "r34g-tp-status");
     box.appendChild(util.el("span", "r34g-spinner"));
