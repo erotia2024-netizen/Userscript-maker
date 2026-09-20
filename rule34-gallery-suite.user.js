@@ -2773,11 +2773,11 @@
       endpoint: "http://localhost:11434/v1/chat/completions",
       model: "llama3.1"
     },
-    { // R34G-BRIDGE-ONLY
-      value: "perchance", // R34G-BRIDGE-ONLY
-      label: "IA de Perchance (gratis, sin clave)", // R34G-BRIDGE-ONLY
-      bridge: true // R34G-BRIDGE-ONLY
-    }, // R34G-BRIDGE-ONLY
+    {
+      value: "perchance",
+      label: "IA de Perchance (gratis, sin clave)",
+      bridge: true
+    },
     { value: "custom", label: "Personalizado" }
   ];
 
@@ -2892,7 +2892,7 @@
     if (R.refreshControls) R.refreshControls();
   };
 
-  /* R34G-BRIDGE-BEGIN */  // Puente con este mismo generador de Perchance: el userscript abre su p\u00e1gina en un iframe
+  // Puente con este mismo generador de Perchance: el userscript abre su p\u00e1gina en un iframe
   // oculto (con #r34g-ai, que all\u00ed solo carga el receptor) y le pide el texto por postMessage.
   // As\u00ed la IA sale del plugin de Perchance: gratis y sin clave en el script.
   var bridgeFrame = null;
@@ -2977,7 +2977,6 @@
       return directAsk(FALLBACK, messages);
     });
   }
-  /* R34G-BRIDGE-END */
 
   // Petición directa a un endpoint compatible con OpenAI (Groq, Gemini, OpenRouter, Pollinations…).
   function directAsk(cfg, messages) {
@@ -3037,7 +3036,7 @@
   ai.request = function (messages) {
     if (typeof window.__r34gAIHook === "function") return Promise.resolve(window.__r34gAIHook(messages));
     var cfg = ai.config;
-    if (cfg.provider === "perchance" && BRIDGE_MODE !== "off") return perchanceAsk(messages); // R34G-BRIDGE-ONLY
+    if (cfg.provider === "perchance" && BRIDGE_MODE !== "off") return perchanceAsk(messages);
     return directAsk(cfg, messages);
   };
 
@@ -3988,7 +3987,6 @@
         ai.applyProvider(v);
       }
     });
-    /* R34G-BRIDGE-BEGIN */
     if (ai.config.bridge.indexOf("userscript-maker") !== -1) {
       ai.config.bridge = R.settings.tBridge || ai.config.bridge;
       ai.save();
@@ -4008,7 +4006,6 @@
       },
       event: "change"
     });
-    /* R34G-BRIDGE-END */
     ui.text({
       section: engine,
       title: "Direcci\u00f3n del servicio",
