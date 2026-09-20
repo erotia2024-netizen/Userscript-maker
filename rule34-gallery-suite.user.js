@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.20
-// @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA opcional) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
+// @version      0.8.21
+// @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA gratis sin configurar nada) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
 // @supportURL   https://github.com/erotia2024-netizen/Userscript-maker/issues
@@ -39,7 +39,7 @@
   if (R.core) return;
   R.core = true;
 
-  R.VERSION = "0.8.6";
+  R.VERSION = "0.8.7";
   R.NAME = "Rule34 Gallery Suite";
 
   var SETTINGS_KEY = "r34g.settings.v2";
@@ -5044,7 +5044,7 @@
     });
     var aiBtn = util.el("button", "r34g-mini", "Analizar con IA");
     aiBtn.type = "button";
-    aiBtn.title = "Env\u00eda las etiquetas a la IA configurada en Ajustes \u2192 Etiquetas";
+    aiBtn.title = "Manda las etiquetas a la IA (gratis y sin configurar nada) y afina el reparto y el prompt";
     aiBtn.addEventListener("click", function () {
       if (ai.warm) ai.warm();
       show(true, true);
@@ -9011,6 +9011,14 @@
   var ui = R.ui;
 
   var NOTES = [
+    ["0.8.7", [
+      "\u00abAnalizar con IA\u00bb ya conecta sin configurar nada. De f\u00e1brica usa el puente gratuito de Perchance: el script abre este generador en un iframe oculto y le pide el texto, as\u00ed que no hay que pegar ninguna clave ni registrarse en ning\u00fan sitio. Si el puente no responde, se prueba solo con Pollinations y, si tampoco, el aviso cuenta qu\u00e9 ha fallado en cada uno.",
+      "En rule34.xxx las consultas salen por GM_xmlhttpRequest, que va por el gestor de userscripts y se salta el CORS del sitio (si el gestor no lo ofrece, se usa fetch igual que antes). Eso arregla el \u00abno se pudo conectar\u00bb de los proveedores externos.",
+      "Cadena de reserva: si el proveedor elegido falla (clave agotada, sin red, bloqueado por el bloqueador), se prueba autom\u00e1ticamente con los gratuitos y se avisa por el aviso emergente; el error final ya no es un \u00abno conecta\u00bb gen\u00e9rico, dice el proveedor, el estado HTTP y el detalle.",
+      "El proveedor por defecto pasa a ser el gratuito y sin clave, y los navegadores que ya ten\u00edan la configuraci\u00f3n antigua se actualizan solos (incluida la instrucci\u00f3n de IA, que ahora s\u00ed pide el prompt).",
+      "La primera consulta al puente tarda un poco (carga la p\u00e1gina del generador); despu\u00e9s va r\u00e1pido. El aviso del an\u00e1lisis ahora cuenta los segundos que lleva, y el puente se deja cargando antes de que lo necesites.",
+      "El \u00abModo\u00bb (Solo local / IA externa) ya hace algo: decide si el an\u00e1lisis autom\u00e1tico puede usar la IA. El bot\u00f3n \u00abAnalizar con IA\u00bb funciona siempre."
+    ]],
     ["0.8.6", [
       "El bloque \u00abEtiquetas por personaje\u00bb se coloca ahora justo encima del v\u00eddeo (o de la imagen) del post, en su misma columna. Antes ca\u00eda debajo del medio, entre el v\u00eddeo y los enlaces de Editar/Responder, as\u00ed que en un post de v\u00eddeo hab\u00eda que bajar para encontrarlo; ahora es lo primero que se ve, tambi\u00e9n en los posts que son v\u00eddeo.",
       "Al desplegarlo, el v\u00eddeo baja y el bloque se queda arriba (no se solapan): la barra se lee antes de darle al play y el an\u00e1lisis no tapa nada.",
