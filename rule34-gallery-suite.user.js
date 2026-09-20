@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.31
+// @version      0.8.32
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA gratis sin configurar nada) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -4326,15 +4326,24 @@
   // "ai" = el usuario pidió el prompt a la IA; "local" = el que arma el análisis aquí. Mientras la IA
   // responde, la elección sigue siendo "ai" (aunque todavía no haya texto): así la pestaña no se cae
   // sola a «Local» en cuanto cualquier repintado pasa por aquí.
+  var aiPromptBusy = ""; // clave de caché del prompt que se está pidiendo ahora mismo
+
+  function aiPromptPendingFor(result) {
+    if (!aiPromptBusy || !result || result.aiPrompt) return false;
+    var id = aiCacheId();
+    if (!id) return aiPromptBusy === "no-key";
+    return aiPromptBusy === "prompt-v2:" + id;
+  }
+
   function promptMode(host, result) {
     var m = host && host.dataset.r34gPromptMode;
     if (m === "user:local") return "local";
-    if (m === "user:ai") return "ai";
+    if (m === "user:ai" && (result.aiPrompt || aiPromptPendingFor(result))) return "ai";
     return result.aiPrompt ? "ai" : "local";
   }
 
   function promptPending(host, result) {
-    return promptMode(host, result) === "ai" && !result.aiPrompt;
+    return promptMode(host, result) === "ai" && !result.aiPrompt && aiPromptPendingFor(result);
   }
 
   function paintPromptNote(host, result) {
@@ -4406,11 +4415,12 @@
       b.title = title;
       b.dataset.mode = value;
       b.addEventListener("click", function () {
+        var wasActive = promptMode(host, result) === value;
         host.dataset.r34gPromptMode = "user:" + value;
         modes.forEach(function (m) {
           m.el.classList.toggle("r34g-on", m.value === value);
         });
-        if (value === "ai" && !result.aiPrompt) askAiPrompt(result, host);
+        if (value === "ai") askAiPrompt(result, host, wasActive);
         else paintPrompt(host, result);
       });
       modes.push({ el: b, value: value });
@@ -4418,7 +4428,7 @@
     }
     row.appendChild(modeBtn("Local", "local", "Prompt que arma aqu\u00ed el an\u00e1lisis, sin internet ni claves"));
     row.appendChild(
-      modeBtn("IA", "ai", "Prompt redactado por la IA a partir de las mismas etiquetas (una consulta; queda guardado por post)")
+      modeBtn("IA", "ai", "Prompt redactado por la IA a partir de las mismas etiquetas. Queda guardado por post: p\u00falsalo otra vez para pedir uno nuevo.")
     );
     var copy = util.el("button", "r34g-mini r34g-prompt-copy", "Copiar prompt");
     copy.type = "button";
@@ -4559,10 +4569,10 @@
     return box;
   }
 
-  function askAiPrompt(result, host) {
+  function askAiPrompt(result, host, force) {
     var key = aiCacheId();
     var cacheKey = key ? "prompt-v2:" + key : "";
-    var cached = cacheKey ? aiCacheGet(cacheKey) : null;
+    var cached = cacheKey && !force ? aiCacheGet(cacheKey) : null;
     if (cached && cached.text) {
       result.aiPrompt = cached.text;
       setPromptButtons(host, result, "user:ai");
@@ -4571,17 +4581,23 @@
     }
     var box = host.querySelector(".r34g-tp-prompt");
     var status = aiStatus(box, "La IA est\u00e1 redactando el prompt\u2026");
-    markPromptModes(host, result);
+    var busyToken = cacheKey || "no-key";
+    aiPromptBusy = busyToken;
+    paintPrompt(host, result);
     // Si mientras la IA piensa se reanaliza el post (o se cambia de post), el resultado al que hay que
     // apuntar ya no es el mismo objeto: se resuelve contra el que est\u00e1 en pantalla.
     function liveResult() {
       if (R.lastAnalysis && R.lastAnalysis !== result && aiCacheId() === key) return R.lastAnalysis;
       return result;
     }
+    function done() {
+      if (aiPromptBusy === busyToken) aiPromptBusy = "";
+      status.stop();
+      status.remove();
+    }
     ai.request(aiPromptMessages(result)).then(
       function (text) {
-        status.stop();
-        status.remove();
+        done();
         var clean = cleanPrompt(text);
         if (!clean) {
           util.toast("La IA no devolvi\u00f3 ning\u00fan prompt");
@@ -4596,8 +4612,7 @@
         util.toast("Prompt de la IA listo");
       },
       function (err) {
-        status.stop();
-        status.remove();
+        done();
         util.toast("La IA fall\u00f3: " + (err && err.message ? err.message : err), 4000);
         setPromptButtons(host, liveResult(), "user:local");
       }
