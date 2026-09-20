@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.2.7
+// @version      0.2.8
 // @description  Reconstruye rule34.xxx para PC: cuadricula de 5 columnas (tarjetas cuadradas) con icono de "ya visto", seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA opcional) y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -30,7 +30,7 @@
   if (R.core) return;
   R.core = true;
 
-  R.VERSION = "0.2.7";
+  R.VERSION = "0.2.8";
   R.NAME = "Rule34 Gallery Suite";
 
   var SETTINGS_KEY = "r34g.settings.v2";
@@ -2966,10 +2966,9 @@
     else w.res(String(d.text == null ? "" : d.text));
   });
 
-  ai.request = function (messages) {
-    if (typeof window.__r34gAIHook === "function") return Promise.resolve(window.__r34gAIHook(messages));
-    var cfg = ai.config;
-    if (cfg.provider === "perchance") return bridgeAsk(messages);
+  // Petición directa a un endpoint compatible con OpenAI (Groq, Gemini, OpenRouter, Pollinations…).
+  function directAsk(cfg, messages) {
+    if (!cfg.endpoint) return Promise.reject(new Error("falta la direcci\u00f3n del motor de IA"));
     var headers = { "Content-Type": "application/json" };
     if (cfg.key) headers.Authorization = "Bearer " + cfg.key;
     return fetch(cfg.endpoint, {
@@ -3017,6 +3016,24 @@
       }
       throw e;
     });
+  }
+
+  // Proveedor de emergencia si el puente de Perchance no está disponible (generador privado,
+  // renombrado o borrado): Pollinations, gratis y sin clave.
+  var FALLBACK = { endpoint: "https://text.pollinations.ai/openai", model: "openai", key: "" };
+
+  ai.request = function (messages) {
+    if (typeof window.__r34gAIHook === "function") return Promise.resolve(window.__r34gAIHook(messages));
+    var cfg = ai.config;
+    if (cfg.provider === "perchance") {
+      return bridgeAsk(messages).catch(function (err) {
+        util.toast(
+          "La IA de Perchance no respondi\u00f3 (" + ((err && err.message) || err) + "). Sigo con Pollinations, que no necesita clave."
+        );
+        return directAsk(FALLBACK, messages);
+      });
+    }
+    return directAsk(cfg, messages);
   };
 
   R.ai = ai;
@@ -4202,6 +4219,10 @@
   var ui = R.ui;
 
   var NOTES = [
+    ["0.2.8", [
+      "Si la IA de Perchance no responde (por ejemplo porque has puesto el generador en privado, lo has renombrado o lo has borrado), el an\u00e1lisis sigue funcionando: reintenta solo con Pollinations, que es gratis y no pide clave. Antes se quedaba esperando y fallaba.",
+      "El motor de IA queda en dos capas: la elegida en Ajustes \u2192 Etiquetas y, solo para el caso de Perchance, esa red de seguridad."
+    ]],
     ["0.2.7", [
       "Bot\u00f3n flotante \u00ab\u26a1 Ajustes\u00bb abajo a la derecha, siempre visible: desde ah\u00ed se abre el panel completo (clave de rule34, motor de IA, cuadr\u00edcula, v\u00eddeos, etiquetas). Ya no hace falta encontrar el enlace en la barra de navegaci\u00f3n.",
       "El enlace \u00abAjustes\u00bb de la barra ahora se inserta aunque rule34 tarde en pintarla (antes pod\u00eda quedarse sin aparecer).",
