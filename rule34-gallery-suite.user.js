@@ -39,7 +39,7 @@
   if (R.core) return;
   R.core = true;
 
-  R.VERSION = "0.7.0";
+  R.VERSION = "0.7.1";
   R.NAME = "Rule34 Gallery Suite";
 
   var SETTINGS_KEY = "r34g.settings.v2";
@@ -7235,6 +7235,11 @@
       node.preload = "auto";
       node.setAttribute("src", m.url);
       lb.video = node;
+      // si el CDN no deja verlo aquí, al menos que se pueda abrir el post sin salir de la vista
+      node.addEventListener("error", function () {
+        if (lb.video !== node) return;
+        note("No se pudo cargar aqu\u00ed: \u00e1brelo con el bot\u00f3n \u00abAbrir el post\u00bb", "r34g-lb-bad");
+      });
       var p = node.play();
       if (p && p.catch) p.catch(function () {});
     } else {
@@ -7866,7 +7871,7 @@
   var ui = R.ui;
 
   var NOTES = [
-    ["0.7.0", [
+    ["0.7.1", [
       "Vista r\u00e1pida: pulsar una miniatura ya no te lleva a la p\u00e1gina del post. Se abre encima de la galer\u00eda la imagen (o el v\u00eddeo, con sonido opcional) a tama\u00f1o completo, y se pasa de un post a otro con las flechas \u2190 \u2192 (o J y K) sin perder el sitio. Clic en la imagen para acercarla a tama\u00f1o real y alejarla otra vez.",
       "Desde la propia vista r\u00e1pida: D descarga ese post con tu plantilla de nombre y carpeta, M lo marca para el lote (se puede ir marcando mientras miras), O abre el post en una pesta\u00f1a y Esc cierra. Arriba se ve el n\u00famero de post, sus etiquetas y si ya lo ten\u00edas en el historial.",
       "Carga c\u00f3moda: se ense\u00f1a la miniatura al instante mientras se lee el post, y los vecinos se van preparando por delante, as\u00ed que pasar de uno a otro es casi instant\u00e1neo. Se enciende y se apaga en Ajustes \u2192 Galer\u00eda \u2192 \u00abVista r\u00e1pida\u00bb, y con Ctrl (o el bot\u00f3n central) sigues abriendo el post en otra pesta\u00f1a como siempre."
