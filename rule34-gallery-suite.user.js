@@ -3719,7 +3719,8 @@
   }
 
   function roleOf(tag) {
-    if (META_TAGS[norm(tag.name)]) return "meta";
+    var n = norm(tag.name);
+    if (META_TAGS[n] || META_TAGS[n.replace(/\s+/g, "_")]) return "meta";
     var t = (tag.type || "").toLowerCase();
     if (t === "character") return "character";
     if (t === "copyright") return "copyright";
@@ -4083,7 +4084,10 @@
   }
 
   function promptMode(host, result) {
-    return host && host.dataset.r34gPromptMode === "ai" && result.aiPrompt ? "ai" : "local";
+    var m = host && host.dataset.r34gPromptMode;
+    if (m === "user:ai" && result.aiPrompt) return "ai";
+    if (m === "user:local") return "local";
+    return result.aiPrompt ? "ai" : "local";
   }
 
   function paintPrompt(host, result) {
@@ -4101,7 +4105,7 @@
     var box = util.el("div", "r34g-tp-prompt");
     var head = util.el("div", "r34g-tp-prompt-head");
     head.appendChild(util.el("b", null, "Prompt para otra app"));
-    head.appendChild(util.el("span", "r34g-note", promptNote(result)));
+    head.appendChild(util.el("span", "r34g-note r34g-prompt-note", promptNote(result)));
     var row = util.el("span", "r34g-mini-row");
     var modes = [];
     function modeBtn(label, value, title) {
@@ -4110,7 +4114,7 @@
       b.title = title;
       b.dataset.mode = value;
       b.addEventListener("click", function () {
-        host.dataset.r34gPromptMode = value;
+        host.dataset.r34gPromptMode = "user:" + value;
         modes.forEach(function (m) {
           m.el.classList.toggle("r34g-on", m.value === value);
         });
@@ -4253,9 +4257,6 @@
   function renderInto(host, result) {
     host.innerHTML = "";
     host.dataset.r34gResult = "1";
-    if (!host.dataset.r34gPromptMode || (host.dataset.r34gPromptMode === "ai" && !result.aiPrompt)) {
-      host.dataset.r34gPromptMode = result.aiPrompt ? "ai" : "local";
-    }
 
     if (!result.tags.length) {
       host.appendChild(util.el("p", "r34g-hint", "No se encontraron etiquetas en este post."));
