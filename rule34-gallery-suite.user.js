@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.30
+// @version      0.8.31
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA gratis sin configurar nada) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -4778,8 +4778,8 @@
     var artistBox = result.artists.length ? groupBox(result, "artists", "Artista", "") : null;
     var seriesBox = result.copyrights.length ? groupBox(result, "copyright", "Series", "") : null;
     var metaBox = groupBox(result, "meta", "Medio y metadatos", "Describen el formato, no la escena.");
-    var redBox = result.redundant.length ? groupBox(result, "redundant", "Redundantes", "Se descartan por defecto si otra etiqueta con m\u00e1s posts ya las cubre.") : null;
-    var relBox = result.related && result.related.length ? groupBox(result, "related", "Relacionados", "Se solapan entre s\u00ed (una es m\u00e1s general). Decide t\u00fa cu\u00e1l sobra.") : null;
+    var redBox = result.redundant.length ? groupBox(result, "redundant", "Redundantes", "Salen fuera del resultado y del prompt; pulsa una etiqueta para volver a incluirla.") : null;
+    var relBox = result.related && result.related.length ? groupBox(result, "related", "Relacionados", "Se solapan entre s\u00ed (una es m\u00e1s general). Quita la que sobre, o todas las generales de golpe.") : null;
 
     charBoxes.forEach(function (cb) {
       body.appendChild(cb.box);
@@ -4864,12 +4864,36 @@
         b.type = "button";
         b.title = "Quita esta etiqueta del resultado";
         b.addEventListener("click", function () {
+          result.touched = result.touched || {};
+          result.touched[item.tag.name] = 1;
           result.discarded[item.tag.name] = 1;
           renderInto(host, result);
         });
         line.appendChild(b);
         rows.push(line);
       });
+      // Quitar de golpe la general de cada pareja que se solapa: es lo que se espera al pulsar una vez
+      // «esto sobra», sin tener que ir par a par. Se puede volver a encender con un clic en la etiqueta.
+      var generales = [];
+      result.related.forEach(function (item) {
+        if (!result.discarded[item.tag.name] && generales.indexOf(item.tag.name) === -1) generales.push(item.tag.name);
+      });
+      if (generales.length) {
+        var dropAll = util.el("button", "r34g-mini", "Quitar las " + generales.length + " generales");
+        dropAll.type = "button";
+        dropAll.title =
+          "Descarta la etiqueta m\u00e1s general de cada pareja que se solapa (se queda la m\u00e1s concreta). Puedes volver a encender cualquiera con un clic.";
+        dropAll.addEventListener("click", function () {
+          result.touched = result.touched || {};
+          generales.forEach(function (n) {
+            result.touched[n] = 1;
+            result.discarded[n] = 1;
+          });
+          util.toast(generales.length + " etiquetas generales fuera del resultado");
+          renderInto(host, result);
+        });
+        relBox.box.appendChild(dropAll);
+      }
       var limit = 6;
       rows.forEach(function (line, i) {
         if (i >= limit) line.hidden = true;
@@ -5574,6 +5598,9 @@
       if (!added) return;
       var rebuilt = analyze(result.tags);
       rebuilt.apiAdded = added;
+      // Se mantienen las decisiones manuales y el prompt de la IA: reanalizar no borra nada de eso.
+      rebuilt.touched = result.touched;
+      rebuilt.aiPrompt = result.aiPrompt;
       R.lastAnalysis = rebuilt;
       var pageHost = host || document.getElementById("r34g-tp-page");
       if (pageHost) renderInto(pageHost, rebuilt);
