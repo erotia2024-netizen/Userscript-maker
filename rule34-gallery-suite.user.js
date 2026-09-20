@@ -39,7 +39,7 @@
   if (R.core) return;
   R.core = true;
 
-  R.VERSION = "0.8.1";
+  R.VERSION = "0.8.2";
   R.NAME = "Rule34 Gallery Suite";
 
   var SETTINGS_KEY = "r34g.settings.v2";
@@ -8310,6 +8310,11 @@
   var ui = R.ui;
 
   var NOTES = [
+    ["0.8.2", [
+      "En el panel de etiquetas, cada etiqueta lleva ahora un \u00ab+\u00bb y un \u00ab\u2212\u00bb: el \u00ab+\u00bb la a\u00f1ade a la caja de b\u00fasqueda y el \u00ab\u2212\u00bb la excluye (le pone un menos delante). No busca al momento: la etiqueta queda marcada en verde si est\u00e1 en la consulta o en rojo tachada si est\u00e1 excluida, y lo que se ha escrito se ve en la caja de b\u00fasqueda, as\u00ed que puedes ir juntando varias etiquetas y revisar la b\u00fasqueda antes de lanzarla con Search.",
+      "Volver a pulsar el \u00ab+\u00bb la quita de la consulta (y el \u00ab\u2212\u00bb tambi\u00e9n, si ya estaba excluida): no hace falta borrar nada a mano. Si escribes o pegas etiquetas en la caja, el panel se marca solo para que veas qu\u00e9 lleva la b\u00fasqueda.",
+      "Los enlaces \u00ab+ / -\u00bb que a\u00f1ade Image Board Enhancer ya no se pelean con nada: la suite los reaprovecha (depend\u00edan de su ayudante $$, y sin \u00e9l no hac\u00edan nada), as\u00ed que no hay cuatro botones por etiqueta."
+    ]],
     ["0.8.1", [
       "Los botones del analizador de etiquetas (\u00abAn\u00e1lisis de este post\u00bb) se han mudado a la pesta\u00f1a Galer\u00eda de Ajustes, justo encima del bloque que configura las miniaturas. Antes hab\u00eda que entrar en Etiquetas para lanzar el an\u00e1lisis del post abierto; ahora est\u00e1n en la primera pesta\u00f1a que se abre, junto a las dos opciones del an\u00e1lisis autom\u00e1tico.",
       "Las reglas del an\u00e1lisis, el motor de IA y la cuenta de rule34 siguen en la pesta\u00f1a Etiquetas, que ahora avisa de d\u00f3nde est\u00e1n los botones. En el propio post no cambia nada: ah\u00ed sigue el bloque \u00abEtiquetas por personaje\u00bb con sus botones."
