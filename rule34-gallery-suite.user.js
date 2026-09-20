@@ -5266,6 +5266,11 @@
       },
       event: "change"
     });
+    var aiProbe = util.el("p", "r34g-note r34g-ai-probe");
+    aiProbe.textContent = ai.lastProvider
+      ? "\u00daltima conexi\u00f3n correcta: " + providerShort(ai.lastProvider) + "."
+      : "Sin probar todav\u00eda. El bot\u00f3n de abajo usa la misma cadena que \u00abAnalizar con IA\u00bb (el proveedor elegido y, si falla, los gratuitos).";
+    engine.appendChild(aiProbe);
     ui.textarea({
       section: engine,
       title: "Instrucci\u00f3n para la IA",
@@ -5289,9 +5294,11 @@
             ai.request([{ role: "user", content: "Responde solo con la palabra OK" }]).then(
               function (t) {
                 var via = ai.lastProvider ? " con " + providerShort(ai.lastProvider) : "";
+                if (aiProbe) aiProbe.textContent = "\u00daltima conexi\u00f3n correcta:" + (ai.lastProvider ? " " + providerShort(ai.lastProvider) : "") + " \u2014 " + String(t).replace(/\s+/g, " ").slice(0, 70);
                 util.toast("Conectado" + via + ": " + String(t).replace(/\s+/g, " ").slice(0, 60), 5000);
               },
               function (e) {
+                if (aiProbe) aiProbe.textContent = "Sin conexi\u00f3n: " + (e && e.message ? e.message : e);
                 util.toast("No conect\u00f3 ning\u00fan proveedor. " + (e && e.message ? e.message : e), 8000);
               }
             );
