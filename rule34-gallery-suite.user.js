@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.37
+// @version      0.8.38
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA gratis sin configurar nada) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -3470,129 +3470,6 @@
     } catch (e) {}
   };
 
-  // El panel de Ajustes se engancha aqu\u00ed para ense\u00f1ar solo los campos que hacen falta con el
-  // proveedor elegido (el puente de Perchance solo pide su direcci\u00f3n; los gratuitos, nada).
-  var providerSync = null;
-
-  ai.applyProvider = function (value) {
-    ai.config.provider = value;
-    var p = providerByKey(value);
-    if (p && p.endpoint) {
-      ai.config.endpoint = p.endpoint;
-      ai.config.model = p.model;
-    }
-    ai.save();
-    if (R.refreshControls) R.refreshControls();
-    if (providerSync) providerSync();
-  };
-
-  // Puente con este mismo generador de Perchance: el userscript abre su p\u00e1gina en un iframe
-  // oculto (con #r34g-ai, que all\u00ed solo carga el receptor) y le pide el texto por postMessage.
-  // As\u00ed la IA sale del plugin de Perchance: gratis y sin clave en el script.
-  var bridgeFrame = null;
-  var bridgeSeq = 0;
-  var bridgeWaiting = {};
-
-  function bridgeUrl() {
-    var url = String(ai.config.bridge || "").trim();
-    if (!url || url.indexOf("userscript-maker") !== -1) url = String(R.settings.tBridge || "").trim();
-    return url;
-  }
-
-  function bridgeFrameFor(url) {
-    if (bridgeFrame && bridgeFrame.dataset.r34gUrl === url && bridgeFrame.parentNode) return bridgeFrame;
-    if (bridgeFrame) bridgeFrame.remove();
-    var src = url.replace(/^https?:\/\/(www\.)?perchance\.org\//i, "https://null.perchance.org/");
-    src += (src.indexOf("#") === -1 ? "#r34g-ai" : "");
-    var f = document.createElement("iframe");
-    f.src = src;
-    f.dataset.r34gUrl = url;
-    f.style.cssText = "position:fixed;left:-9999px;top:0;width:1px;height:1px;border:0;";
-    f.setAttribute("aria-hidden", "true");
-    f.addEventListener("load", function () {
-      f.dataset.r34gReady = "1";
-    });
-    (document.body || document.documentElement).appendChild(f);
-    bridgeFrame = f;
-    return f;
-  }
-
-  function bridgeAsk(messages) {
-    var url = bridgeUrl();
-    if (!url) return Promise.reject(new Error("falta la direcci\u00f3n del generador en Ajustes \u2192 Etiquetas"));
-    var system = "";
-    var user = "";
-    messages.forEach(function (m) {
-      if (m.role === "system") system = m.content;
-      else user += (user ? "\n\n" : "") + m.content;
-    });
-    return new Promise(function (resolve, reject) {
-      var id = "r34g-" + ++bridgeSeq + "-" + Date.now();
-      var done = false;
-      var entry = { res: resolve, rej: reject };
-      // Una sola salida: o contesta el generador, o salta el aviso de que no carg\u00f3, o se agota el tiempo.
-      var settle = function (fn) {
-        if (done) return;
-        done = true;
-        delete bridgeWaiting[id];
-        clearTimeout(entry.timer);
-        clearTimeout(entry.guard);
-        fn();
-      };
-      entry.timer = setTimeout(function () {
-        settle(function () {
-          reject(new Error("la IA de Perchance tard\u00f3 demasiado en responder"));
-        });
-      }, 120000);
-      entry.guard = setTimeout(function () {
-        if (entry.sent) return;
-        settle(function () {
-          reject(new Error("el generador de Perchance no carg\u00f3 (\u00bfest\u00e1 guardado y es p\u00fablico?)"));
-        });
-      }, 30000);
-      entry.settle = settle;
-      bridgeWaiting[id] = entry;
-      var frame = bridgeFrameFor(url);
-      var send = function () {
-        entry.sent = true;
-        try {
-          frame.contentWindow.postMessage({ r34g: "ai-request", id: id, system: system, user: user }, "*");
-        } catch (e) {
-          settle(function () {
-            reject(new Error("no se pudo hablar con el generador"));
-          });
-        }
-      };
-      if (frame.dataset.r34gReady === "1") setTimeout(send, 250);
-      else frame.addEventListener("load", function () {
-        setTimeout(send, 600);
-      });
-    });
-  }
-
-  window.addEventListener("message", function (e) {
-    var d = e.data;
-    if (!d || d.r34g !== "ai-reply" || !d.id) return;
-    if (!/\.perchance\.org$/.test((e.origin || "").replace(/^https?:\/\//, ""))) return;
-    var w = bridgeWaiting[d.id];
-    if (!w) return;
-    w.settle(function () {
-      if (d.error) w.rej(new Error(String(d.error).slice(0, 180)));
-      else w.res(String(d.text == null ? "" : d.text));
-    });
-  });
-
-  // El iframe del puente tarda en cargar la p\u00e1gina del generador la primera vez. Arrancarlo un poco
-  // antes (al abrir el an\u00e1lisis) evita que esa espera se sume a la consulta.
-  ai.warm = function () {
-    try {
-      if (BRIDGE_MODE !== "off") {
-        var url = bridgeUrl();
-        if (url) bridgeFrameFor(url);
-      }
-    } catch (e) {}
-  };
-
   // Transporte http. En rule34.xxx el script corre bajo Tampermonkey, as\u00ed que si hay
   // GM_xmlhttpRequest se usa \u00e9l: la petici\u00f3n sale por el gestor de userscripts y se salta el CORS del
   // sitio. En el laboratorio (o si el gestor no lo ofrece) se usa fetch normal.
@@ -3662,119 +3539,96 @@
     });
   }
 
-  // Petici\u00f3n directa a un endpoint compatible con OpenAI (Groq, Gemini, OpenRouter, Pollinations\u2026).
-  function directAsk(cfg, messages) {
-    if (!cfg || !cfg.endpoint) return Promise.reject(new Error("falta la direcci\u00f3n del motor de IA"));
-    var headers = { "Content-Type": "application/json" };
-    if (cfg.key) headers.Authorization = "Bearer " + cfg.key;
-    return httpPost(cfg.endpoint, headers, JSON.stringify({ model: cfg.model, messages: messages, temperature: 0.2 }))
-      .then(function (res) {
-        if (!res.ok) {
-          var body = res.text || "";
-          var detail = "";
-          try {
-            var j = JSON.parse(body);
-            detail = (j && j.error && (j.error.message || j.error)) || (j && j.message) || "";
-            detail = detail ? String(detail) : "";
-          } catch (e) {}
-          if (!detail) detail = String(body || "").slice(0, 120);
-          if (!res.status) throw new Error("no se pudo conectar con " + hostOf(cfg.endpoint));
-          if (res.status === 429) {
-            throw new Error("l\u00edmite alcanzado (429). Prueba en un rato, usa el an\u00e1lisis local o cambia de proveedor.");
-          }
-          if (res.status === 401 || res.status === 403) {
-            throw new Error("clave rechazada (" + res.status + "). Rev\u00edsala o cambia de proveedor.");
-          }
-          throw new Error("HTTP " + res.status + " en " + hostOf(cfg.endpoint) + (detail ? ": " + detail.slice(0, 140) : ""));
-        }
-        var data;
-        try {
-          data = JSON.parse(res.text);
-        } catch (e) {
-          return res.text;
-        }
-        if (data && data.choices && data.choices[0] && data.choices[0].message) return data.choices[0].message.content || "";
-        if (typeof data === "string") return data;
-        if (data && typeof data.text === "string") return data.text;
-        return JSON.stringify(data);
-      })
-      .catch(function (e) {
-        var msg = (e && e.message) || String(e);
-        if (/failed to fetch|network ?error|load failed|err_/i.test(msg)) {
-          throw new Error("no se pudo conectar con " + hostOf(cfg.endpoint) + " (sin red o bloqueado; puede ser el bloqueador de anuncios)");
-        }
-        throw e;
+  // Cómo se pregunta a Gemini: la clave va en la cabecera normal de OpenAI y, si Google la rechazara
+  // por ahí, se reintenta una vez con ?key= (misma casa, sin cambiar de motor). Una sola petición, sin
+  // cadenas de reserva: si falla, el aviso dice el motivo y el prompt local sigue estando ahí.
+  function geminiAsk(messages) {
+    var key = String(ai.config.key || "").trim();
+    var body = JSON.stringify({ model: GEMINI.model, messages: messages, temperature: 0.2 });
+    function send(url, headers) {
+      return httpPost(url, headers, body).then(function (res) {
+        if (res.ok) return readChat(res.text);
+        throw aiError(res, url.indexOf("?key=") !== -1);
       });
-  }
-
-  // Proveedor de reserva: gratis y sin clave.
-  var FALLBACK = { endpoint: "https://text.pollinations.ai/openai", model: "openai", key: "" };
-
-  // Config con la que se pregunta a cada proveedor: para el elegido se respeta lo que haya guardado el
-  // usuario (direcci\u00f3n, modelo y clave); los de reserva van con los valores de f\u00e1brica y sin clave.
-  function cfgForProvider(key) {
-    if (key === ai.config.provider && ai.config.endpoint) return ai.config;
-    if (key === "pollinations") return { endpoint: FALLBACK.endpoint, model: FALLBACK.model, key: "" };
-    var p = providerByKey(key);
-    return { endpoint: p && p.endpoint, model: p && p.model, key: "" };
-  }
-
-  // Cadena de intentos: primero lo que eligi\u00f3 el usuario y despu\u00e9s, como red, los proveedores que no
-  // piden nada. As\u00ed \u00abAnalizar con IA\u00bb conecta aunque no se haya configurado absolutamente nada.
-  function askChain() {
-    var chain = [];
-    var primary = ai.config.provider;
-    if (primary === "perchance" && BRIDGE_MODE === "off") primary = "pollinations";
-    chain.push(primary);
-    if (BRIDGE_MODE !== "off") chain.push("perchance");
-    chain.push("pollinations");
-    keylessProviders().forEach(function (p) {
-      if (chain.indexOf(p.value) === -1) chain.push(p.value);
-    });
-    return chain.filter(function (key, n) {
-      return key && chain.indexOf(key) === n;
+    }
+    return send(GEMINI.endpoint, { "Content-Type": "application/json", Authorization: "Bearer " + key }).catch(function (e) {
+      var msg = (e && e.message) || String(e);
+      if (/rechazó la clave/.test(msg)) {
+        return send(GEMINI.endpoint + "?key=" + encodeURIComponent(key), { "Content-Type": "application/json" });
+      }
+      if (/failed to fetch|network ?error|load failed|err_/i.test(msg)) {
+        throw new Error(
+          "no se pudo conectar con generativelanguage.googleapis.com (sin red o bloqueado; puede ser el bloqueador de anuncios)"
+        );
+      }
+      throw e;
     });
   }
 
-  function askProvider(key, messages) {
-    if (key === "perchance") return bridgeAsk(messages);
-    return directAsk(cfgForProvider(key), messages);
+  // Detalle del error que devuelve la API, recortado para que quepa en el aviso.
+  function apiDetail(body) {
+    var detail = "";
+    try {
+      var j = JSON.parse(body);
+      detail = (j && j.error && (j.error.message || j.error)) || (j && j.message) || "";
+      detail = detail ? String(detail) : "";
+    } catch (e) {
+      detail = String(body || "").slice(0, 140);
+    }
+    return detail;
   }
 
-  function chainError(errors) {
-    if (!errors.length) return new Error("no hay ning\u00fan proveedor de IA disponible");
-    return new Error(
-      errors
-        .map(function (e) {
-          return e.who + ": " + e.msg;
-        })
-        .join(" \u00b7 ")
-    );
+  function aiError(res, reintento) {
+    var detail = apiDetail(res.text);
+    var cola = detail ? ": " + detail.slice(0, 160) : "";
+    if (!res.status) {
+      return new Error("no se pudo conectar con generativelanguage.googleapis.com (sin red o bloqueado; puede ser el bloqueador de anuncios)");
+    }
+    if (res.status === 401 || res.status === 403) {
+      return new Error(
+        "Gemini rechazó la clave (" + res.status + ")" + (reintento ? ", ya probando las dos formas de mandarla" : "") +
+          ". Pega tu clave de Google AI Studio en Ajustes → Etiquetas → Prompt con IA" + cola
+      );
+    }
+    if (res.status === 429) {
+      return new Error("Gemini dice que no queda cuota (429). Espera un poco; el prompt local sigue ahí" + cola);
+    }
+    if (res.status === 404) {
+      return new Error("Gemini no reconoce el modelo «" + GEMINI.model + "» (404)" + cola);
+    }
+    return new Error("HTTP " + res.status + " de Gemini" + cola);
   }
+
+  function readChat(text) {
+    var data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      return text;
+    }
+    if (data && data.choices && data.choices[0] && data.choices[0].message) {
+      ai.model = data.model || GEMINI.model;
+      return data.choices[0].message.content || "";
+    }
+    if (typeof data === "string") return data;
+    if (data && typeof data.text === "string") return data.text;
+    if (data && data.error) throw new Error(apiDetail(text).slice(0, 200) || "la API devolvió un error");
+    return JSON.stringify(data);
+  }
+
+  ai.model = "";
+
+  // Comprobación del panel: la misma petición que la del prompt, pero pidiendo "OK".
+  ai.probe = function () {
+    return geminiAsk([{ role: "user", content: "Responde solo con la palabra OK" }]);
+  };
 
   ai.request = function (messages) {
     if (typeof window.__r34gAIHook === "function") return Promise.resolve(window.__r34gAIHook(messages));
-    if (ai.warm) ai.warm();
-    var chain = askChain();
-    var errors = [];
-    function attempt(n) {
-      if (n >= chain.length) return Promise.reject(chainError(errors));
-      var key = chain[n];
-      if (n > 0) {
-        util.toast("\u00ab" + providerShort(chain[n - 1]) + "\u00bb no respondi\u00f3; pruebo con \u00ab" + providerShort(key) + "\u00bb\u2026", 2600);
-      }
-      return askProvider(key, messages)
-        .then(function (text) {
-          if (text == null || !String(text).trim()) throw new Error("devolvi\u00f3 una respuesta vac\u00eda");
-          ai.lastProvider = key;
-          return text;
-        })
-        .catch(function (e) {
-          errors.push({ who: providerShort(key), msg: (e && e.message) || String(e) });
-          return attempt(n + 1);
-        });
+    if (!String(ai.config.key || "").trim()) {
+      return Promise.reject(new Error("falta la clave de Gemini: pégala en Ajustes → Etiquetas → Prompt con IA"));
     }
-    return attempt(0);
+    return geminiAsk(messages);
   };
 
   R.ai = ai;
@@ -4867,204 +4721,17 @@
     var pageHost = host || document.getElementById("r34g-tp-page");
     if (pageHost) renderInto(pageHost, result);
     R.lastAnalysis = result;
-    if (options.ai) refineWithAI(result, pageHost, options);
-    else if (!options.tags) enrich(result, pageHost);
+    // El análisis es local; si hay cuenta de rule34 se completa con la API (ver `enrich`).
+    if (!options.tags) enrich(result, pageHost);
     return result;
   }
 
-  function extractJSON(text) {
-    if (!text) return null;
-    var t = String(text).replace(/```json/gi, "```").replace(/```/g, "");
-    var start = t.indexOf("{");
-    var end = t.lastIndexOf("}");
-    if (start === -1 || end === -1 || end <= start) return null;
-    var slice = t.slice(start, end + 1);
-    try {
-      return JSON.parse(slice);
-    } catch (e) {
-      try {
-        return JSON.parse(slice.replace(/,\s*([}\]])/g, "$1"));
-      } catch (e2) {
-        return null;
-      }
-    }
-  }
-
-  function aiMessages(result) {
-    var lines = result.tags
-      .slice()
-      .sort(function (a, b) {
-        return b.count - a.count;
-      })
-      .map(function (t) {
-        return "- " + t.name + " [" + t.role + ", " + t.count + " posts]";
-      });
-    var chars = result.characters.map(function (c) {
-      return "- " + c.tag + (c.copyright ? " (" + c.copyright + ")" : "");
-    });
-    var fuera = result.tags
-      .filter(function (t) {
-        return result.discarded[t.name];
-      })
-      .map(function (t) {
-        return t.name;
-      });
-    var user = [
-      "Etiquetas del post (nombre [tipo, posts totales de esa etiqueta]):",
-      lines.join("\n"),
-      "",
-      "Personajes detectados:",
-      chars.length ? chars.join("\n") : "- (ninguno)",
-      fuera.length ? "\nEtiquetas que las reglas locales ya descartan (no las incluyas en characters ni en shared, ni las repitas en discard): " + fuera.join(", ") : "",
-      "",
-      "Devuelve el JSON."
-    ].join("\n");
-    return [
-      { role: "system", content: ai.config.instruction || AI_DEFAULT_INSTRUCTION },
-      { role: "user", content: user }
-    ];
-  }
-
-  function applyAI(result, data, host) {
-    if (!data || typeof data !== "object") return false;
-    var known = {};
-    result.tags.forEach(function (t) {
-      known[t.name] = 1;
-    });
-    // Las reglas locales mandan sobre la IA: lo que aquí se descarta no se puede reactivar (ni poner
-    // en un personaje) y a la que aquí se queda no se la puede descartar. Si no, cada respuesta de la
-    // IA dejaba las etiquetas redundantes otra vez dentro del resultado y del prompt.
-    var local = localRedundancy(result.tags, result.criterion);
-    var byRules = {};
-    Object.keys(local.dropped).forEach(function (n) {
-      byRules[n] = 1;
-    });
-    var ruleWinner = {};
-    local.redundant.forEach(function (item) {
-      if (item.kept && item.kept.name) ruleWinner[item.kept.name] = item.tag.name;
-    });
-    function revive(name) {
-      if (byRules[name]) return;
-      delete result.discarded[name];
-    }
-    var moved = 0;
-    if (data.prompt) {
-      var aiPrompt = String(data.prompt).replace(/\s+/g, " ").trim();
-      if (aiPrompt) {
-        result.aiPrompt = aiPrompt;
-        moved++;
-      }
-    }
-    if (Array.isArray(data.characters)) {
-      data.characters.forEach(function (entry) {
-        var target = result.characters.filter(function (c) {
-          return c.tag === entry.tag || c.name === norm(entry.tag || "");
-        })[0];
-        if (!target) return;
-        (entry.tags || []).forEach(function (raw) {
-          var name = String(raw || "").replace(/\s+/g, "_");
-          if (!known[name]) return;
-          result.characters.forEach(function (c) {
-            c.tags = c.tags.filter(function (n) {
-              return n !== name;
-            });
-          });
-          result.shared = result.shared.filter(function (n) {
-            return n !== name;
-          });
-          revive(name);
-          target.tags.push(name);
-          result.byTag[name] = target.tag;
-          moved++;
-        });
-      });
-    }
-    if (Array.isArray(data.shared)) {
-      data.shared.forEach(function (raw) {
-        var name = String(raw || "").replace(/\s+/g, "_");
-        if (!known[name]) return;
-        if (result.byTag[name] === "meta") return;
-        result.characters.forEach(function (c) {
-          c.tags = c.tags.filter(function (n) {
-            return n !== name;
-          });
-        });
-        revive(name);
-        if (result.shared.indexOf(name) === -1) result.shared.push(name);
-        result.byTag[name] = "shared";
-        moved++;
-      });
-    }
-    if (Array.isArray(data.discard)) {
-      data.discard.forEach(function (entry) {
-        var name = typeof entry === "string" ? entry : entry && entry.tag;
-        if (!name) return;
-        name = String(name).replace(/\s+/g, "_");
-        if (!known[name]) return;
-        // No descarta a la que ya ganó en las reglas locales, y no repite un par que ya está listado.
-        if (ruleWinner[name]) return;
-        if (
-          result.redundant.some(function (item) {
-            return item.tag && item.tag.name === name;
-          })
-        )
-          return;
-        result.discarded[name] = 1;
-        var kept = typeof entry === "object" && entry ? entry.kept : "";
-        result.redundant.push({
-          tag: result.tags.filter(function (t) {
-            return t.name === name;
-          })[0] || { name: name },
-          kept: kept ? { name: String(kept).replace(/\s+/g, "_") } : { name: "?" },
-          reason: "Descartada por la IA"
-        });
-        moved++;
-      });
-    }
-    if (host) renderInto(host, result);
-    if (data.notas) util.toast(String(data.notas).slice(0, 140), 4200);
-    return moved > 0;
-  }
-
-  function refineWithAI(result, host, options) {
-    if (!host) return;
-    var cacheKey = aiCacheId();
-    var cached = options && options.force ? null : aiCacheGet(cacheKey);
-    if (cached) {
-      applyAI(result, cached, host);
-      buildOutput(result);
-      util.toast("IA: usando el an\u00e1lisis ya guardado de este post");
-      return;
-    }
-    var status = aiStatus(host, "Consultando a la IA\u2026");
-    ai.request(aiMessages(result)).then(
-      function (text) {
-        status.stop();
-        status.remove();
-        var data = extractJSON(text);
-        if (!data) {
-          util.toast("La IA no devolvi\u00f3 un JSON v\u00e1lido");
-          return;
-        }
-        aiCachePut(cacheKey, data);
-        applyAI(result, data, host);
-        buildOutput(result);
-        util.toast("An\u00e1lisis de IA aplicado");
-      },
-      function (err) {
-        status.stop();
-        status.remove();
-        util.toast("La IA fall\u00f3: " + (err && err.message ? err.message : err), 4000);
-      }
-    );
-  }
-
-  function openPanel(aiWanted) {
+  function openPanel() {
     var panel = document.getElementById("r34g-tags-panel");
     if (!panel) return;
     panel.hidden = false;
     document.documentElement.classList.add("r34g-tags-open");
-    if (aiWanted) run(null, { ai: true });
+    run(null);
   }
 
   // El bloque se pone encima del vídeo o de la imagen del post (arriba del todo de la columna del
@@ -5091,9 +4758,9 @@
     var body = util.el("div");
     body.id = "r34g-tp-page";
 
-    function show(ai, force) {
+    function show(force) {
       host.hidden = false;
-      if (force || !body.dataset.r34gResult || ai) run(body, ai ? { ai: true } : undefined);
+      if (force || !body.dataset.r34gResult) run(body);
     }
 
     var bar = util.el("div", "r34g-tp-launch");
@@ -5103,23 +4770,15 @@
     toggle.appendChild(util.el("span", null, "Etiquetas por personaje"));
     toggle.title = "Analiza y reparte las etiquetas de este post entre sus personajes";
     toggle.addEventListener("click", function () {
-      show(false, false);
+      show(false);
     });
     var runBtn = util.el("button", "r34g-mini", "Analizar");
     runBtn.type = "button";
     runBtn.addEventListener("click", function () {
-      show(false, true);
-    });
-    var aiBtn = util.el("button", "r34g-mini", "Analizar con IA");
-    aiBtn.type = "button";
-    aiBtn.title = "Manda las etiquetas a la IA (gratis y sin configurar nada) y afina el reparto y el prompt";
-    aiBtn.addEventListener("click", function () {
-      if (ai.warm) ai.warm();
-      show(true, true);
+      show(true);
     });
     bar.appendChild(toggle);
     bar.appendChild(runBtn);
-    bar.appendChild(aiBtn);
     host.appendChild(bar);
     host.appendChild(body);
 
@@ -5127,13 +4786,8 @@
     if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(host, anchor);
     else document.getElementById("content").appendChild(host);
     if (R.settings.tAuto) setTimeout(function () {
-      // con la cach\u00e9 por post, repetir un post no gasta peticiones: solo los nuevos
-      show(R.settings.tEngine === "ai" && !!R.settings.tAutoAI);
+      show(false);
     }, 600);
-    // si el an\u00e1lisis autom\u00e1tico va a usar la IA, se deja cargando ya el puente de Perchance
-    if (ai.warm && R.settings.tEngine === "ai" && R.settings.tAutoAI) setTimeout(function () {
-      ai.warm();
-    }, 1200);
     return host;
   }
 
@@ -5148,12 +4802,6 @@
 
     var auto = ui.section(panel, "An\u00e1lisis autom\u00e1tico");
     ui.toggle({ section: auto, key: "tAuto", title: "Analizar autom\u00e1ticamente al abrir un post" });
-    ui.toggle({
-      section: auto,
-      key: "tAutoAI",
-      title: "Usar la IA en ese an\u00e1lisis autom\u00e1tico",
-      note: "Solo gasta una petici\u00f3n la primera vez que ves cada post: el resultado de la IA queda guardado por post."
-    });
 
     var rules = ui.section(panel, "Reglas del an\u00e1lisis");
     ui.seg({
