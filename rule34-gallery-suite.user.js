@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.10
+// @version      0.8.11
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA opcional) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -85,6 +85,8 @@
     tKey: "",
     tPromptFmt: "comas",
     tPromptArt: true,
+    tPromptArtPos: "first",
+    tPromptArtW: "1",
     tPromptMeta: false,
     tPromptPre: "",
     tPromptSuf: "",
@@ -3359,7 +3361,7 @@
     "Haz tres cosas:",
     "1) Reparte las etiquetas generales entre los personajes a los que describen realmente. Si una etiqueta describe a varios personajes o a la escena en general, ponla en \"shared\". Si describe a uno solo, ponla con ese personaje.",
     "2) Detecta etiquetas redundantes (sinónimos, singular/plural, o una que ya queda cubierta por otra con más posts) y ponlas en \"discard\" indicando con \"kept\" la etiqueta que se queda.",
-    "3) Escribe en \"prompt\" un prompt en inglés de una sola línea, separado por comas, para pegar en una app de generación de imágenes: primero el sujeto y su apariencia, después la escena y las acciones, luego la serie y al final el estilo o el artista. No repitas etiquetas, no juntes sinónimos de lo mismo y deja fuera las etiquetas de medio o formato (video, webm, animated, sound, watermark).",
+    "3) Escribe en \"prompt\" un prompt en inglés de una sola línea, separado por comas, para pegar en una app de generación de imágenes: empieza por el artista (si lo hay, puesto delante es lo que más fija su estilo), después el sujeto y su apariencia, luego la escena y las acciones y al final la serie. No repitas etiquetas, no juntes sinónimos de lo mismo y deja fuera las etiquetas de medio o formato (video, webm, animated, sound, watermark).",
     "No inventes etiquetas que no estén en la lista. Responde SOLO con JSON válido, sin texto adicional, con esta forma exacta:",
     '{"characters":[{"tag":"tag_del_personaje","tags":["..."]}],"shared":["..."],"discard":[{"tag":"...","kept":"..."}],"prompt":"prompt en inglés separado por comas","notas":"..."}'
   ].join(" ");
@@ -4025,33 +4027,64 @@
   // quedan activas en el panel, ordenadas por sujeto, escena, serie, artista y medio, y sin
   // repetir ninguna: una etiqueta que describe a varios personajes no sale dos veces.
   // (El análisis lo ofrece en Local o redactado por la IA, y el usuario lo copia a su app.)
+  // El artista va primero por defecto: es lo que más pesa para clavar el estilo del dibujante.
+  function artistTokens(result) {
+    var seen = {};
+    var out = [];
+    result.artists.forEach(function (a) {
+      var key = norm(a.name);
+      if (!key || seen[key]) return;
+      seen[key] = 1;
+      out.push(String(a.name).replace(/_/g, " ").replace(/\s+/g, " ").trim());
+    });
+    return out;
+  }
+
+  function artistWeight() {
+    var n = parseInt(R.settings.tPromptArtW, 10);
+    if (isNaN(n) || n < 1) n = 1;
+    if (n > 3) n = 3;
+    return n;
+  }
+
   function promptTags(result) {
     var seen = {};
     var out = [];
     function push(name) {
-      if (!name || result.discarded[name]) return;
+      if (!name || result.discarded[name]) return false;
       var key = norm(name);
-      if (!key || seen[key]) return;
+      if (!key || seen[key]) return false;
       seen[key] = 1;
       out.push(String(name).replace(/_/g, " ").replace(/\s+/g, " ").trim());
+      return true;
     }
+    function pushArtists() {
+      var weight = artistWeight();
+      artistTokens(result).forEach(function (name) {
+        if (!push(name)) return;
+        for (var i = 1; i < weight; i++) out.push(name);
+      });
+    }
+    var withArtist = R.settings.tPromptArt !== false;
+    var artistFirst = R.settings.tPromptArtPos !== "last";
+    if (withArtist && artistFirst) pushArtists();
     result.characters.forEach(function (c) {
       push(c.tag);
       c.tags.forEach(push);
     });
-    var buckets = { general: [], copyright: [], artist: [], meta: [] };
+    var buckets = { general: [], copyright: [], meta: [] };
     result.tags
       .slice()
       .sort(function (a, b) {
         return (b.count || 0) - (a.count || 0);
       })
       .forEach(function (t) {
-        if (t.role === "character") return;
+        if (t.role === "character" || t.role === "artist") return;
         (buckets[t.role] || buckets.general).push(t.name);
       });
     buckets.general.forEach(push);
     buckets.copyright.forEach(push);
-    if (R.settings.tPromptArt !== false) buckets.artist.forEach(push);
+    if (withArtist && !artistFirst) pushArtists();
     if (R.settings.tPromptMeta === true) buckets.meta.forEach(push);
     return out;
   }
@@ -4137,6 +4170,19 @@
       util.copy(promptValue(host, result));
     });
     row.appendChild(copy);
+    var posPill = util.el("button", "r34g-prompt-opt");
+    posPill.type = "button";
+    var first = R.settings.tPromptArtPos !== "last";
+    posPill.textContent = first ? "Artista: primero" : "Artista: al final";
+    posPill.title = first
+      ? "El artista abre el prompt, que es donde m\u00e1s pesa para clavar su estilo. Pulsa para mandarlo al final."
+      : "El artista cierra el prompt. Pulsa para ponerlo al principio: lo que va delante pesa m\u00e1s en el estilo.";
+    posPill.classList.toggle("r34g-on", first);
+    posPill.addEventListener("click", function () {
+      R.set("tPromptArtPos", R.settings.tPromptArtPos === "last" ? "first" : "last");
+      renderInto(host, result);
+    });
+    row.appendChild(posPill);
     head.appendChild(row);
     box.appendChild(head);
     var ta = util.el("textarea", "r34g-prompt-out");
@@ -4149,7 +4195,7 @@
     box.appendChild(ta);
     var hint = util.el("p", "r34g-hint");
     hint.textContent =
-      "El prompt sale en ingl\u00e9s (las etiquetas de rule34 ya lo est\u00e1n), ordenado por sujeto, escena, serie, artista y medio y sin repetir ninguna: p\u00e9galo tal cual en tu app de imagen o de v\u00eddeo. Esta herramienta no genera im\u00e1genes, solo prepara el texto.";
+      "El prompt sale en ingl\u00e9s (las etiquetas de rule34 ya lo est\u00e1n) y sin repetir ninguna. Con el artista delante, lo primero que lee la app es su estilo; el resto va por sujeto, escena, serie y medio. P\u00e9galo tal cual en tu app de imagen o de v\u00eddeo: esta herramienta no genera im\u00e1genes, solo prepara el texto.";
     box.appendChild(hint);
     modes.forEach(function (m) {
       m.el.classList.toggle("r34g-on", m.value === promptMode(host, result));
@@ -4157,13 +4203,25 @@
     return box;
   }
 
-  var AI_PROMPT_SYSTEM = [
-    "Eres un experto en prompts para modelos de generación de imágenes (Stable Diffusion, Flux, Midjourney, NovelAI).",
-    "Recibes las etiquetas de un post de imageboard y devuelves UN SOLO prompt en inglés, en una línea y separado por comas: primero el sujeto y su apariencia, después la escena y las acciones, y al final el estilo o el artista.",
+  var AI_PROMPT_SYSTEM_TAIL = [
     "No repitas etiquetas, no juntes sinónimos de lo mismo, no incluyas etiquetas de medio o formato (video, webm, animated, sound, watermark) y no añadas nada que no esté en la lista salvo conectores mínimos.",
     "Si las etiquetas son de un vídeo, describe un fotograma fijo de la escena.",
     "Responde solo con el prompt, sin comillas, sin listas y sin explicaciones."
-  ].join(" ");
+  ];
+
+  function aiPromptSystem() {
+    var first = R.settings.tPromptArtPos !== "last";
+    var weight = artistWeight();
+    var head = [
+      "Eres un experto en prompts para modelos de generación de imágenes (Stable Diffusion, Flux, Midjourney, NovelAI).",
+      "Recibes las etiquetas de un post de imageboard y devuelves UN SOLO prompt en inglés, en una línea y separado por comas.",
+      first
+        ? "Empieza el prompt con el artista del post (si lo hay): puesto delante es lo que más fija su estilo. Después el sujeto y su apariencia, luego la escena y las acciones, y al final la serie."
+        : "Empieza el prompt con el sujeto y su apariencia, después la escena y las acciones, luego la serie y al final el artista."
+    ];
+    if (weight > 1) head.push("Menciona al artista otra vez al final del prompt como referencia de estilo.");
+    return head.concat(AI_PROMPT_SYSTEM_TAIL).join(" ");
+  }
 
   function aiPromptMessages(result) {
     var lines = result.tags
@@ -4178,7 +4236,7 @@
       return "- " + String(c.tag).replace(/_/g, " ");
     });
     return [
-      { role: "system", content: AI_PROMPT_SYSTEM },
+      { role: "system", content: aiPromptSystem() },
       {
         role: "user",
         content: [
