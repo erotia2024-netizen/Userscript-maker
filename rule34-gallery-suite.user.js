@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.32
+// @version      0.8.33
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA gratis sin configurar nada) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -4328,8 +4328,8 @@
   // sola a «Local» en cuanto cualquier repintado pasa por aquí.
   var aiPromptBusy = ""; // clave de caché del prompt que se está pidiendo ahora mismo
 
-  function aiPromptPendingFor(result) {
-    if (!aiPromptBusy || !result || result.aiPrompt) return false;
+  function aiPromptWorking(result) {
+    if (!aiPromptBusy || !result) return false;
     var id = aiCacheId();
     if (!id) return aiPromptBusy === "no-key";
     return aiPromptBusy === "prompt-v2:" + id;
@@ -4338,12 +4338,12 @@
   function promptMode(host, result) {
     var m = host && host.dataset.r34gPromptMode;
     if (m === "user:local") return "local";
-    if (m === "user:ai" && (result.aiPrompt || aiPromptPendingFor(result))) return "ai";
+    if (m === "user:ai" && (result.aiPrompt || aiPromptWorking(result))) return "ai";
     return result.aiPrompt ? "ai" : "local";
   }
 
   function promptPending(host, result) {
-    return promptMode(host, result) === "ai" && !result.aiPrompt && aiPromptPendingFor(result);
+    return promptMode(host, result) === "ai" && !result.aiPrompt && aiPromptWorking(result);
   }
 
   function paintPromptNote(host, result) {
@@ -4357,7 +4357,7 @@
   function markPromptModes(host, result) {
     if (!host) return;
     var active = promptMode(host, result);
-    var wait = promptPending(host, result);
+    var wait = active === "ai" && aiPromptWorking(result);
     Array.prototype.slice.call(host.querySelectorAll(".r34g-prompt-opt[data-mode]")).forEach(function (b) {
       b.classList.toggle("r34g-on", b.dataset.mode === active);
       b.classList.toggle("r34g-wait", b.dataset.mode === active && wait);
@@ -4608,6 +4608,7 @@
         var live = liveResult();
         live.aiPrompt = clean;
         if (live !== result) renderInto(host, live);
+        else if (host.dataset.r34gPromptMode === "user:local") paintPrompt(host, result);
         else setPromptButtons(host, result, "user:ai");
         util.toast("Prompt de la IA listo");
       },
