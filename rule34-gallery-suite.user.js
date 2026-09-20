@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.1
+// @version      0.8.2
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA opcional), aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -39,7 +39,7 @@
   if (R.core) return;
   R.core = true;
 
-  R.VERSION = "0.8.0";
+  R.VERSION = "0.8.1";
   R.NAME = "Rule34 Gallery Suite";
 
   var SETTINGS_KEY = "r34g.settings.v2";
@@ -1736,7 +1736,52 @@
     }
   }
 
+  // Los botones del analizador se usan continuamente mientras se navega, así que viven en la primera
+  // pestaña de Ajustes (Galería), justo encima del bloque que configura las miniaturas. Las reglas y
+  // el motor de IA siguen en la pestaña Etiquetas.
+  function buildPostSection(panel) {
+    var s = ui.section(
+      panel,
+      "An\u00e1lisis de este post",
+      "Reparte las etiquetas del post que tienes abierto entre sus personajes (lo mismo que el bloque \u00abEtiquetas por personaje\u00bb del propio post). Las reglas del an\u00e1lisis y el motor de IA est\u00e1n en la pesta\u00f1a Etiquetas."
+    );
+    var runAnalysis = function (ai) {
+      var host = document.getElementById("r34g-tp-page");
+      if (!host || !R.tags || typeof R.tags.run !== "function") {
+        util.toast("Abre un post para analizar sus etiquetas");
+        return;
+      }
+      var wrap = document.getElementById("r34g-tags-panel");
+      if (wrap) wrap.hidden = false;
+      R.tags.run(host, ai ? { ai: true } : undefined);
+    };
+    ui.button({
+      section: s,
+      title: "Lee las etiquetas del panel lateral del post y las clasifica",
+      label: "Analizar",
+      onClick: function () {
+        runAnalysis(false);
+      }
+    });
+    ui.button({
+      section: s,
+      title: "Usa el motor de IA configurado en la pesta\u00f1a Etiquetas para repartir las etiquetas",
+      label: "Analizar con IA",
+      onClick: function () {
+        runAnalysis(true);
+      }
+    });
+    ui.toggle({ section: s, key: "tAuto", title: "Analizar autom\u00e1ticamente al abrir un post" });
+    ui.toggle({
+      section: s,
+      key: "tAutoAI",
+      title: "Usar la IA en ese an\u00e1lisis autom\u00e1tico",
+      note: "Solo gasta una petici\u00f3n la primera vez que ves cada post: el resultado de la IA queda guardado por post."
+    });
+  }
+
   function buildPanel(panel) {
+    buildPostSection(panel);
     var grid = ui.section(panel, "Cuadr\u00edcula", "Las tarjetas se reparten el ancho de la p\u00e1gina. Con columnas en \u00abAuto\u00bb el n\u00famero se calcula a partir del tama\u00f1o de miniatura, as\u00ed que nunca salen m\u00e1s grandes de lo que pidas.");
     ui.seg({
       section: grid,
@@ -4203,48 +4248,9 @@
       util.el(
         "p",
         "r34g-hint",
-        "Esta sección reparte las etiquetas de un post entre sus personajes, detecta etiquetas redundantes y te deja ajustar el resultado antes de copiarlo o buscarlo en rule34."
+        "Esta sección reparte las etiquetas de un post entre sus personajes, detecta etiquetas redundantes y te deja ajustar el resultado antes de copiarlo o buscarlo en rule34. Los botones para analizar el post abierto están ahora en la pestaña Galería, arriba del todo (y en el propio post, sobre el archivo)."
       )
     );
-
-    var group = ui.section(panel, "An\u00e1lisis de este post");
-    ui.button({
-      section: group,
-      title: "Lee las etiquetas del panel lateral del post y las clasifica",
-      label: "Analizar",
-      onClick: function () {
-        var host = document.getElementById("r34g-tp-page");
-        if (!host) {
-          util.toast("Abre un post para analizar sus etiquetas");
-          return;
-        }
-        var wrap = document.getElementById("r34g-tags-panel");
-        if (wrap) wrap.hidden = false;
-        run(host);
-      }
-    });
-    ui.button({
-      section: group,
-      title: "Usa el motor de IA configurado abajo para repartir las etiquetas",
-      label: "Analizar con IA",
-      onClick: function () {
-        var host = document.getElementById("r34g-tp-page");
-        var wrap = document.getElementById("r34g-tags-panel");
-        if (!host) {
-          util.toast("Abre un post para analizar sus etiquetas");
-          return;
-        }
-        if (wrap) wrap.hidden = false;
-        run(host, { ai: true });
-      }
-    });
-    ui.toggle({ section: group, key: "tAuto", title: "Analizar autom\u00e1ticamente al abrir un post" });
-    ui.toggle({
-      section: group,
-      key: "tAutoAI",
-      title: "Usar la IA en ese an\u00e1lisis autom\u00e1tico",
-      note: "Solo gasta una petici\u00f3n la primera vez que ves cada post: el resultado de la IA queda guardado por post."
-    });
 
     var rules = ui.section(panel, "Reglas del an\u00e1lisis");
     ui.seg({
@@ -8080,6 +8086,10 @@
   var ui = R.ui;
 
   var NOTES = [
+    ["0.8.1", [
+      "Los botones del analizador de etiquetas (\u00abAn\u00e1lisis de este post\u00bb) se han mudado a la pesta\u00f1a Galer\u00eda de Ajustes, justo encima del bloque que configura las miniaturas. Antes hab\u00eda que entrar en Etiquetas para lanzar el an\u00e1lisis del post abierto; ahora est\u00e1n en la primera pesta\u00f1a que se abre, junto a las dos opciones del an\u00e1lisis autom\u00e1tico.",
+      "Las reglas del an\u00e1lisis, el motor de IA y la cuenta de rule34 siguen en la pesta\u00f1a Etiquetas, que ahora avisa de d\u00f3nde est\u00e1n los botones. En el propio post no cambia nada: ah\u00ed sigue el bloque \u00abEtiquetas por personaje\u00bb con sus botones."
+    ]],
     ["0.8.0", [
       "La cola de descargas ya no se pierde: si cierras la pesta\u00f1a (o pasas a otra p\u00e1gina del sitio) con un lote a medias, al volver la cola aparece con el aviso \u00abQuedaron N descargas de la sesi\u00f3n anterior\u00bb y dos botones, Continuar y Descartar. Se retoman los mismos posts y cada uno sale con tu nombre y tu carpeta de siempre.",
       "Las que fallan se pueden reintentar sin volver a buscarlas: en la cabecera de la cola sale el bot\u00f3n Reintentar (N) en cuanto hay alg\u00fan error, y pone en marcha solo esas. Al lado de cada una se lee el motivo por el que fall\u00f3.",
