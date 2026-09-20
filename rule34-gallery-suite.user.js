@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.11
+// @version      0.8.12
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA opcional) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -39,7 +39,7 @@
   if (R.core) return;
   R.core = true;
 
-  R.VERSION = "0.8.4";
+  R.VERSION = "0.8.5";
   R.NAME = "Rule34 Gallery Suite";
 
   var SETTINGS_KEY = "r34g.settings.v2";
@@ -4273,7 +4273,8 @@
 
   function askAiPrompt(result, host) {
     var key = aiCacheId();
-    var cached = key ? aiCacheGet("prompt:" + key) : null;
+    var cacheKey = key ? "prompt-v2:" + key : "";
+    var cached = cacheKey ? aiCacheGet(cacheKey) : null;
     if (cached && cached.text) {
       result.aiPrompt = cached.text;
       setPromptButtons(host, result, "user:ai");
@@ -4295,7 +4296,7 @@
           return;
         }
         result.aiPrompt = clean;
-        if (key) aiCachePut("prompt:" + key, { text: clean });
+        if (cacheKey) aiCachePut(cacheKey, { text: clean });
         setPromptButtons(host, result, "user:ai");
         util.toast("Prompt de la IA listo");
       },
@@ -4877,7 +4878,7 @@
     var promptSec = ui.section(
       panel,
       "Prompt para otras apps",
-      "El an\u00e1lisis prepara tambi\u00e9n un prompt en ingl\u00e9s listo para pegar en cualquier app de imagen o de v\u00eddeo, tanto desde una imagen como desde un v\u00eddeo: se arma con las etiquetas que quedan activas (las tachadas no entran), ordenadas por sujeto, escena, serie, artista y medio, y sin repetir ninguna. Esta herramienta no genera im\u00e1genes: solo te da el texto."
+      "El an\u00e1lisis prepara tambi\u00e9n un prompt en ingl\u00e9s listo para pegar en cualquier app de imagen o de v\u00eddeo, tanto desde una imagen como desde un v\u00eddeo: se arma con las etiquetas que quedan activas (las tachadas no entran) y sin repetir ninguna. El artista abre el prompt (es lo que m\u00e1s fija su estilo) y detr\u00e1s van el sujeto y su apariencia, la escena, la serie y el medio. Esta herramienta no genera im\u00e1genes: solo te da el texto."
     );
     ui.seg({
       section: promptSec,
@@ -4893,7 +4894,27 @@
       section: promptSec,
       key: "tPromptArt",
       title: "Incluir al artista",
-      note: "Va al final del prompt, como referencia de estilo."
+      note: "Es lo que fija el estilo, as\u00ed que va dentro por defecto. Qu\u00edtalo solo si quieres el personaje o la escena con otro estilo."
+    });
+    ui.seg({
+      section: promptSec,
+      key: "tPromptArtPos",
+      title: "D\u00f3nde va el artista",
+      note: "Lo que va delante pesa m\u00e1s, as\u00ed que \u00abprincipio\u00bb clava mejor su estilo; \u00abfinal\u00bb lo deja como coletilla de estilo. Tambi\u00e9n se cambia con el bot\u00f3n del propio recuadro.",
+      options: [
+        { label: "Al principio", value: "first" },
+        { label: "Al final", value: "last" }
+      ]
+    });
+    ui.seg({
+      section: promptSec,
+      key: "tPromptArtW",
+      title: "Peso del artista",
+      note: "\u00abDoble\u00bb escribe su nombre dos veces seguidas (y el bot\u00f3n IA lo repite al final): sirve para reforzar el estilo en apps que no usan pesos entre par\u00e9ntesis.",
+      options: [
+        { label: "Normal", value: "1" },
+        { label: "Doble", value: "2" }
+      ]
     });
     ui.toggle({
       section: promptSec,
@@ -5184,6 +5205,7 @@
     promptText: promptText,
     promptBox: promptBox,
     aiPrompt: askAiPrompt,
+    artistTokens: artistTokens,
     tagIndex: function (result) {
       return result;
     }
@@ -8758,6 +8780,11 @@
   var ui = R.ui;
 
   var NOTES = [
+    ["0.8.5", [
+      "El prompt ahora abre con el artista. Puesto delante es donde m\u00e1s pesa, as\u00ed que la imagen sale mucho m\u00e1s fiel al estilo del dibujante del post; detr\u00e1s van el sujeto y su apariencia, la escena, la serie y el medio. Se cambia con un bot\u00f3n nuevo en el propio recuadro (\u00abArtista: primero / al final\u00bb) y en Ajustes \u2192 Etiquetas \u2192 Prompt para otras apps.",
+      "Opci\u00f3n de peso: con \u00abDoble\u00bb el nombre del artista se escribe dos veces seguidas (y en el modo IA se repite al final como referencia de estilo), que es la forma de reforzarlo en las apps que no entienden pesos entre par\u00e9ntesis.",
+      "El texto de la secci\u00f3n y las instrucciones de la IA se han reescrito para dejar claro que el artista manda: el prompt de la IA tambi\u00e9n empieza por \u00e9l. Los prompts de IA ya guardados se vuelven a pedir (la cach\u00e9 cambia de clave) para no mezclar los dos estilos."
+    ]],
     ["0.8.4", [
       "El an\u00e1lisis de etiquetas ahora saca tambi\u00e9n un prompt en ingl\u00e9s listo para pegar en cualquier app de imagen o de v\u00eddeo (Stable Diffusion, Flux, NovelAI, Midjourney\u2026). Sale en su propio recuadro al final del an\u00e1lisis, con sus botones Local e IA, un bot\u00f3n Copiar prompt en la cabecera del panel y otro en el propio recuadro. Esta herramienta no genera im\u00e1genes: solo te deja el texto listo.",
       "El prompt se arma con las mismas etiquetas que ves en el panel, as\u00ed que sale sin repetidas (una etiqueta que describe a varios personajes no se escribe dos veces) y sin las tachadas, y en orden de sujeto y apariencia, escena, serie, artista y medio. Se puede retocar a mano ah\u00ed mismo antes de copiarlo.",
