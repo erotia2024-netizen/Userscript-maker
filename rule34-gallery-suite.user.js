@@ -8798,6 +8798,11 @@
   var ui = R.ui;
 
   var NOTES = [
+    ["0.8.6", [
+      "El bloque \u00abEtiquetas por personaje\u00bb se coloca ahora justo encima del v\u00eddeo (o de la imagen) del post, en su misma columna. Antes ca\u00eda debajo del medio, entre el v\u00eddeo y los enlaces de Editar/Responder, as\u00ed que en un post de v\u00eddeo hab\u00eda que bajar para encontrarlo; ahora es lo primero que se ve, tambi\u00e9n en los posts que son v\u00eddeo.",
+      "Al desplegarlo, el v\u00eddeo baja y el bloque se queda arriba (no se solapan): la barra se lee antes de darle al play y el an\u00e1lisis no tapa nada.",
+      "Si la p\u00e1gina no trae ni v\u00eddeo ni imagen (un listado, por ejemplo) se mantiene como estaba: el bloque vuelve al sitio de siempre o a la barra \u00abAn\u00e1lisis de etiquetas\u00bb encima de la cuadr\u00edcula."
+    ]],
     ["0.8.5", [
       "El prompt ahora abre con el artista. Puesto delante es donde m\u00e1s pesa, as\u00ed que la imagen sale mucho m\u00e1s fiel al estilo del dibujante del post; detr\u00e1s van el sujeto y su apariencia, la escena, la serie y el medio. Se cambia con un bot\u00f3n nuevo en el propio recuadro (\u00abArtista: primero / al final\u00bb) y en Ajustes \u2192 Etiquetas \u2192 Prompt para otras apps.",
       "Opci\u00f3n de peso: con \u00abDoble\u00bb el nombre del artista se escribe dos veces seguidas (y en el modo IA se repite al final como referencia de estilo), que es la forma de reforzarlo en las apps que no entienden pesos entre par\u00e9ntesis.",
