@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.2.8
+// @version      0.2.9
 // @description  Reconstruye rule34.xxx para PC: cuadricula de 5 columnas (tarjetas cuadradas) con icono de "ya visto", seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA opcional) y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -30,7 +30,7 @@
   if (R.core) return;
   R.core = true;
 
-  R.VERSION = "0.2.8";
+  R.VERSION = "0.2.9";
   R.NAME = "Rule34 Gallery Suite";
 
   var SETTINGS_KEY = "r34g.settings.v2";
@@ -2727,6 +2727,9 @@
 
   // Cualquier endpoint compatible con OpenAI sirve. Los tres primeros tienen nivel gratuito
   // (con clave gratuita) y suelen ir mejor que la cola p\u00fablica de Pollinations.
+  // El compilador sustituye "on" por "on" u "off" según el panel Proyecto.
+  var BRIDGE_MODE = "on";
+
   var AI_PROVIDERS = [
     {
       value: "groq",
@@ -2770,11 +2773,11 @@
       endpoint: "http://localhost:11434/v1/chat/completions",
       model: "llama3.1"
     },
-    {
-      value: "perchance",
-      label: "IA de Perchance (gratis, sin clave)",
-      bridge: true
-    },
+    { // R34G-BRIDGE-ONLY
+      value: "perchance", // R34G-BRIDGE-ONLY
+      label: "IA de Perchance (gratis, sin clave)", // R34G-BRIDGE-ONLY
+      bridge: true // R34G-BRIDGE-ONLY
+    }, // R34G-BRIDGE-ONLY
     { value: "custom", label: "Personalizado" }
   ];
 
@@ -2889,7 +2892,7 @@
     if (R.refreshControls) R.refreshControls();
   };
 
-  // Puente con este mismo generador de Perchance: el userscript abre su p\u00e1gina en un iframe
+  /* R34G-BRIDGE-BEGIN */  // Puente con este mismo generador de Perchance: el userscript abre su p\u00e1gina en un iframe
   // oculto (con #r34g-ai, que all\u00ed solo carga el receptor) y le pide el texto por postMessage.
   // As\u00ed la IA sale del plugin de Perchance: gratis y sin clave en el script.
   var bridgeFrame = null;
@@ -2966,6 +2969,16 @@
     else w.res(String(d.text == null ? "" : d.text));
   });
 
+  // Proveedor "IA de Perchance" con red de seguridad: si el generador no responde (privado,
+  // renombrado o borrado), seguimos con Pollinations, que es gratis y no pide clave.
+  function perchanceAsk(messages) {
+    return bridgeAsk(messages).catch(function (err) {
+      util.toast("La IA de Perchance no respondi\u00f3 (" + ((err && err.message) || err) + "). Sigo con Pollinations, que no necesita clave.");
+      return directAsk(FALLBACK, messages);
+    });
+  }
+  /* R34G-BRIDGE-END */
+
   // Petición directa a un endpoint compatible con OpenAI (Groq, Gemini, OpenRouter, Pollinations…).
   function directAsk(cfg, messages) {
     if (!cfg.endpoint) return Promise.reject(new Error("falta la direcci\u00f3n del motor de IA"));
@@ -3018,21 +3031,13 @@
     });
   }
 
-  // Proveedor de emergencia si el puente de Perchance no está disponible (generador privado,
-  // renombrado o borrado): Pollinations, gratis y sin clave.
+  // Proveedor de reserva: gratis y sin clave.
   var FALLBACK = { endpoint: "https://text.pollinations.ai/openai", model: "openai", key: "" };
 
   ai.request = function (messages) {
     if (typeof window.__r34gAIHook === "function") return Promise.resolve(window.__r34gAIHook(messages));
     var cfg = ai.config;
-    if (cfg.provider === "perchance") {
-      return bridgeAsk(messages).catch(function (err) {
-        util.toast(
-          "La IA de Perchance no respondi\u00f3 (" + ((err && err.message) || err) + "). Sigo con Pollinations, que no necesita clave."
-        );
-        return directAsk(FALLBACK, messages);
-      });
-    }
+    if (cfg.provider === "perchance" && BRIDGE_MODE !== "off") return perchanceAsk(messages); // R34G-BRIDGE-ONLY
     return directAsk(cfg, messages);
   };
 
@@ -3983,6 +3988,7 @@
         ai.applyProvider(v);
       }
     });
+    /* R34G-BRIDGE-BEGIN */
     if (ai.config.bridge.indexOf("userscript-maker") !== -1) {
       ai.config.bridge = R.settings.tBridge || ai.config.bridge;
       ai.save();
@@ -4002,6 +4008,7 @@
       },
       event: "change"
     });
+    /* R34G-BRIDGE-END */
     ui.text({
       section: engine,
       title: "Direcci\u00f3n del servicio",
@@ -4219,6 +4226,10 @@
   var ui = R.ui;
 
   var NOTES = [
+    ["0.2.9", [
+      "Nuevo interruptor en el laboratorio: Proyecto \u2192 \u00abpuente de IA de Perchance en el .user.js\u00bb. Si lo desmarcas, el script se compila SIN el puente (ni iframe, ni postMessage, ni la direcci\u00f3n del generador): queda solo el proveedor gratuito de reserva. As\u00ed puedes repartir una copia del userscript sin regalar la idea.",
+      "Con el interruptor quitado, el .user.js tambi\u00e9n se compila sin el historial de versiones, que explicaba el m\u00e9todo."
+    ]],
     ["0.2.8", [
       "Si la IA de Perchance no responde (por ejemplo porque has puesto el generador en privado, lo has renombrado o lo has borrado), el an\u00e1lisis sigue funcionando: reintenta solo con Pollinations, que es gratis y no pide clave. Antes se quedaba esperando y fallaba.",
       "El motor de IA queda en dos capas: la elegida en Ajustes \u2192 Etiquetas y, solo para el caso de Perchance, esa red de seguridad."
