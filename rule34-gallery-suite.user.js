@@ -4795,6 +4795,20 @@
     if (aiWanted) run(null, { ai: true });
   }
 
+  // El bloque se pone encima del vídeo o de la imagen del post (arriba del todo de la columna del
+  // medio), que es lo primero que se mira: así no hay que bajar a buscarlo cuando el vídeo ocupa
+  // toda la pantalla. En una lista de búsqueda no hay medio y se usa la barra de encima de la
+  // cuadrícula.
+  function postMediaAnchor() {
+    var view = document.getElementById("post-view");
+    if (!view) return null;
+    return (
+      view.querySelector("#gelcomVideoContainer, .image-container") ||
+      view.querySelector("#image") ||
+      view.querySelector("video, img[src*='wimg']")
+    );
+  }
+
   function buildPagePanel() {
     if (!document.getElementById("tag-sidebar")) return;
     if (document.getElementById("r34g-tags-panel")) return;
@@ -4836,7 +4850,7 @@
     host.appendChild(bar);
     host.appendChild(body);
 
-    var anchor = document.querySelector("#post-view .image-sublinks") || document.querySelector("#post-view h4");
+    var anchor = postMediaAnchor() || document.querySelector("#post-view .image-sublinks") || document.querySelector("#post-view h4");
     if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(host, anchor);
     else document.getElementById("content").appendChild(host);
     if (R.settings.tAuto) setTimeout(function () {
