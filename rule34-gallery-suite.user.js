@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.14
-// @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA opcional) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
+// @version      0.8.15
+// @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA opcional), aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
 // @supportURL   https://github.com/erotia2024-netizen/Userscript-maker/issues
@@ -39,7 +39,7 @@
   if (R.core) return;
   R.core = true;
 
-  R.VERSION = "0.8.6";
+  R.VERSION = "0.8.4";
   R.NAME = "Rule34 Gallery Suite";
 
   var SETTINGS_KEY = "r34g.settings.v2";
@@ -85,8 +85,6 @@
     tKey: "",
     tPromptFmt: "comas",
     tPromptArt: true,
-    tPromptArtPos: "first",
-    tPromptArtW: "1",
     tPromptMeta: false,
     tPromptPre: "",
     tPromptSuf: "",
@@ -3361,7 +3359,7 @@
     "Haz tres cosas:",
     "1) Reparte las etiquetas generales entre los personajes a los que describen realmente. Si una etiqueta describe a varios personajes o a la escena en general, ponla en \"shared\". Si describe a uno solo, ponla con ese personaje.",
     "2) Detecta etiquetas redundantes (sinónimos, singular/plural, o una que ya queda cubierta por otra con más posts) y ponlas en \"discard\" indicando con \"kept\" la etiqueta que se queda.",
-    "3) Escribe en \"prompt\" un prompt en inglés de una sola línea, separado por comas, para pegar en una app de generación de imágenes: empieza por el artista (si lo hay, puesto delante es lo que más fija su estilo), después el sujeto y su apariencia, luego la escena y las acciones y al final la serie. No repitas etiquetas, no juntes sinónimos de lo mismo y deja fuera las etiquetas de medio o formato (video, webm, animated, sound, watermark).",
+    "3) Escribe en \"prompt\" un prompt en inglés de una sola línea, separado por comas, para pegar en una app de generación de imágenes: primero el sujeto y su apariencia, después la escena y las acciones, luego la serie y al final el estilo o el artista. No repitas etiquetas, no juntes sinónimos de lo mismo y deja fuera las etiquetas de medio o formato (video, webm, animated, sound, watermark).",
     "No inventes etiquetas que no estén en la lista. Responde SOLO con JSON válido, sin texto adicional, con esta forma exacta:",
     '{"characters":[{"tag":"tag_del_personaje","tags":["..."]}],"shared":["..."],"discard":[{"tag":"...","kept":"..."}],"prompt":"prompt en inglés separado por comas","notas":"..."}'
   ].join(" ");
@@ -3721,8 +3719,7 @@
   }
 
   function roleOf(tag) {
-    var n = norm(tag.name);
-    if (META_TAGS[n] || META_TAGS[n.replace(/\s+/g, "_")]) return "meta";
+    if (META_TAGS[norm(tag.name)]) return "meta";
     var t = (tag.type || "").toLowerCase();
     if (t === "character") return "character";
     if (t === "copyright") return "copyright";
@@ -3731,12 +3728,8 @@
     return "general";
   }
 
-  // `root` puede ser el documento de la página o cualquier documento/elemento con el panel de
-  // etiquetas dentro (así se puede analizar una copia guardada del post sin abrirla).
-  function parse(root) {
-    root = root || document;
-    var side = root.getElementById ? root.getElementById("tag-sidebar") : null;
-    if (!side) side = root.querySelector ? root.querySelector("#tag-sidebar") : null;
+  function parse() {
+    var side = document.getElementById("tag-sidebar");
     if (!side) return [];
     var out = [];
     var group = "";
@@ -4030,65 +4023,33 @@
   // Prompt para otras apps (esta suite no genera imágenes). Se arma con las etiquetas que
   // quedan activas en el panel, ordenadas por sujeto, escena, serie, artista y medio, y sin
   // repetir ninguna: una etiqueta que describe a varios personajes no sale dos veces.
-  // (El análisis lo ofrece en Local o redactado por la IA, y el usuario lo copia a su app.)
-  // El artista va primero por defecto: es lo que más pesa para clavar el estilo del dibujante.
-  function artistTokens(result) {
-    var seen = {};
-    var out = [];
-    result.artists.forEach(function (a) {
-      var key = norm(a.name);
-      if (!key || seen[key]) return;
-      seen[key] = 1;
-      out.push(String(a.name).replace(/_/g, " ").replace(/\s+/g, " ").trim());
-    });
-    return out;
-  }
-
-  function artistWeight() {
-    var n = parseInt(R.settings.tPromptArtW, 10);
-    if (isNaN(n) || n < 1) n = 1;
-    if (n > 3) n = 3;
-    return n;
-  }
-
   function promptTags(result) {
     var seen = {};
     var out = [];
     function push(name) {
-      if (!name || result.discarded[name]) return false;
+      if (!name || result.discarded[name]) return;
       var key = norm(name);
-      if (!key || seen[key]) return false;
+      if (!key || seen[key]) return;
       seen[key] = 1;
       out.push(String(name).replace(/_/g, " ").replace(/\s+/g, " ").trim());
-      return true;
     }
-    function pushArtists() {
-      var weight = artistWeight();
-      artistTokens(result).forEach(function (name) {
-        if (!push(name)) return;
-        for (var i = 1; i < weight; i++) out.push(name);
-      });
-    }
-    var withArtist = R.settings.tPromptArt !== false;
-    var artistFirst = R.settings.tPromptArtPos !== "last";
-    if (withArtist && artistFirst) pushArtists();
     result.characters.forEach(function (c) {
       push(c.tag);
       c.tags.forEach(push);
     });
-    var buckets = { general: [], copyright: [], meta: [] };
+    var buckets = { general: [], copyright: [], artist: [], meta: [] };
     result.tags
       .slice()
       .sort(function (a, b) {
         return (b.count || 0) - (a.count || 0);
       })
       .forEach(function (t) {
-        if (t.role === "character" || t.role === "artist") return;
+        if (t.role === "character") return;
         (buckets[t.role] || buckets.general).push(t.name);
       });
     buckets.general.forEach(push);
     buckets.copyright.forEach(push);
-    if (withArtist && !artistFirst) pushArtists();
+    if (R.settings.tPromptArt !== false) buckets.artist.forEach(push);
     if (R.settings.tPromptMeta === true) buckets.meta.forEach(push);
     return out;
   }
@@ -4110,23 +4071,19 @@
   function promptNote(result) {
     var n = promptTags(result).length;
     var bits = [n + (n === 1 ? " etiqueta lista" : " etiquetas listas") + ", sin repetidas"];
-    var medio = 0;
+    var out = result.tags.length - n;
+    if (out > 0) bits.push(out + " fuera");
     if (R.settings.tPromptMeta !== true) {
-      medio = result.tags.filter(function (t) {
+      var meta = result.tags.filter(function (t) {
         return t.role === "meta";
       }).length;
+      if (meta) bits.push(meta + " de medio fuera");
     }
-    var fuera = result.tags.length - n - medio;
-    if (fuera > 0) bits.push(fuera + " fuera del resultado");
-    if (medio > 0) bits.push(medio + " de medio fuera");
     return bits.join(" \u00b7 ");
   }
 
   function promptMode(host, result) {
-    var m = host && host.dataset.r34gPromptMode;
-    if (m === "user:ai" && result.aiPrompt) return "ai";
-    if (m === "user:local") return "local";
-    return result.aiPrompt ? "ai" : "local";
+    return host && host.dataset.r34gPromptMode === "ai" && result.aiPrompt ? "ai" : "local";
   }
 
   function paintPrompt(host, result) {
@@ -4144,7 +4101,7 @@
     var box = util.el("div", "r34g-tp-prompt");
     var head = util.el("div", "r34g-tp-prompt-head");
     head.appendChild(util.el("b", null, "Prompt para otra app"));
-    head.appendChild(util.el("span", "r34g-note r34g-prompt-note", promptNote(result)));
+    head.appendChild(util.el("span", "r34g-note", promptNote(result)));
     var row = util.el("span", "r34g-mini-row");
     var modes = [];
     function modeBtn(label, value, title) {
@@ -4153,20 +4110,17 @@
       b.title = title;
       b.dataset.mode = value;
       b.addEventListener("click", function () {
-        host.dataset.r34gPromptMode = "user:" + value;
+        host.dataset.r34gPromptMode = value;
         modes.forEach(function (m) {
           m.el.classList.toggle("r34g-on", m.value === value);
         });
-        if (value === "ai" && !result.aiPrompt) askAiPrompt(result, host);
-        else paintPrompt(host, result);
+        paintPrompt(host, result);
       });
       modes.push({ el: b, value: value });
       return b;
     }
     row.appendChild(modeBtn("Local", "local", "Prompt que arma aqu\u00ed el an\u00e1lisis, sin internet ni claves"));
-    row.appendChild(
-      modeBtn("IA", "ai", "Prompt redactado por la IA a partir de las mismas etiquetas (una consulta; queda guardado por post)")
-    );
+    if (result.aiPrompt) row.appendChild(modeBtn("IA", "ai", "Prompt redactado por la IA a partir de las mismas etiquetas"));
     var copy = util.el("button", "r34g-mini r34g-prompt-copy", "Copiar prompt");
     copy.type = "button";
     copy.title = "Copia el prompt para pegarlo en la app de imagen o de v\u00eddeo que uses";
@@ -4174,19 +4128,6 @@
       util.copy(promptValue(host, result));
     });
     row.appendChild(copy);
-    var posPill = util.el("button", "r34g-prompt-opt");
-    posPill.type = "button";
-    var first = R.settings.tPromptArtPos !== "last";
-    posPill.textContent = first ? "Artista: primero" : "Artista: al final";
-    posPill.title = first
-      ? "El artista abre el prompt, que es donde m\u00e1s pesa para clavar su estilo. Pulsa para mandarlo al final."
-      : "El artista cierra el prompt. Pulsa para ponerlo al principio: lo que va delante pesa m\u00e1s en el estilo.";
-    posPill.classList.toggle("r34g-on", first);
-    posPill.addEventListener("click", function () {
-      R.set("tPromptArtPos", R.settings.tPromptArtPos === "last" ? "first" : "last");
-      renderInto(host, result);
-    });
-    row.appendChild(posPill);
     head.appendChild(row);
     box.appendChild(head);
     var ta = util.el("textarea", "r34g-prompt-out");
@@ -4199,117 +4140,12 @@
     box.appendChild(ta);
     var hint = util.el("p", "r34g-hint");
     hint.textContent =
-      "El prompt sale en ingl\u00e9s (las etiquetas de rule34 ya lo est\u00e1n) y sin repetir ninguna. Con el artista delante, lo primero que lee la app es su estilo; el resto va por sujeto, escena, serie y medio. P\u00e9galo tal cual en tu app de imagen o de v\u00eddeo: esta herramienta no genera im\u00e1genes, solo prepara el texto.";
+      "Etiquetas ordenadas por sujeto, escena, serie, artista y medio, y sin repetir ninguna: p\u00e9galo tal cual en tu app de imagen o de v\u00eddeo. Esta herramienta no genera im\u00e1genes, solo prepara el prompt.";
     box.appendChild(hint);
     modes.forEach(function (m) {
       m.el.classList.toggle("r34g-on", m.value === promptMode(host, result));
     });
     return box;
-  }
-
-  var AI_PROMPT_SYSTEM_TAIL = [
-    "No repitas etiquetas, no juntes sinónimos de lo mismo, no incluyas etiquetas de medio o formato (video, webm, animated, sound, watermark) y no añadas nada que no esté en la lista salvo conectores mínimos.",
-    "Si las etiquetas son de un vídeo, describe un fotograma fijo de la escena.",
-    "Responde solo con el prompt, sin comillas, sin listas y sin explicaciones."
-  ];
-
-  function aiPromptSystem() {
-    var first = R.settings.tPromptArtPos !== "last";
-    var weight = artistWeight();
-    var head = [
-      "Eres un experto en prompts para modelos de generación de imágenes (Stable Diffusion, Flux, Midjourney, NovelAI).",
-      "Recibes las etiquetas de un post de imageboard y devuelves UN SOLO prompt en inglés, en una línea y separado por comas.",
-      first
-        ? "Empieza el prompt con el artista del post (si lo hay): puesto delante es lo que más fija su estilo. Después el sujeto y su apariencia, luego la escena y las acciones, y al final la serie."
-        : "Empieza el prompt con el sujeto y su apariencia, después la escena y las acciones, luego la serie y al final el artista."
-    ];
-    if (weight > 1) head.push("Menciona al artista otra vez al final del prompt como referencia de estilo.");
-    return head.concat(AI_PROMPT_SYSTEM_TAIL).join(" ");
-  }
-
-  function aiPromptMessages(result) {
-    var lines = result.tags
-      .slice()
-      .sort(function (a, b) {
-        return (b.count || 0) - (a.count || 0);
-      })
-      .map(function (t) {
-        return "- " + String(t.name).replace(/_/g, " ") + " [" + t.role + "]";
-      });
-    var chars = result.characters.map(function (c) {
-      return "- " + String(c.tag).replace(/_/g, " ");
-    });
-    return [
-      { role: "system", content: aiPromptSystem() },
-      {
-        role: "user",
-        content: [
-          "Etiquetas del post (nombre [tipo]):",
-          lines.join("\n"),
-          "",
-          "Personajes detectados:",
-          chars.length ? chars.join("\n") : "- (ninguno)",
-          "",
-          "Escribe el prompt en inglés."
-        ].join("\n")
-      }
-    ];
-  }
-
-  function cleanPrompt(text) {
-    return String(text == null ? "" : text)
-      .replace(/```[a-z]*/gi, "")
-      .replace(/^\s*(prompt|prompt en ingl\u00e9s)\s*:\s*/i, "")
-      .replace(/^["'\s]+|["'\s]+$/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
-  function setPromptButtons(host, result, mode) {
-    if (mode) host.dataset.r34gPromptMode = mode;
-    var active = promptMode(host, result);
-    var opts = host.querySelectorAll(".r34g-prompt-opt");
-    Array.prototype.slice.call(opts).forEach(function (b) {
-      b.classList.toggle("r34g-on", b.dataset.mode === active);
-    });
-    paintPrompt(host, result);
-  }
-
-  function askAiPrompt(result, host) {
-    var key = aiCacheId();
-    var cacheKey = key ? "prompt-v2:" + key : "";
-    var cached = cacheKey ? aiCacheGet(cacheKey) : null;
-    if (cached && cached.text) {
-      result.aiPrompt = cached.text;
-      setPromptButtons(host, result, "user:ai");
-      util.toast("Prompt de la IA recuperado de la cach\u00e9 de este post");
-      return;
-    }
-    var box = host.querySelector(".r34g-tp-prompt");
-    var status = util.el("div", "r34g-tp-status");
-    status.appendChild(util.el("span", "r34g-spinner"));
-    status.appendChild(util.el("span", null, "La IA est\u00e1 redactando el prompt\u2026"));
-    if (box) box.appendChild(status);
-    ai.request(aiPromptMessages(result)).then(
-      function (text) {
-        status.remove();
-        var clean = cleanPrompt(text);
-        if (!clean) {
-          util.toast("La IA no devolvi\u00f3 ning\u00fan prompt");
-          setPromptButtons(host, result, "user:local");
-          return;
-        }
-        result.aiPrompt = clean;
-        if (cacheKey) aiCachePut(cacheKey, { text: clean });
-        setPromptButtons(host, result, "user:ai");
-        util.toast("Prompt de la IA listo");
-      },
-      function (err) {
-        status.remove();
-        util.toast("La IA fall\u00f3: " + (err && err.message ? err.message : err), 4000);
-        setPromptButtons(host, result, "user:local");
-      }
-    );
   }
 
   function chip(result, tagName, opts) {
@@ -4388,8 +4224,6 @@
     var ta = host.querySelector(".r34g-tp-output");
     if (ta) ta.value = result.output;
     paintPrompt(host, result);
-    var pnote = host.querySelector(".r34g-prompt-note");
-    if (pnote) pnote.textContent = promptNote(result);
     var counter = host.querySelector(".r34g-tp-count");
     if (counter) {
       counter.textContent =
@@ -4419,6 +4253,9 @@
   function renderInto(host, result) {
     host.innerHTML = "";
     host.dataset.r34gResult = "1";
+    if (!host.dataset.r34gPromptMode || (host.dataset.r34gPromptMode === "ai" && !result.aiPrompt)) {
+      host.dataset.r34gPromptMode = result.aiPrompt ? "ai" : "local";
+    }
 
     if (!result.tags.length) {
       host.appendChild(util.el("p", "r34g-hint", "No se encontraron etiquetas en este post."));
@@ -4795,20 +4632,6 @@
     if (aiWanted) run(null, { ai: true });
   }
 
-  // El bloque se pone encima del vídeo o de la imagen del post (arriba del todo de la columna del
-  // medio), que es lo primero que se mira: así no hay que bajar a buscarlo cuando el vídeo ocupa
-  // toda la pantalla. En una lista de búsqueda no hay medio y se usa la barra de encima de la
-  // cuadrícula.
-  function postMediaAnchor() {
-    var view = document.getElementById("post-view");
-    if (!view) return null;
-    return (
-      view.querySelector("#gelcomVideoContainer, .image-container") ||
-      view.querySelector("#image") ||
-      view.querySelector("video, img[src*='wimg']")
-    );
-  }
-
   function buildPagePanel() {
     if (!document.getElementById("tag-sidebar")) return;
     if (document.getElementById("r34g-tags-panel")) return;
@@ -4850,7 +4673,7 @@
     host.appendChild(bar);
     host.appendChild(body);
 
-    var anchor = postMediaAnchor() || document.querySelector("#post-view .image-sublinks") || document.querySelector("#post-view h4");
+    var anchor = document.querySelector("#post-view .image-sublinks") || document.querySelector("#post-view h4");
     if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(host, anchor);
     else document.getElementById("content").appendChild(host);
     if (R.settings.tAuto) setTimeout(function () {
@@ -4896,7 +4719,7 @@
     var promptSec = ui.section(
       panel,
       "Prompt para otras apps",
-      "El an\u00e1lisis prepara tambi\u00e9n un prompt en ingl\u00e9s listo para pegar en cualquier app de imagen o de v\u00eddeo, tanto desde una imagen como desde un v\u00eddeo: se arma con las etiquetas que quedan activas (las tachadas no entran) y sin repetir ninguna. El artista abre el prompt (es lo que m\u00e1s fija su estilo) y detr\u00e1s van el sujeto y su apariencia, la escena, la serie y el medio. Esta herramienta no genera im\u00e1genes: solo te da el texto."
+      "El an\u00e1lisis prepara tambi\u00e9n un prompt listo para pegar en cualquier app de imagen o de v\u00eddeo, tanto desde una imagen como desde un v\u00eddeo: se arma con las etiquetas que quedan activas (las tachadas no entran), ordenadas por sujeto, escena, serie, artista y medio, y sin repetir ninguna. Esta herramienta no genera im\u00e1genes: solo te da el texto."
     );
     ui.seg({
       section: promptSec,
@@ -4912,27 +4735,7 @@
       section: promptSec,
       key: "tPromptArt",
       title: "Incluir al artista",
-      note: "Es lo que fija el estilo, as\u00ed que va dentro por defecto. Qu\u00edtalo solo si quieres el personaje o la escena con otro estilo."
-    });
-    ui.seg({
-      section: promptSec,
-      key: "tPromptArtPos",
-      title: "D\u00f3nde va el artista",
-      note: "Lo que va delante pesa m\u00e1s, as\u00ed que \u00abprincipio\u00bb clava mejor su estilo; \u00abfinal\u00bb lo deja como coletilla de estilo. Tambi\u00e9n se cambia con el bot\u00f3n del propio recuadro.",
-      options: [
-        { label: "Al principio", value: "first" },
-        { label: "Al final", value: "last" }
-      ]
-    });
-    ui.seg({
-      section: promptSec,
-      key: "tPromptArtW",
-      title: "Peso del artista",
-      note: "\u00abDoble\u00bb escribe su nombre dos veces seguidas (y el bot\u00f3n IA lo repite al final): sirve para reforzar el estilo en apps que no usan pesos entre par\u00e9ntesis.",
-      options: [
-        { label: "Normal", value: "1" },
-        { label: "Doble", value: "2" }
-      ]
+      note: "Va al final del prompt, como referencia de estilo."
     });
     ui.toggle({
       section: promptSec,
@@ -4944,7 +4747,7 @@
       section: promptSec,
       title: "Principio del prompt",
       note: "Opcional. Por ejemplo tus etiquetas de calidad.",
-      placeholder: "masterpiece, best quality",
+      placeholder: "masterpiece, best quality, absurdres",
       get: function () {
         return R.settings.tPromptPre;
       },
@@ -5222,8 +5025,6 @@
     promptTags: promptTags,
     promptText: promptText,
     promptBox: promptBox,
-    aiPrompt: askAiPrompt,
-    artistTokens: artistTokens,
     tagIndex: function (result) {
       return result;
     }
@@ -8798,22 +8599,6 @@
   var ui = R.ui;
 
   var NOTES = [
-    ["0.8.6", [
-      "El bloque \u00abEtiquetas por personaje\u00bb se coloca ahora justo encima del v\u00eddeo (o de la imagen) del post, en su misma columna. Antes ca\u00eda debajo del medio, entre el v\u00eddeo y los enlaces de Editar/Responder, as\u00ed que en un post de v\u00eddeo hab\u00eda que bajar para encontrarlo; ahora es lo primero que se ve, tambi\u00e9n en los posts que son v\u00eddeo.",
-      "Al desplegarlo, el v\u00eddeo baja y el bloque se queda arriba (no se solapan): la barra se lee antes de darle al play y el an\u00e1lisis no tapa nada.",
-      "Si la p\u00e1gina no trae ni v\u00eddeo ni imagen (un listado, por ejemplo) se mantiene como estaba: el bloque vuelve al sitio de siempre o a la barra \u00abAn\u00e1lisis de etiquetas\u00bb encima de la cuadr\u00edcula."
-    ]],
-    ["0.8.5", [
-      "El prompt ahora abre con el artista. Puesto delante es donde m\u00e1s pesa, as\u00ed que la imagen sale mucho m\u00e1s fiel al estilo del dibujante del post; detr\u00e1s van el sujeto y su apariencia, la escena, la serie y el medio. Se cambia con un bot\u00f3n nuevo en el propio recuadro (\u00abArtista: primero / al final\u00bb) y en Ajustes \u2192 Etiquetas \u2192 Prompt para otras apps.",
-      "Opci\u00f3n de peso: con \u00abDoble\u00bb el nombre del artista se escribe dos veces seguidas (y en el modo IA se repite al final como referencia de estilo), que es la forma de reforzarlo en las apps que no entienden pesos entre par\u00e9ntesis.",
-      "El texto de la secci\u00f3n y las instrucciones de la IA se han reescrito para dejar claro que el artista manda: el prompt de la IA tambi\u00e9n empieza por \u00e9l. Los prompts de IA ya guardados se vuelven a pedir (la cach\u00e9 cambia de clave) para no mezclar los dos estilos."
-    ]],
-    ["0.8.4", [
-      "El an\u00e1lisis de etiquetas ahora saca tambi\u00e9n un prompt en ingl\u00e9s listo para pegar en cualquier app de imagen o de v\u00eddeo (Stable Diffusion, Flux, NovelAI, Midjourney\u2026). Sale en su propio recuadro al final del an\u00e1lisis, con sus botones Local e IA, un bot\u00f3n Copiar prompt en la cabecera del panel y otro en el propio recuadro. Esta herramienta no genera im\u00e1genes: solo te deja el texto listo.",
-      "El prompt se arma con las mismas etiquetas que ves en el panel, as\u00ed que sale sin repetidas (una etiqueta que describe a varios personajes no se escribe dos veces) y sin las tachadas, y en orden de sujeto y apariencia, escena, serie, artista y medio. Se puede retocar a mano ah\u00ed mismo antes de copiarlo.",
-      "Al final del recuadro tienes Local (el prompt que arma el an\u00e1lisis, sin internet ni claves) e IA (el que redacta el motor de IA, que ahora tambi\u00e9n devuelve un prompt en ingl\u00e9s en la misma consulta, sin gastar una petici\u00f3n m\u00e1s).",
-      "En Ajustes \u2192 Etiquetas hay una secci\u00f3n nueva, \u00abPrompt para otras apps\u00bb: formato con comas o con espacios (estilo danbooru), incluir al artista, incluir el medio y los metadatos (video, webm, sound\u2026, fuera por defecto) y un principio y un final opcionales para tus etiquetas de calidad."
-    ]],
     ["0.8.3", [
       "El analizador de etiquetas sale de Ajustes y se pone en la propia p\u00e1gina: en las p\u00e1ginas de lista aparece una barra \u00abAn\u00e1lisis de etiquetas\u00bb justo encima de la barra de miniaturas, con los botones Analizar y Analizar con IA, y los resultados se despliegan ah\u00ed mismo (la barra se titula y se abre/cierra al pulsarla). Ya no hay que entrar en Ajustes para lanzar un an\u00e1lisis.",
       "En un post, el bloque \u00abEtiquetas por personaje\u00bb ya estaba en la p\u00e1gina, pero quedaba escondido del todo si ten\u00edas apagado el an\u00e1lisis autom\u00e1tico: ahora se ve su barra de botones igualmente (los resultados siguen ocultos hasta que pulsas Analizar).",
