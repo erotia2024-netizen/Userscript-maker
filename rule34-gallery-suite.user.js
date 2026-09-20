@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.3
+// @version      0.8.4
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA opcional), aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -1777,6 +1777,29 @@
     });
   }
 
+  function actKind(a) {
+    if (!a) return "";
+    var txt = (a.textContent || "").trim();
+    if (txt === "-" || txt === "\u2212") return "sub";
+    if (txt === "+") return "add";
+    var oc = a.getAttribute("onclick") || "";
+    if (/\+=\s*"\s*-/.test(oc) || /\+=\s*'\s*-/.test(oc)) return "sub";
+    if (/\+=\s*"\s*"/.test(oc) || /\+=\s*'\s*'/.test(oc)) return "add";
+    return "";
+  }
+
+  // Image Board Enhancer ya pone enlaces «+ / -» junto a cada etiqueta que suman a `input[name=tags]`,
+  // pero dependen de su propio ayudante `$$`: sin él no hacen nada. Nosotros los adoptamos (quitamos
+  // su onclick y los manejamos igual que los nuestros) para no acabar con cuatro botones por etiqueta.
+  function tagActionLinks(li) {
+    var out = { add: null, sub: null };
+    Array.prototype.forEach.call(li.querySelectorAll('a[onclick*="input[name=tags]"]'), function (a) {
+      var k = actKind(a);
+      if (k && !out[k]) out[k] = a;
+    });
+    return out;
+  }
+
   function buildTagActions() {
     var list = document.getElementById("tag-sidebar") || document.querySelector(".sidebar ul");
     if (!list) return 0;
@@ -1786,25 +1809,44 @@
       if (li.querySelector("h6")) return;
       var name = tagNameOf(li);
       if (!name) return;
+      var old = tagActionLinks(li);
+      if (!old.add && !old.sub) {
+        var a = li.querySelector("a[href*='tags=']");
+        if (!a || li.querySelector("a[onclick]")) return;
+      }
       li.dataset.r34gActs = "1";
-      var add = util.el("button", "r34g-tag-act r34g-tag-add", "+");
-      add.type = "button";
+      var add = old.add;
+      var sub = old.sub;
+      if (add) {
+        add.removeAttribute("onclick");
+        add.setAttribute("href", "#");
+        add.classList.add("r34g-tag-act", "r34g-tag-add");
+      } else {
+        add = util.el("button", "r34g-tag-act r34g-tag-add", "+");
+        add.type = "button";
+      }
+      if (sub) {
+        sub.removeAttribute("onclick");
+        sub.setAttribute("href", "#");
+        sub.classList.add("r34g-tag-act", "r34g-tag-sub");
+      } else {
+        sub = util.el("button", "r34g-tag-act r34g-tag-sub", "\u2212");
+        sub.type = "button";
+      }
       add.title = "Añadir «" + name + "» a la búsqueda (no busca todavía: pulsa Search)";
       add.addEventListener("click", function (e) {
         e.preventDefault();
         e.stopPropagation();
         tokenToggle(name, false);
       });
-      var sub = util.el("button", "r34g-tag-act r34g-tag-sub", "\u2212");
-      sub.type = "button";
       sub.title = "Excluir «" + name + "» de la búsqueda (le pone un menos delante)";
       sub.addEventListener("click", function (e) {
         e.preventDefault();
         e.stopPropagation();
         tokenToggle(name, true);
       });
-      li.appendChild(add);
-      li.appendChild(sub);
+      if (!old.add) li.appendChild(add);
+      if (!old.sub) li.appendChild(sub);
       n++;
     });
     var f = searchField();
