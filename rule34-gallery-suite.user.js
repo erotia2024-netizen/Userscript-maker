@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.39
+// @version      0.8.40
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA gratis sin configurar nada) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -1950,7 +1950,7 @@
     return panel.querySelector("#r34g-tp-page") || document.getElementById("r34g-tp-page");
   }
 
-  function runAnalysis(ai) {
+  function runAnalysis() {
     var host = analysisHost();
     if (!host || !R.tags || typeof R.tags.run !== "function") {
       util.toast("No encuentro el panel de etiquetas de esta página");
@@ -1960,7 +1960,7 @@
     if (panel) panel.hidden = false;
     var bar = document.getElementById(TAGS_BAR_ID);
     if (bar) bar.classList.add("r34g-tags-bar-on");
-    R.tags.run(host, ai ? { ai: true } : undefined);
+    R.tags.run(host);
   }
 
   function createTagsBar() {
@@ -1988,17 +1988,8 @@
     run.type = "button";
     run.title = "Lee las etiquetas del panel lateral y las clasifica";
     run.addEventListener("click", function () {
-      runAnalysis(false);
+      runAnalysis();
     });
-    var runAi = util.el("button", "r34g-mini", "Analizar con IA");
-    runAi.type = "button";
-    runAi.title = "Usa la IA para repartir y afinar las etiquetas. De f\u00e1brica es gratis y no hay que configurar nada";
-    runAi.addEventListener("click", function () {
-      if (R.ai && R.ai.warm) R.ai.warm();
-      runAnalysis(true);
-    });
-    bar.appendChild(run);
-    bar.appendChild(runAi);
     return bar;
   }
 
