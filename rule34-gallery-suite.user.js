@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.3.0
+// @version      0.5.0
 // @description  Reconstruye rule34.xxx para PC: cuadricula de 5 columnas (tarjetas cuadradas) con icono de "ya visto", descarga de originales con nombre y carpeta propios (tambien busquedas enteras), seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA opcional), aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -26,7 +26,7 @@
 
 (function () {
   "use strict";
-  var css = "html {\n  --r34g-cols: 5;\n  --r34g-aspect: 1 / 1;\n  --r34g-gap: 12px;\n  --r34g-radius: 8px;\n  --r34g-card: #232a23;\n  --r34g-card-hover: #2a322a;\n  --r34g-line: #3d473d;\n  --r34g-accent: var(--c-link-soft, #93b393);\n  --r34g-bg: var(--c-bg, #303a30);\n  --r34g-bg-alt: var(--c-bg-alt, #293129);\n  --r34g-bg-deep: var(--c-bg-deep, #303030);\n  --r34g-text: var(--c-text, #c0c0c0);\n  --r34g-text-soft: var(--c-text-soft, #878787);\n  --r34g-link: var(--c-link, #b0e0b0);\n  --r34g-shadow: 0 18px 48px rgba(0, 0, 0, .55);\n  --r34g-vwidth: 1000px;\n  --r34g-z: 2147482000;\n}\n\nhtml[data-r34g-cols=\"3\"] { --r34g-cols: 3; }\nhtml[data-r34g-cols=\"4\"] { --r34g-cols: 4; }\nhtml[data-r34g-cols=\"5\"] { --r34g-cols: 5; }\nhtml[data-r34g-cols=\"6\"] { --r34g-cols: 6; }\nhtml[data-r34g-cols=\"7\"] { --r34g-cols: 7; }\nhtml[data-r34g-aspect=\"1\"] { --r34g-aspect: 1 / 1; }\nhtml[data-r34g-aspect=\"4/5\"] { --r34g-aspect: 4 / 5; }\nhtml[data-r34g-aspect=\"3x4\"] { --r34g-aspect: 3 / 4; }\nhtml[data-r34g-aspect=\"auto\"] { --r34g-aspect: auto; }\nhtml[data-r34g-aspect=\"auto\"] { --r34g-fit: contain; }\nhtml[data-r34g-fit=\"contain\"] { --r34g-fit: contain; }\nhtml[data-r34g-fit=\"cover\"] { --r34g-fit: cover; }\nhtml[data-r34g-hover=\"off\"] .image-list .thumb img.preview { transform: none !important; }\n\n#r34g-nav-item a {\n  display: inline-flex;\n  align-items: center;\n  gap: 5px;\n  cursor: pointer;\n}\n\n#r34g-nav-item a b {\n  font-weight: normal;\n  font-size: 1.15em;\n  line-height: 1;\n}\n\n#r34g-nav-item a:hover {\n  color: var(--c-link, #b0e0b0) !important;\n}\n\n#r34g-nav-item a svg {\n  width: 14px;\n  height: 14px;\n}\n\n#r34g-nav-item.r34g-active a {\n  color: var(--c-link, #b0e0b0) !important;\n  text-shadow: 0 0 0 currentColor;\n}\n\nhtml body #r34g-modal .r34g-title svg {\n  width: 15px;\n  height: 15px;\n}\n\nhtml body #post-list > .content,\nhtml body .image-list {\n  min-width: 0;\n}\n\nhtml body #post-list > .content {\n  flex: 1 1 auto !important;\n  width: auto !important;\n  max-width: none !important;\n}\n\nhtml body .image-list {\n  display: grid !important;\n  grid-template-columns: repeat(var(--r34g-cols), minmax(0, 1fr)) !important;\n  gap: var(--r34g-gap) !important;\n  align-items: start !important;\n  align-content: start !important;\n  justify-content: stretch !important;\n  width: 100% !important;\n  margin: 0 !important;\n  padding: 0 !important;\n}\n\nhtml body .image-list > .thumb {\n  position: relative !important;\n  display: block !important;\n  width: auto !important;\n  height: auto !important;\n  min-width: 0 !important;\n  margin: 0 !important;\n  padding: 0 !important;\n  border-radius: var(--r34g-radius) !important;\n  background: var(--r34g-card);\n  overflow: hidden;\n  box-shadow: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 2px 10px rgba(0, 0, 0, .28);\n  transition: background .18s ease, box-shadow .18s ease, transform .18s ease;\n}\n\nhtml body .image-list > .thumb::before {\n  content: \"\";\n  display: block;\n  padding-top: 0;\n}\n\nhtml body .image-list > .thumb > a {\n  position: relative !important;\n  display: block !important;\n  width: 100% !important;\n  height: 100% !important;\n  aspect-ratio: var(--r34g-aspect) !important;\n  text-align: center !important;\n  overflow: hidden;\n  border-radius: var(--r34g-radius) !important;\n  background: linear-gradient(160deg, rgba(255, 255, 255, .03), rgba(0, 0, 0, .25));\n  outline: 1px solid rgba(255, 255, 255, .05);\n  outline-offset: -1px;\n}\n\nhtml body .image-list > .thumb:hover {\n  background: var(--r34g-card-hover);\n  transform: translateY(-2px);\n  box-shadow: 0 6px 20px rgba(0, 0, 0, .45);\n}\n\nhtml body .image-list > .thumb:hover > a {\n  outline-color: rgba(147, 179, 147, .6);\n}\n\nhtml body .image-list > .thumb:hover img.preview,\nhtml body .image-list > .thumb:hover img.r34g-ready {\n  filter: brightness(1.06) saturate(1.04);\n}\n\nhtml body .image-list > .thumb > a::after {\n  content: \"\";\n  position: absolute;\n  inset: 0;\n  background: linear-gradient(to top, rgba(0, 0, 0, .78) 0%, rgba(0, 0, 0, .32) 32%, rgba(0, 0, 0, 0) 62%);\n  opacity: 0;\n  transition: opacity .2s ease;\n  pointer-events: none;\n}\n\nhtml body .image-list > .thumb:hover > a::after {\n  opacity: 1;\n}\n\nhtml body .image-list > .thumb img.preview,\nhtml body .image-list > .thumb img,\nhtml body .image-list > .thumb video {\n  display: block !important;\n  width: 100% !important;\n  height: 100% !important;\n  max-width: none !important;\n  max-height: none !important;\n  margin: 0 !important;\n  object-fit: var(--r34g-fit, cover) !important;\n  object-position: center 22%;\n  border: 0 !important;\n  box-sizing: border-box !important;\n  opacity: 0;\n  transition: opacity .35s ease, transform .3s ease, filter .3s ease;\n}\n\nhtml body .image-list > .thumb img.r34g-ready {\n  opacity: 1;\n}\n\nhtml body .image-list > .thumb:hover img.preview,\nhtml body .image-list > .thumb:hover img.r34g-ready {\n  transform: scale(1.045);\n}\n\nhtml body .image-list > .thumb img.webm-thumb {\n  border: 0 !important;\n  outline: 0 !important;\n}\n\nhtml body .image-list > .thumb > a > .score-info {\n  position: absolute !important;\n  right: 7px !important;\n  bottom: 7px !important;\n  z-index: 3;\n  display: inline-flex !important;\n  align-items: center;\n  gap: 4px;\n  margin: 0 !important;\n  padding: 2px 7px !important;\n  border-radius: 999px !important;\n  background: rgba(0, 0, 0, .62) !important;\n  border: 1px solid rgba(255, 255, 255, .12);\n  border-left-width: 3px;\n  color: #e8e8e8 !important;\n  font-size: 11px !important;\n  line-height: 1.45 !important;\n  letter-spacing: .2px;\n  text-align: center !important;\n  backdrop-filter: blur(3px);\n  transition: background .2s ease, transform .2s ease, border-color .2s ease;\n}\n\nhtml body .image-list > .thumb:hover > a > .score-info {\n  background: rgba(0, 0, 0, .85) !important;\n  transform: translateY(-1px);\n}\n\nhtml body .image-list > .thumb > a > .score-info.low {\n  border-left-color: #d9534f !important;\n}\n\nhtml body .image-list > .thumb > a > .score-info.medium {\n  border-left-color: #f0ad4e !important;\n}\n\nhtml body .image-list > .thumb > a > .score-info.high {\n  border-left-color: #5cb85c !important;\n}\n\nhtml[data-r34g-score=\"off\"] .image-list .thumb > a > .score-info {\n  display: none !important;\n}\n\nhtml body .image-list .thumb .r34g-badges {\n  position: absolute;\n  top: 7px;\n  left: 7px;\n  z-index: 3;\n  display: flex;\n  gap: 5px;\n  opacity: .92;\n  transition: opacity .2s ease;\n}\n\nhtml body .image-list .thumb:hover .r34g-badges {\n  opacity: 1;\n}\n\nhtml body .image-list .thumb .r34g-badge {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  min-width: 20px;\n  height: 20px;\n  padding: 0 5px;\n  border-radius: 6px;\n  background: rgba(0, 0, 0, .68);\n  border: 1px solid rgba(255, 255, 255, .14);\n  color: #f2f2f2;\n  font-size: 10px;\n  font-weight: bold;\n  letter-spacing: .3px;\n  line-height: 1;\n  backdrop-filter: blur(3px);\n}\n\nhtml body .image-list .thumb .r34g-badge.r34g-video {\n  color: #8fd0ff;\n  border-color: rgba(143, 208, 255, .4);\n}\n\nhtml body .image-list .thumb .r34g-badge.r34g-gif {\n  color: #ffd479;\n  border-color: rgba(255, 212, 121, .4);\n}\n\nhtml body .image-list .thumb .r34g-badge.r34g-sound {\n  color: #a9f0a9;\n  border-color: rgba(169, 240, 169, .4);\n}\n\nhtml[data-r34g-badges=\"off\"] .image-list .thumb .r34g-badges {\n  display: none !important;\n}\n\nhtml body .image-list .thumb .r34g-meta {\n  position: absolute;\n  left: 0;\n  right: 0;\n  bottom: 0;\n  z-index: 2;\n  padding: 22px 8px 7px;\n  text-align: left;\n  font-size: 10px;\n  color: #d8d8d8;\n  text-shadow: 0 1px 2px rgba(0, 0, 0, .9);\n  opacity: 0;\n  transform: translateY(4px);\n  transition: opacity .2s ease, transform .2s ease;\n  pointer-events: none;\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n}\n\nhtml body .image-list .thumb:hover .r34g-meta {\n  opacity: 1;\n  transform: none;\n}\n\nhtml body .image-list .thumb .r34g-meta .r34g-taglist {\n  display: block;\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  color: #cfd8cf;\n}\n\nhtml body .image-list > .thumb.r34g-hidden-by-filter {\n  display: none !important;\n}\n\nhtml body .r34g-ad-hidden {\n  display: none !important;\n}\n\nhtml.r34g-drawer-open {\n  overflow: hidden;\n}\n\nhtml body .sidebar {\n  align-self: flex-start;\n  max-height: calc(100vh - 12px);\n  position: sticky;\n  top: 8px;\n  overflow-y: auto;\n  overflow-x: hidden;\n  padding: 0 10px 14px 0;\n  scrollbar-width: thin;\n  scrollbar-color: #4b564b rgba(0, 0, 0, .25);\n  z-index: 4;\n}\n\nhtml body #r34g-drawer-head {\n  display: none;\n  align-items: center;\n  gap: 8px;\n  margin: 0 0 8px;\n  padding-bottom: 7px;\n  border-bottom: 1px solid var(--r34g-line);\n}\n\nhtml body #r34g-drawer-head h5 {\n  flex: 1;\n  margin: 0 !important;\n  color: var(--r34g-link);\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 12.5px;\n  letter-spacing: .06em;\n  text-transform: uppercase;\n}\n\nhtml body #r34g-drawer-close {\n  width: 30px;\n  height: 30px;\n  padding: 0;\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 7px;\n  background: #333d33;\n  color: var(--r34g-text) !important;\n  font-size: 16px;\n  line-height: 1;\n  cursor: pointer;\n}\n\nhtml body #r34g-drawer-close:hover {\n  border-color: var(--r34g-accent);\n  color: #eafaea !important;\n}\n\nhtml body .tag-search input[type=\"text\"],\nhtml body .tag-search input[type=\"search\"] {\n  width: 100% !important;\n  box-sizing: border-box !important;\n  padding: 4px 7px !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 5px !important;\n  background: var(--r34g-bg-deep) !important;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 12px !important;\n  outline: none;\n}\n\nhtml body .tag-search input[type=\"text\"]:focus,\nhtml body .tag-search input[type=\"search\"]:focus {\n  border-color: var(--r34g-accent) !important;\n}\n\nhtml body .tag-search input[type=\"submit\"] {\n  margin-top: 5px;\n  padding: 4px 12px !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 5px !important;\n  background: #333d33 !important;\n  color: var(--r34g-link) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 12px !important;\n  cursor: pointer;\n}\n\nhtml body .tag-search input[type=\"submit\"]:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #eafaea !important;\n}\n\nhtml body .sidebar small {\n  display: block;\n  margin-top: 4px;\n  color: var(--r34g-text-soft);\n  font-size: 10.5px;\n}\n\nhtml[data-r34g-sticky=\"off\"] body .sidebar {\n  position: static;\n  max-height: none;\n  overflow: visible;\n}\n\nhtml body .sidebar::-webkit-scrollbar {\n  width: 9px;\n}\n\nhtml body .sidebar::-webkit-scrollbar-thumb {\n  background: #4b564b;\n  border-radius: 6px;\n}\n\nhtml body .sidebar::-webkit-scrollbar-track {\n  background: rgba(0, 0, 0, .2);\n}\n\nhtml body .tag-search h5,\nhtml body #r34g-sidebar-tags-title {\n  margin: 0 0 6px !important;\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 12px !important;\n  letter-spacing: .08em;\n  text-transform: uppercase;\n  color: var(--r34g-text-soft) !important;\n  border-bottom: 1px solid var(--r34g-line);\n  padding-bottom: 5px;\n}\n\nhtml body #r34g-tag-filter {\n  width: 100% !important;\n  box-sizing: border-box !important;\n  margin: 0 0 7px !important;\n  padding: 4px 6px !important;\n  background: var(--r34g-bg-deep) !important;\n  color: var(--r34g-text) !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 4px !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 11px !important;\n  outline: none;\n}\n\nhtml body #r34g-tag-filter:focus {\n  border-color: var(--r34g-accent) !important;\n}\n\nhtml body #r34g-tag-filter::placeholder {\n  color: #6f7a6f;\n}\n\nhtml[data-r34g-filter=\"off\"] body #r34g-tag-filter {\n  display: none !important;\n}\n\nhtml body .sidebar ul {\n  list-style: none;\n  padding: 0;\n  margin: 0;\n}\n\nhtml body .sidebar li {\n  padding: 1px 0 !important;\n  line-height: 1.45;\n}\n\nhtml body .sidebar li a {\n  font-size: 13px !important;\n  line-height: 1.5;\n  color: var(--c-link-metadata, #90d9ed);\n}\n\nhtml body .sidebar li a:hover {\n  text-decoration: underline;\n  color: #d9f4ff;\n}\n\nhtml body .sidebar li {\n  display: flex !important;\n  align-items: flex-start;\n  gap: 6px;\n  padding: 1px 2px !important;\n  line-height: 1.5;\n  border-radius: 4px;\n  transition: background .12s ease;\n}\n\nhtml body .sidebar li > a {\n  flex: 1 1 auto;\n  min-width: 0;\n  overflow-wrap: anywhere;\n}\n\nhtml body .sidebar .tag-count {\n  flex: 0 0 auto;\n  min-width: 46px;\n  text-align: right;\n  color: var(--r34g-text-soft) !important;\n  font-size: 10.5px !important;\n  line-height: 1.85;\n  padding-left: 6px;\n}\n\nhtml body .sidebar li > a[href^=\"https://rule34.xxx/\"],\nhtml body .sidebar li > a[href*=\"page=wiki\"] {\n  order: 3;\n  flex: 0 0 auto;\n  width: 0;\n  overflow: hidden;\n  opacity: 0;\n  padding-left: 3px;\n  color: var(--r34g-text-soft) !important;\n  font-size: 11px !important;\n  line-height: 1.9;\n  text-decoration: none;\n  transition: width .15s ease, opacity .15s ease;\n}\n\nhtml body .sidebar li:hover > a[href^=\"https://rule34.xxx/\"],\nhtml body .sidebar li:hover > a[href*=\"page=wiki\"] {\n  width: 13px;\n  opacity: 1;\n  text-align: center;\n}\n\nhtml body .sidebar li > a[href*=\"page=post\"] {\n  order: 1;\n}\n\nhtml body .sidebar li > .tag-count {\n  order: 2;\n}\n\nhtml body .sidebar li:hover {\n  background: rgba(255, 255, 255, .045);\n}\n\nhtml body .sidebar .tag-type-general a { color: var(--c-link-metadata, #90d9ed); }\nhtml body .sidebar .tag-type-artist a { color: var(--c-link-artist, #f0a0a0); }\nhtml body .sidebar .tag-type-character a { color: var(--c-link-character, #f0f0a0); }\nhtml body .sidebar .tag-type-copyright a { color: var(--c-link-copyright, #f0a0f0); }\n\nhtml body .sidebar .tag-count {\n  color: var(--r34g-text-soft) !important;\n  font-size: 10.5px !important;\n  padding-left: 3px;\n}\n\nhtml body .sidebar li.r34g-tag-hidden {\n  display: none !important;\n}\n\nhtml body #r34g-sidebar-section {\n  border-top: 1px solid var(--r34g-line);\n  margin-top: 10px;\n  padding-top: 9px;\n}\n\nhtml body #r34g-sidebar-toggle {\n  display: none;\n  position: fixed;\n  left: 12px;\n  bottom: 14px;\n  z-index: calc(var(--r34g-z) - 5);\n  align-items: center;\n  gap: 6px;\n  padding: 8px 12px;\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 999px;\n  background: var(--r34g-bg-alt);\n  color: var(--r34g-link) !important;\n  font-family: verdana, sans-serif;\n  font-size: 12px;\n  cursor: pointer;\n  box-shadow: 0 6px 18px rgba(0, 0, 0, .5);\n}\n\nhtml body #r34g-sidebar-toggle:hover {\n  border-color: var(--r34g-accent);\n  color: #dff0df !important;\n}\n\nhtml body #r34g-drawer-backdrop {\n  display: none;\n  position: fixed;\n  inset: 0;\n  z-index: calc(var(--r34g-z) - 6);\n  background: rgba(0, 0, 0, .6);\n}\n\nhtml body #r34g-to-top {\n  position: fixed;\n  right: 12px;\n  bottom: 14px;\n  z-index: calc(var(--r34g-z) - 5);\n  width: 38px;\n  height: 38px;\n  padding: 0;\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 50%;\n  background: var(--r34g-bg-alt);\n  color: var(--r34g-link) !important;\n  font-size: 15px;\n  cursor: pointer;\n  opacity: 0;\n  pointer-events: none;\n  transition: opacity .25s ease, border-color .2s ease;\n  box-shadow: 0 6px 18px rgba(0, 0, 0, .5);\n}\n\nhtml body #r34g-to-top.r34g-visible {\n  opacity: .92;\n  pointer-events: auto;\n}\n\nhtml body #r34g-to-top:hover {\n  border-color: var(--r34g-accent);\n}\n\nhtml body #paginator {\n  margin-top: 14px !important;\n}\n\nhtml body #paginator .pagination {\n  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  justify-content: center;\n  gap: 4px;\n  row-gap: 6px;\n  padding: 7px 8px;\n  background: var(--r34g-bg-alt);\n  border: 1px solid var(--r34g-line);\n  border-radius: var(--r34g-radius);\n}\n\nhtml body #paginator #manualpage {\n  display: inline-flex !important;\n  align-items: center;\n  gap: 4px;\n  margin-left: 6px;\n  padding-left: 8px;\n  border-left: 1px solid var(--r34g-line);\n}\n\nhtml body #paginator #manualpage input[type=\"text\"] {\n  width: 62px !important;\n  height: 28px;\n  box-sizing: border-box;\n  padding: 0 7px !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 6px !important;\n  background: var(--r34g-bg-deep) !important;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 12px !important;\n  outline: none;\n}\n\nhtml body #paginator #manualpage input[type=\"text\"]:focus {\n  border-color: var(--r34g-accent) !important;\n}\n\nhtml body #paginator #manualpage input[type=\"text\"]::placeholder {\n  color: #6f7a6f;\n}\n\nhtml body #paginator #manualpage input[type=\"submit\"] {\n  height: 28px;\n  padding: 0 10px !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 6px !important;\n  background: #333d33;\n  color: var(--r34g-link) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 12px !important;\n  cursor: pointer;\n}\n\nhtml body #paginator #manualpage input[type=\"submit\"]:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #eafaea !important;\n}\n\nhtml body #paginator .pagination a,\nhtml body #paginator .pagination b,\nhtml body #paginator .pagination span {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  min-width: 30px;\n  height: 28px;\n  padding: 0 9px !important;\n  border: 1px solid transparent;\n  border-radius: 6px;\n  color: var(--r34g-link) !important;\n  font-size: 12.5px !important;\n  line-height: 1 !important;\n  transition: background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease;\n}\n\nhtml body #paginator .pagination a:hover {\n  background: var(--c-bg-highlight, #505a50);\n  border-color: rgba(147, 179, 147, .55);\n  color: #eafaea !important;\n  transform: translateY(-1px);\n}\n\nhtml body #paginator .pagination b {\n  background: var(--r34g-accent);\n  border-color: rgba(255, 255, 255, .25);\n  color: var(--r34g-bg) !important;\n  font-weight: bold;\n  box-shadow: 0 2px 8px rgba(0, 0, 0, .35);\n}\n\nhtml body #paginator .pagination a.arrow,\nhtml body #paginator .pagination a[alt] {\n  color: var(--r34g-text-soft) !important;\n}\n\nhtml body #paginator .pagination a.arrow:hover,\nhtml body #paginator .pagination a[alt]:hover {\n  color: #eafaea !important;\n}\n\nhtml body .image-list + br,\nhtml body #post-list > br {\n  display: none;\n}\n\nhtml body #r34g-modal {\n  position: fixed;\n  inset: 0;\n  z-index: var(--r34g-z);\n  display: none;\n  align-items: center;\n  justify-content: center;\n  padding: 24px 16px;\n  background: rgba(0, 0, 0, .66);\n  backdrop-filter: blur(2px);\n  font-family: verdana, sans-serif;\n  text-align: left;\n  color-scheme: dark;\n}\n\nhtml body #r34g-modal.r34g-open {\n  display: flex;\n}\n\nhtml body #r34g-modal .r34g-dialog {\n  display: flex;\n  flex-direction: column;\n  width: min(880px, 100%);\n  max-height: min(84vh, 780px);\n  background: var(--r34g-bg-alt);\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 10px;\n  box-shadow: var(--r34g-shadow);\n  color: var(--r34g-text);\n  font-size: 12.8px;\n  overflow: hidden;\n}\n\nhtml body #r34g-modal .r34g-head {\n  display: flex;\n  align-items: center;\n  gap: 14px;\n  padding: 10px 14px 0;\n  border-bottom: 1px solid var(--r34g-line);\n  background: linear-gradient(#2d362d, var(--r34g-bg-alt));\n}\n\nhtml body #r34g-modal .r34g-title {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  padding-bottom: 9px;\n  color: var(--r34g-link);\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 13px;\n  font-weight: bold;\n  letter-spacing: .06em;\n  text-transform: uppercase;\n  white-space: nowrap;\n}\n\nhtml body #r34g-modal .r34g-tabs {\n  display: flex;\n  align-items: flex-end;\n  gap: 4px;\n  flex: 1;\n  overflow-x: auto;\n  scrollbar-width: none;\n}\n\nhtml body #r34g-modal .r34g-tabs::-webkit-scrollbar {\n  display: none;\n}\n\nhtml body #r34g-modal .r34g-tab {\n  padding: 7px 13px;\n  border: 1px solid transparent;\n  border-bottom: 0;\n  border-radius: 7px 7px 0 0;\n  background: transparent;\n  color: var(--r34g-link) !important;\n  font-family: verdana, sans-serif;\n  font-size: 12px;\n  white-space: nowrap;\n  cursor: pointer;\n  position: relative;\n  bottom: -1px;\n}\n\nhtml body #r34g-modal .r34g-tab:hover {\n  background: rgba(255, 255, 255, .045);\n  color: #dff0df !important;\n}\n\nhtml body #r34g-modal .r34g-tab.r34g-tab-active {\n  background: var(--r34g-bg);\n  border-color: var(--r34g-line);\n  border-bottom: 1px solid var(--r34g-bg);\n  color: #ffffff !important;\n}\n\nhtml body #r34g-modal .r34g-tab-short {\n  display: none;\n}\n\nhtml body #r34g-modal .r34g-close {\n  width: 30px;\n  height: 30px;\n  margin-bottom: 8px;\n  padding: 0;\n  border: 1px solid transparent;\n  border-radius: 6px;\n  background: transparent;\n  color: var(--r34g-text-soft) !important;\n  font-size: 17px;\n  line-height: 1;\n  cursor: pointer;\n}\n\nhtml body #r34g-modal .r34g-close:hover {\n  background: rgba(217, 83, 79, .16);\n  border-color: rgba(217, 83, 79, .5);\n  color: #ff9a96 !important;\n}\n\nhtml body #r34g-modal .r34g-body {\n  flex: 1;\n  min-height: 0;\n  overflow-y: auto;\n  padding: 14px 16px;\n  background: var(--r34g-bg);\n  scrollbar-width: thin;\n  scrollbar-color: #4b564b rgba(0, 0, 0, .25);\n}\n\nhtml body #r34g-modal .r34g-body::-webkit-scrollbar {\n  width: 10px;\n}\n\nhtml body #r34g-modal .r34g-body::-webkit-scrollbar-thumb {\n  background: #4b564b;\n  border-radius: 6px;\n}\n\nhtml body #r34g-modal .r34g-panel {\n  display: none;\n}\n\nhtml body #r34g-modal .r34g-panel.r34g-panel-active {\n  display: block;\n}\n\nhtml body #r34g-modal .r34g-foot {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  padding: 10px 14px;\n  border-top: 1px solid var(--r34g-line);\n  background: var(--r34g-bg-alt);\n}\n\nhtml body #r34g-modal .r34g-foot .r34g-spacer {\n  flex: 1;\n}\n\nhtml body #r34g-modal .r34g-foot button,\nhtml body #r34g-modal .r34g-btn {\n  padding: 6px 14px;\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 6px;\n  background: #333d33;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif;\n  font-size: 12px;\n  cursor: pointer;\n  transition: background .15s ease, border-color .15s ease, color .15s ease;\n}\n\nhtml body #r34g-modal .r34g-foot button:hover,\nhtml body #r34g-modal .r34g-btn:hover {\n  border-color: var(--r34g-accent);\n  color: #eafaea !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettingsSave {\n  background: var(--r34g-accent);\n  border-color: var(--r34g-accent);\n  color: var(--r34g-bg) !important;\n  font-weight: bold;\n}\n\nhtml body #r34g-modal #ibenhancerSettingsSave:hover {\n  background: var(--c-link, #b0e0b0);\n  color: #22301f !important;\n}\n\nhtml body #r34g-modal .r34g-section {\n  margin: 0 0 16px;\n}\n\nhtml body #r34g-modal .r34g-section > h6 {\n  margin: 0 0 4px;\n  padding-bottom: 5px;\n  border-bottom: 1px solid var(--r34g-line);\n  color: var(--r34g-link);\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 11.5px;\n  font-weight: bold;\n  letter-spacing: .09em;\n  text-transform: uppercase;\n}\n\nhtml body #r34g-modal .r34g-hint {\n  margin: 2px 0 8px;\n  color: var(--r34g-text-soft);\n  font-size: 11px;\n  line-height: 1.5;\n}\n\nhtml body #r34g-modal .r34g-row {\n  display: flex;\n  align-items: center;\n  gap: 10px;\n  min-height: 30px;\n  padding: 3px 2px;\n  border-bottom: 1px dashed rgba(255, 255, 255, .055);\n}\n\nhtml body #r34g-modal .r34g-row:last-child {\n  border-bottom: 0;\n}\n\nhtml body #r34g-modal .r34g-row > .r34g-label {\n  flex: 1;\n  min-width: 0;\n  line-height: 1.45;\n  color: var(--r34g-text);\n}\n\nhtml body #r34g-modal .r34g-row > .r34g-value {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  flex: 0 0 auto;\n}\n\nhtml body #r34g-modal .r34g-row > .r34g-value label {\n  display: inline-flex !important;\n  align-items: center;\n  gap: 6px;\n}\n\nhtml.r34g-modal-open {\n  overflow: hidden !important;\n}\n\nhtml body #r34g-modal .r34g-row .r34g-note {\n  display: block;\n  color: var(--r34g-text-soft);\n  font-size: 10.5px;\n}\n\nhtml body #r34g-modal .r34g-seg {\n  display: inline-flex;\n  gap: 3px;\n  padding: 2px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 7px;\n  background: var(--r34g-bg-deep);\n}\n\nhtml body #r34g-modal .r34g-seg button {\n  padding: 4px 10px;\n  border: 0;\n  border-radius: 5px;\n  background: transparent;\n  color: var(--r34g-text-soft) !important;\n  font-family: verdana, sans-serif;\n  font-size: 11.5px;\n  cursor: pointer;\n}\n\nhtml body #r34g-modal .r34g-seg button:hover {\n  color: #eafaea !important;\n}\n\nhtml body #r34g-modal .r34g-seg button.r34g-on {\n  background: var(--r34g-accent);\n  color: #22301f !important;\n  font-weight: bold;\n}\n\nhtml body .r34g-switch {\n  position: relative;\n  display: inline-block;\n  flex: 0 0 auto;\n  width: 40px;\n  height: 20px;\n  vertical-align: middle;\n}\n\nhtml body .r34g-switch > input {\n  position: absolute;\n  inset: 0;\n  width: 100% !important;\n  height: 100% !important;\n  margin: 0 !important;\n  opacity: 0 !important;\n  cursor: pointer;\n  z-index: 2;\n}\n\nhtml body .r34g-switch > .r34g-slider {\n  position: absolute;\n  inset: 0;\n  border: 1px solid var(--r34g-line);\n  border-radius: 999px;\n  background: #3b453b;\n  transition: background .2s ease, border-color .2s ease;\n}\n\nhtml body .r34g-switch > .r34g-slider::before {\n  content: \"\";\n  position: absolute;\n  top: 2px;\n  left: 2px;\n  width: 14px;\n  height: 14px;\n  border-radius: 50%;\n  background: #c9cfc9;\n  transition: transform .2s ease, background .2s ease;\n}\n\nhtml body .r34g-switch > input:checked + .r34g-slider {\n  background: var(--r34g-accent);\n  border-color: var(--r34g-accent);\n}\n\nhtml body .r34g-switch > input:checked + .r34g-slider::before {\n  transform: translateX(20px);\n  background: #f4fff4;\n}\n\nhtml body .r34g-switch > input:focus-visible + .r34g-slider {\n  box-shadow: 0 0 0 2px rgba(147, 179, 147, .45);\n}\n\nhtml body #r34g-modal #ibenhancerSettings-options {\n  overflow: visible !important;\n  width: auto !important;\n  height: auto !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettings-options > .r34g-moved,\nhtml body #r34g-modal #ibenhancerSettings-options > br {\n  display: none !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettings-options label {\n  white-space: normal !important;\n  display: flex !important;\n  align-items: center;\n  gap: 10px;\n  width: 100%;\n  line-height: 1.45;\n}\n\nhtml body #r34g-modal #ibenhancerSettings input[type=\"checkbox\"] {\n  flex: 0 0 auto;\n  margin: 0 !important;\n  width: auto !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettings input[type=\"number\"],\nhtml body #r34g-modal #ibenhancerSettings select {\n  margin: 0 !important;\n  padding: 3px 5px !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 5px !important;\n  background: var(--r34g-bg-deep) !important;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 11.5px !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettings button {\n  padding: 4px 9px !important;\n  margin: 0 !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 5px !important;\n  background: #333d33 !important;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 11.5px !important;\n  cursor: pointer;\n}\n\nhtml body #r34g-modal #ibenhancerSettings button:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #eafaea !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettings .tooltip-140 {\n  position: relative;\n}\n\nhtml body #r34g-modal #r34g-icon-grid {\n  display: grid;\n  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));\n  gap: 1px 14px;\n  margin-top: 6px;\n  padding: 8px 10px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 7px;\n  background: rgba(0, 0, 0, .16);\n}\n\nhtml body #r34g-modal #r34g-icon-grid label {\n  display: flex !important;\n  align-items: center;\n  gap: 8px;\n  padding: 1px 0;\n  font-size: 11.5px !important;\n}\n\nhtml body #r34g-modal #r34g-icon-grid .r34g-icon-text {\n  flex: 1;\n  min-width: 0;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\nhtml body #r34g-modal #r34g-icon-grid .r34g-switch {\n  width: 34px;\n  height: 17px;\n}\n\nhtml body #r34g-modal #r34g-icon-grid .r34g-switch > .r34g-slider::before {\n  width: 11px;\n  height: 11px;\n}\n\nhtml body #r34g-modal #r34g-icon-grid .r34g-switch > input:checked + .r34g-slider::before {\n  transform: translateX(17px);\n}\n\nhtml body #r34g-modal #r34g-actions-row {\n  gap: 6px;\n}\n\nhtml body #r34g-modal #ibenhancer-favorite-tags,\nhtml body #r34g-modal #ibenhancer-changelog {\n  background: transparent !important;\n  border: 0 !important;\n  padding: 0 !important;\n  width: auto !important;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 12.8px !important;\n}\n\nhtml body #r34g-modal #ibenhancer-favorite-tags *,\nhtml body #r34g-modal #ibenhancer-changelog * {\n  color: var(--r34g-text) !important;\n  font-size: 12px !important;\n}\n\nhtml body #r34g-modal #ibenhancer-changelog-updates > div,\nhtml body #r34g-modal #ibenhancer-changelog > div {\n  border-bottom: 1px dashed rgba(255, 255, 255, .07);\n  padding: 5px 0;\n  line-height: 1.5;\n}\n\nhtml body #r34g-modal #ibenhancer-changelog > div:first-child,\nhtml body #r34g-modal #ibenhancer-changelog > a {\n  color: var(--r34g-link) !important;\n  font-weight: bold;\n}\n\nhtml body #r34g-sidebar-favs {\n  margin-top: 10px;\n  padding-top: 9px;\n  border-top: 1px solid var(--r34g-line);\n}\n\nhtml body #ibenhancer {\n  display: block;\n}\n\nhtml.r34g-integrated body #ibenhancer {\n  display: none !important;\n}\n\nhtml body #ibenhancerSettings-blocker {\n  display: none !important;\n}\n\nhtml.r34g-integrated body #ibenhancerSettings.show {\n  display: none !important;\n}\n\n@media (max-width: 900px) {\n  html body #r34g-sidebar-toggle {\n    display: inline-flex;\n  }\n\n  html body #r34g-drawer-head {\n    display: flex;\n  }\n\n  html {\n    --r34g-gap: 10px;\n  }\n\n  html body .sidebar {\n    position: fixed !important;\n    top: 0;\n    left: 0;\n    bottom: 0;\n    width: min(320px, 88vw) !important;\n    min-width: 0 !important;\n    max-width: none !important;\n    max-height: none !important;\n    padding: 12px 12px 24px;\n    background: var(--r34g-bg-alt);\n    border-right: 1px solid var(--c-bg-highlight, #505a50);\n    box-shadow: 12px 0 32px rgba(0, 0, 0, .5);\n    transform: translateX(-102%);\n    transition: transform .24s ease;\n    z-index: calc(var(--r34g-z) - 4);\n    overflow-y: auto;\n  }\n\n  html.r34g-drawer-open body .sidebar {\n    transform: none;\n  }\n\n  html.r34g-drawer-open body #r34g-drawer-backdrop {\n    display: block;\n  }\n\n  html body #post-list > .content {\n    flex: 1 1 100% !important;\n    margin: 0 !important;\n  }\n}\n\n@media (max-width: 620px) {\n  html body #r34g-modal .r34g-head {\n    flex-wrap: wrap;\n    gap: 6px 10px;\n    padding: 9px 12px 0;\n  }\n\n  html body #r34g-modal .r34g-title {\n    padding-bottom: 0;\n  }\n\n  html body #r34g-modal .r34g-tabs {\n    order: 3;\n    flex: 1 1 100%;\n    flex-wrap: wrap;\n    overflow-x: visible;\n    gap: 4px 6px;\n    padding-bottom: 0;\n  }\n\n  html body #r34g-modal .r34g-tab {\n    padding: 6px 10px;\n    font-size: 11.5px;\n  }\n\n  html body #r34g-modal .r34g-tab-long {\n    display: none;\n  }\n\n  html body #r34g-modal .r34g-tab-short {\n    display: inline;\n  }\n\n  html body #r34g-modal .r34g-close {\n    margin-left: auto;\n    margin-bottom: 0;\n  }\n\n  html body #r34g-modal .r34g-body {\n    padding: 12px 12px;\n  }\n\n  html body #r34g-modal .r34g-row {\n    flex-wrap: wrap;\n    row-gap: 4px;\n    padding: 5px 2px;\n  }\n\n  html body #r34g-modal .r34g-row > .r34g-seg {\n    flex: 1 1 100%;\n    justify-content: space-between;\n  }\n\n  html body #r34g-modal .r34g-foot {\n    flex-wrap: wrap;\n    gap: 6px;\n  }\n\n  html body #r34g-modal .r34g-foot #r34g-reset {\n    flex: 1 1 100%;\n    text-align: center;\n  }\n\n  html body #r34g-modal .r34g-foot .r34g-spacer {\n    display: none;\n  }\n\n  html body #r34g-modal #r34g-icon-grid {\n    grid-template-columns: 1fr;\n  }\n\n  html body #r34g-modal .r34g-dialog {\n    max-height: 90vh;\n  }\n  html {\n    --r34g-gap: 8px;\n    --r34g-radius: 6px;\n  }\n\n  html[data-r34g-cols] {\n    --r34g-cols: 3;\n  }\n\n  html body #post-list {\n    padding: 0 8px !important;\n  }\n\n  html body #paginator .pagination {\n    gap: 3px;\n    padding: 6px;\n  }\n\n  html body #paginator .pagination a,\n  html body #paginator .pagination b,\n  html body #paginator .pagination span {\n    min-width: 24px;\n    height: 24px;\n    padding: 0 6px !important;\n  }\n\n  html body #r34g-modal .r34g-dialog {\n    max-height: 90vh;\n  }\n\n  html body #r34g-modal .r34g-title span.r34g-title-text {\n    display: none;\n  }\n}\n\nhtml body .image-list .thumb .r34g-seen-badge {\n  position: absolute;\n  top: 7px;\n  right: 7px;\n  z-index: 4;\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 24px;\n  height: 24px;\n  border-radius: 50%;\n  background: rgba(6, 12, 6, .74);\n  border: 1px solid rgba(147, 179, 147, .55);\n  color: #d9f4d9;\n  box-shadow: 0 2px 8px rgba(0, 0, 0, .5);\n}\n\nhtml body .image-list .thumb .r34g-seen-badge svg {\n  width: 15px;\n  height: 15px;\n}\n\nhtml body .image-list .thumb.r34g-seen > a::before {\n  content: \"\";\n  position: absolute;\n  inset: 0;\n  z-index: 1;\n  pointer-events: none;\n  box-shadow: inset 0 0 0 2px rgba(147, 179, 147, .5);\n  border-radius: var(--r34g-radius);\n}\n\nhtml[data-r34g-seen=\"off\"] body .image-list .thumb .r34g-seen-badge {\n  display: none !important;\n}\n\nhtml[data-r34g-seendim=\"on\"] body .image-list .thumb.r34g-seen img {\n  filter: grayscale(.5) brightness(.6) !important;\n}\n\nhtml[data-r34g-seendim=\"on\"] body .image-list .thumb.r34g-seen:hover img {\n  filter: grayscale(.15) brightness(.92) !important;\n}\n\nhtml body #r34g-toasts {\n  position: fixed;\n  left: 50%;\n  bottom: 22px;\n  transform: translateX(-50%);\n  z-index: 2147482100;\n  display: flex;\n  flex-direction: column;\n  gap: 6px;\n  align-items: center;\n  pointer-events: none;\n}\n\nhtml body .r34g-toast {\n  max-width: 460px;\n  padding: 8px 14px;\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 7px;\n  background: rgba(24, 32, 24, .96);\n  color: #d8e6d8;\n  font: 12px/1.45 verdana, sans-serif;\n  box-shadow: 0 10px 30px rgba(0, 0, 0, .6);\n  transition: opacity .28s ease, transform .28s ease;\n}\n\nhtml body .r34g-toast.r34g-toast-out {\n  opacity: 0;\n  transform: translateY(6px);\n}\n\nhtml body .r34g-search {\n  margin: 0 0 12px;\n}\n\nhtml body .r34g-search input {\n  width: 100%;\n  box-sizing: border-box;\n  padding: 6px 9px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  background: var(--r34g-bg-deep);\n  color: var(--r34g-text);\n  font: 12px verdana, sans-serif;\n  outline: none;\n}\n\nhtml body .r34g-search input:focus {\n  border-color: var(--r34g-accent);\n}\n\nhtml body #r34g-modal .r34g-mini,\nhtml body #r34g-tags-panel .r34g-mini {\n  padding: 4px 10px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  background: #333d33;\n  color: var(--r34g-link) !important;\n  font: 11.5px verdana, sans-serif;\n  cursor: pointer;\n}\n\nhtml body #r34g-modal .r34g-mini:hover,\nhtml body #r34g-tags-panel .r34g-mini:hover {\n  border-color: var(--r34g-accent);\n  color: #eafaea !important;\n}\n\nhtml body .r34g-mini-row {\n  display: inline-flex;\n  gap: 6px;\n  flex-wrap: wrap;\n  align-items: center;\n}\n\nhtml body #r34g-modal .r34g-num,\nhtml body #r34g-modal .r34g-text,\nhtml body #r34g-modal .r34g-select,\nhtml body #r34g-modal .r34g-textarea {\n  box-sizing: border-box;\n  padding: 3px 6px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 5px;\n  background: var(--r34g-bg-deep);\n  color: var(--r34g-text);\n  font: 11.5px verdana, sans-serif;\n  outline: none;\n}\n\nhtml body #r34g-modal .r34g-num:focus,\nhtml body #r34g-modal .r34g-text:focus,\nhtml body #r34g-modal .r34g-select:focus,\nhtml body #r34g-modal .r34g-textarea:focus {\n  border-color: var(--r34g-accent);\n}\n\nhtml body #r34g-modal .r34g-text {\n  width: 100%;\n  min-width: 180px;\n}\n\nhtml body #r34g-modal .r34g-textarea {\n  width: 100%;\n  min-height: 66px;\n  resize: vertical;\n  line-height: 1.45;\n}\n\nhtml body #r34g-modal .r34g-mono {\n  font-family: monospace, monospace;\n}\n\nhtml body #r34g-modal .r34g-value-wide {\n  flex: 0 1 56%;\n  max-width: 56%;\n}\n\nhtml body #r34g-modal .r34g-stack {\n  display: block;\n}\n\nhtml body #r34g-modal .r34g-row.r34g-filtered-out,\nhtml body #r34g-modal #r34g-icon-grid label.r34g-filtered-out,\nhtml body #r34g-modal .r34g-section.r34g-filtered-out {\n  display: none !important;\n}\n\nhtml body #r34g-modal .r34g-section.r34g-collapsed {\n  display: none !important;\n}\n\nhtml body #r34g-modal .r34g-enh-sticky {\n  position: sticky;\n  top: -14px;\n  z-index: 3;\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n  margin: -14px -16px 14px;\n  padding: 10px 16px;\n  background: var(--r34g-bg-alt);\n  border-bottom: 1px solid var(--r34g-line);\n}\n\nhtml body #r34g-modal .r34g-enh-sticky .r34g-note {\n  flex: 1 1 220px;\n}\n\nhtml body #r34g-modal .r34g-notes {\n  margin: 4px 0 0;\n  padding-left: 18px;\n  color: var(--r34g-text);\n  font-size: 12px;\n  line-height: 1.6;\n}\n\nhtml body #r34g-modal .r34g-notes li {\n  margin-bottom: 3px;\n}\n\nhtml body #r34g-modal .r34g-panel-actions {\n  display: inline-flex;\n  gap: 6px;\n  align-items: center;\n}\n\nhtml body .r34g-vhost {\n  flex: 1 1 auto !important;\n  width: auto !important;\n  min-width: 0 !important;\n  max-width: none !important;\n}\n\nhtml body #gelcomVideoContainer,\nhtml body .r34g-vwrap {\n  position: relative !important;\n  width: 100% !important;\n  max-width: var(--r34g-vwidth) !important;\n  margin: 0 auto !important;\n  background: #000;\n  overflow: hidden;\n}\n\nhtml[data-r34g-vbg=\"ninguno\"] body #gelcomVideoContainer,\nhtml[data-r34g-vbg=\"ninguno\"] body .r34g-vwrap {\n  background: transparent;\n}\n\nhtml[data-r34g-vradius=\"on\"] body #gelcomVideoContainer,\nhtml[data-r34g-vradius=\"on\"] body .r34g-vwrap {\n  border-radius: 10px;\n}\n\nhtml[data-r34g-vshadow=\"on\"] body #gelcomVideoContainer,\nhtml[data-r34g-vshadow=\"on\"] body .r34g-vwrap {\n  box-shadow: 0 14px 40px rgba(0, 0, 0, .55);\n}\n\nhtml[data-r34g-vcinema=\"on\"] body::before {\n  content: \"\";\n  position: fixed;\n  inset: 0;\n  z-index: 60;\n  background: rgba(0, 0, 0, .84);\n}\n\nhtml[data-r34g-vcinema=\"on\"] body #gelcomVideoContainer,\nhtml[data-r34g-vcinema=\"on\"] body .r34g-vwrap {\n  z-index: 61 !important;\n}\n\nhtml body .r34g-vwrap .r34g-vbackdrop {\n  position: absolute;\n  inset: -30px;\n  z-index: 0;\n  background-size: cover;\n  background-position: center;\n  filter: blur(26px) brightness(.45) saturate(1.25);\n  opacity: .9;\n  pointer-events: none;\n}\n\nhtml body .r34g-vwrap video,\nhtml body #gelcomVideoPlayer {\n  position: relative;\n  z-index: 1;\n  display: block !important;\n  width: 100% !important;\n  height: auto !important;\n  max-height: 84vh !important;\n  margin: 0 auto !important;\n  background: #000;\n  object-fit: contain;\n}\n\nhtml[data-r34g-vfit=\"cover\"] body .r34g-vwrap video {\n  object-fit: cover !important;\n}\n\nhtml[data-r34g-vfit=\"contain\"] body .r34g-vwrap video {\n  object-fit: contain !important;\n}\n\nhtml body .r34g-vbar {\n  position: absolute;\n  left: 0;\n  right: 0;\n  bottom: 0;\n  z-index: 6;\n  display: flex;\n  flex-direction: column;\n  gap: 3px;\n  padding: 26px 10px 7px;\n  background: linear-gradient(to top, rgba(0, 0, 0, .88) 0%, rgba(0, 0, 0, .5) 55%, rgba(0, 0, 0, 0) 100%);\n  color: #ececec;\n  font-family: verdana, sans-serif;\n  transition: opacity .25s ease;\n}\n\nhtml body .r34g-vbar.r34g-idle {\n  opacity: 0;\n}\n\nhtml body .r34g-vbar:hover {\n  opacity: 1 !important;\n}\n\nhtml body .r34g-vbar-top {\n  display: flex;\n  align-items: center;\n}\n\nhtml body .r34g-vbar input[type=\"range\"] {\n  width: 100%;\n  height: 16px;\n  margin: 0;\n  padding: 0;\n  accent-color: var(--r34g-accent);\n  cursor: pointer;\n  background: transparent;\n}\n\nhtml body .r34g-vbar .r34g-vvolume {\n  width: 74px;\n}\n\nhtml body .r34g-vbar-bottom {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n}\n\nhtml body .r34g-vbar .r34g-vgrow {\n  flex: 1;\n}\n\nhtml body .r34g-vbar-main {\n  display: flex;\n  align-items: center;\n  gap: 3px;\n}\n\nhtml body .r34g-vbar .r34g-vbtn {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 28px;\n  height: 28px;\n  padding: 0;\n  border: 1px solid transparent;\n  border-radius: 6px;\n  background: transparent;\n  color: #e4e4e4 !important;\n  font: bold 11.5px/1 verdana, sans-serif;\n  cursor: pointer;\n  transition: background .15s ease, border-color .15s ease, color .15s ease;\n}\n\nhtml body .r34g-vbar .r34g-vbtn svg {\n  width: 16px;\n  height: 16px;\n}\n\nhtml body .r34g-vbar .r34g-vbtn:hover {\n  background: rgba(255, 255, 255, .12);\n  border-color: rgba(147, 179, 147, .55);\n  color: #fff !important;\n}\n\nhtml body .r34g-vbar .r34g-vbtn.r34g-on {\n  color: var(--r34g-accent) !important;\n  border-color: rgba(147, 179, 147, .55);\n}\n\nhtml body .r34g-vbar .r34g-vspeed {\n  width: auto;\n  min-width: 42px;\n  padding: 0 7px;\n}\n\nhtml body .r34g-vbar .r34g-vtime {\n  font-size: 11.5px;\n  line-height: 1;\n  min-width: 96px;\n  color: #dcdcdc;\n  text-shadow: 0 1px 2px rgba(0, 0, 0, .8);\n}\n\nhtml body .r34g-vbar .r34g-vvol {\n  display: flex;\n  align-items: center;\n  gap: 2px;\n}\n\nhtml.r34g-vbar-on .fluid_controls_container,\nhtml.r34g-vbar-on .fluid_video_wrapper > .fluid_controls_container,\nhtml.r34g-vbar-on .fluid_control_video,\nhtml.r34g-vbar-on .video-js .vjs-control-bar {\n  display: none !important;\n}\n\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_play_button,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_duration,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_theatre,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_playback_rate,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_fullscreen,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_video_volume,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_download,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_card,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_vast_skip {\n  display: none !important;\n}\n\nhtml body #r34g-tags-panel {\n  box-sizing: border-box;\n  max-width: var(--r34g-vwidth);\n  margin: 14px auto;\n  padding: 10px 12px;\n  background: var(--r34g-bg-alt);\n  border: 1px solid var(--r34g-line);\n  border-radius: 10px;\n  color: var(--r34g-text);\n  font-family: verdana, sans-serif;\n  font-size: 12px;\n  text-align: left;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-launch {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-toggle {\n  flex: 1 1 220px;\n  display: inline-flex;\n  align-items: center;\n  justify-content: flex-start;\n  gap: 8px;\n  padding: 2px 0;\n  border: 0;\n  background: transparent;\n  color: var(--r34g-link) !important;\n  font: bold 13px verdana, sans-serif;\n  cursor: pointer;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-toggle svg {\n  width: 16px;\n  height: 16px;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-head {\n  display: flex;\n  align-items: center;\n  gap: 10px;\n  flex-wrap: wrap;\n  margin: 8px 0;\n  padding-bottom: 7px;\n  border-bottom: 1px solid var(--r34g-line);\n}\n\nhtml body #r34g-tags-panel .r34g-tp-head b {\n  color: var(--r34g-link);\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 12px;\n  letter-spacing: .06em;\n  text-transform: uppercase;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-count {\n  flex: 1;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-group {\n  margin-bottom: 9px;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-group-head {\n  display: flex;\n  align-items: baseline;\n  gap: 8px;\n  flex-wrap: wrap;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-group-head b {\n  color: #dff0df;\n  font-size: 12px;\n}\n\nhtml body #r34g-tags-panel .r34g-chips {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 5px;\n  margin-top: 5px;\n  min-width: 0;\n}\n\nhtml body .r34g-chip {\n  display: inline-flex;\n  align-items: center;\n  gap: 5px;\n  max-width: 100%;\n  min-width: 0;\n  box-sizing: border-box;\n  padding: 3px 9px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 999px;\n  background: var(--r34g-bg-deep);\n  color: var(--r34g-text) !important;\n  font: 11.5px/1.4 verdana, sans-serif;\n  cursor: pointer;\n  transition: border-color .15s ease, opacity .15s ease, background .15s ease;\n}\n\nhtml body .r34g-chip .r34g-chip-name {\n  overflow-wrap: anywhere;\n}\n\nhtml body .r34g-chip:hover {\n  border-color: var(--r34g-accent);\n  background: #364236;\n}\n\nhtml body .r34g-chip.r34g-chip-off {\n  opacity: .66;\n  border-color: rgba(217, 83, 79, .55);\n}\n\nhtml body .r34g-chip.r34g-chip-off .r34g-chip-name {\n  text-decoration: line-through;\n  color: #ffb3ae;\n}\n\nhtml body .r34g-chip .r34g-chip-count {\n  color: var(--r34g-text-soft);\n  font-size: 9.5px;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-outputwrap {\n  margin: 10px 0 0;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-output {\n  width: 100%;\n  box-sizing: border-box;\n  min-height: 58px;\n  padding: 7px 9px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  background: var(--r34g-bg-deep);\n  color: #cfe8cf;\n  font: 12px/1.5 monospace, monospace;\n  resize: vertical;\n}\n\nhtml body #r34g-tags-panel .r34g-hint,\nhtml body .r34g-hint {\n  color: var(--r34g-text-soft);\n}\n\nhtml body #r34g-tags-panel .r34g-tp-status {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  margin-top: 8px;\n  color: var(--r34g-text-soft);\n  font-size: 11.5px;\n}\n\nhtml body .r34g-spinner {\n  width: 14px;\n  height: 14px;\n  border: 2px solid rgba(255, 255, 255, .25);\n  border-top-color: var(--r34g-accent);\n  border-radius: 50%;\n  animation: r34g-spin .8s linear infinite;\n}\n\nhtml body #r34g-tags-panel .r34g-rel {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n  padding: 3px 0;\n  border-bottom: 1px dashed rgba(255, 255, 255, .06);\n}\n\nhtml body #r34g-tags-panel .r34g-rel:last-child {\n  border-bottom: 0;\n}\n\nhtml body #r34g-tags-panel .r34g-rel-text {\n  flex: 1 1 240px;\n  color: #cfd8cf;\n  font-size: 11.5px;\n}\n\n@keyframes r34g-spin {\n  to {\n    transform: rotate(360deg);\n  }\n}\n\n\n/* API de rule34: diagnóstico en Ajustes → Etiquetas */\n.r34g-probe {\n  margin: 8px 0 0;\n  padding: 8px 10px;\n  background: rgba(0, 0, 0, .18);\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  color: var(--r34g-text-soft);\n  font-size: 11.5px;\n  text-align: left;\n}\n\n.r34g-probe:empty {\n  display: none;\n}\n\n.r34g-probe-line + .r34g-probe-line {\n  margin-top: 4px;\n}\n\n.r34g-probe-line b {\n  color: var(--r34g-accent);\n}\n\n.r34g-probe-bad b {\n  color: #d98b7f;\n}\n\n/* Sugerencias de etiquetas (API) bajo el buscador del panel lateral */\nhtml body #r34g-tag-filter + .r34g-suggest {\n  display: block;\n}\n\nhtml body .r34g-suggest {\n  position: relative;\n  z-index: 30;\n  margin: 4px 0 6px;\n  max-height: 224px;\n  overflow-y: auto;\n  background: var(--r34g-bg-deep);\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  box-shadow: 0 10px 26px rgba(0, 0, 0, .45);\n  text-align: left;\n}\n\nhtml body .r34g-suggest[hidden] {\n  display: none !important;\n}\n\nhtml body .r34g-suggest-row {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 8px;\n  width: 100%;\n  padding: 4px 8px;\n  border: 0;\n  border-bottom: 1px solid rgba(255, 255, 255, .04);\n  background: transparent;\n  color: var(--r34g-text);\n  font: 11.5px verdana, sans-serif;\n  text-align: left;\n  cursor: pointer;\n}\n\nhtml body .r34g-suggest-row:last-child {\n  border-bottom: 0;\n}\n\nhtml body .r34g-suggest-row:hover {\n  background: var(--r34g-card-hover);\n  color: #eaf6ea;\n}\n\nhtml body .r34g-suggest-name {\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\nhtml body .r34g-suggest-count {\n  flex: 0 0 auto;\n  color: var(--r34g-text-soft);\n  font-size: 10.5px;\n}\n\n/* ---- Botón flotante de Ajustes: siempre accesible (clave de rule34, IA, opciones) ---- */\nhtml body #r34g-fab {\n  position: fixed !important;\n  right: 18px !important;\n  bottom: 18px !important;\n  z-index: calc(var(--r34g-z) - 4) !important;\n  display: inline-flex !important;\n  align-items: center;\n  gap: 7px;\n  margin: 0 !important;\n  padding: 9px 14px 9px 12px !important;\n  border: 1px solid var(--r34g-accent) !important;\n  border-radius: 999px !important;\n  background: linear-gradient(#3a463a, #2c362c) !important;\n  color: var(--r34g-link) !important;\n  font: bold 12.5px verdana, sans-serif !important;\n  cursor: pointer;\n  box-shadow: 0 8px 22px rgba(0, 0, 0, .5);\n  opacity: .92;\n  transition: opacity .15s, transform .15s;\n}\nhtml body #r34g-fab:hover {\n  opacity: 1;\n  transform: translateY(-1px);\n}\nhtml body #r34g-fab svg {\n  width: 14px;\n  height: 14px;\n  fill: currentColor;\n}\nhtml[data-r34g-fab=\"off\"] #r34g-fab {\n  display: none !important;\n}\nhtml.r34g-modal-open #r34g-fab {\n  display: none !important;\n}\n\n/* ---- Descargas: botones, barra del post, cola y dialogos ---- */\nhtml body .r34g-btn,\nhtml body .r34g-dlq .r34g-mini {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  gap: 6px;\n  padding: 6px 12px !important;\n  margin: 0 !important;\n  border: 1px solid var(--r34g-line) !important;\n  border-radius: 6px !important;\n  background: var(--r34g-bg-alt) !important;\n  color: var(--r34g-text) !important;\n  font: 12px verdana, sans-serif !important;\n  line-height: 1.2 !important;\n  text-decoration: none !important;\n  cursor: pointer;\n}\nhtml body .r34g-dlq .r34g-mini {\n  padding: 3px 9px !important;\n  font-size: 11px !important;\n}\nhtml body .r34g-btn:hover,\nhtml body .r34g-dlq .r34g-mini:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #ffffff !important;\n}\nhtml body .r34g-btn.r34g-on {\n  background: linear-gradient(#3d4b3d, #2f3b2f) !important;\n  border-color: var(--r34g-accent) !important;\n  color: var(--r34g-link) !important;\n}\nhtml body .r34g-btn svg,\nhtml body .r34g-dlq .r34g-mini svg {\n  width: 14px;\n  height: 14px;\n}\nhtml body .r34g-note {\n  color: var(--r34g-text-soft);\n  font-size: 11px;\n}\n\nhtml body .image-list .thumb .r34g-dl-btn {\n  position: absolute;\n  left: 7px;\n  top: 34px;\n  z-index: 5;\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 28px;\n  height: 28px;\n  padding: 0 !important;\n  margin: 0 !important;\n  border: 1px solid rgba(255, 255, 255, .22) !important;\n  border-radius: 50%;\n  background: rgba(10, 14, 10, .78);\n  color: #e8f4e8;\n  cursor: pointer;\n  opacity: 0;\n  transform: translateY(3px);\n  transition: opacity .16s, transform .16s, background .16s;\n}\nhtml body .image-list .thumb:hover .r34g-dl-btn,\nhtml body .image-list .thumb .r34g-dl-btn:focus-visible {\n  opacity: 1;\n  transform: none;\n}\nhtml body .image-list .thumb .r34g-dl-btn:hover {\n  background: #38513a;\n  border-color: var(--r34g-accent) !important;\n}\nhtml body .image-list .thumb .r34g-dl-btn svg {\n  width: 16px;\n  height: 16px;\n}\nhtml body .image-list .thumb .r34g-dl-btn.r34g-busy {\n  opacity: 1;\n  transform: none;\n  animation: r34g-dl-pulse 1.1s ease-in-out infinite;\n}\n@keyframes r34g-dl-pulse {\n  0%, 100% { box-shadow: 0 0 0 0 rgba(147, 179, 147, 0); }\n  50% { box-shadow: 0 0 0 5px rgba(147, 179, 147, .28); }\n}\nhtml body .image-list .thumb .r34g-dl-badge {\n  position: absolute;\n  top: 37px;\n  right: 7px;\n  z-index: 4;\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 20px;\n  height: 20px;\n  border-radius: 50%;\n  background: rgba(8, 18, 8, .78);\n  border: 1px solid rgba(147, 179, 147, .5);\n  color: #cfeccf;\n}\nhtml body .image-list .thumb .r34g-dl-badge svg {\n  width: 13px;\n  height: 13px;\n}\n\nhtml body #r34g-dl-bar {\n  display: flex !important;\n  flex-wrap: wrap;\n  align-items: center;\n  gap: 8px;\n  margin: 0 0 10px !important;\n  padding: 8px 10px !important;\n  border: 1px solid var(--r34g-line);\n  border-radius: 8px;\n  background: rgba(20, 26, 20, .9);\n  text-align: left;\n}\nhtml body .r34g-dl-name {\n  color: var(--r34g-text-soft);\n  font: 11.5px monospace;\n  word-break: break-all;\n}\nhtml body #r34g-dl-batch {\n  display: flex !important;\n  align-items: center;\n  gap: 10px;\n  margin: 0 0 12px !important;\n  text-align: left;\n}\n\nhtml body #r34g-dlq {\n  position: fixed !important;\n  left: 18px !important;\n  bottom: 18px !important;\n  z-index: calc(var(--r34g-z) - 3) !important;\n  display: flex;\n  flex-direction: column;\n  width: 340px;\n  max-width: 46vw;\n  max-height: 44vh;\n  border: 1px solid var(--r34g-line);\n  border-radius: 10px;\n  background: rgba(18, 24, 18, .97);\n  color: var(--r34g-text);\n  box-shadow: var(--r34g-shadow);\n  font: 11.5px verdana, sans-serif;\n  text-align: left;\n}\nhtml body .r34g-dlq-head {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  padding: 7px 9px;\n  border-bottom: 1px solid var(--r34g-line);\n}\nhtml body .r34g-dlq-head b {\n  color: var(--r34g-link);\n  font-size: 12.5px;\n}\nhtml body .r34g-dlq-count {\n  flex: 1;\n  color: var(--r34g-text-soft);\n}\nhtml body .r34g-dlq-list {\n  overflow: auto;\n  padding: 4px 0;\n}\nhtml body .r34g-dlq-item {\n  display: grid;\n  grid-template-columns: 1fr 70px;\n  gap: 3px 8px;\n  align-items: center;\n  padding: 5px 9px;\n}\nhtml body .r34g-dlq-name {\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  color: #dbe6db;\n}\nhtml body .r34g-dlq-state {\n  grid-column: 1 / -1;\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  color: var(--r34g-text-soft);\n  font-size: 10.5px;\n}\nhtml body .r34g-dlq-bar {\n  height: 6px;\n  border-radius: 4px;\n  background: rgba(255, 255, 255, .1);\n  overflow: hidden;\n}\nhtml body .r34g-dlq-bar > i {\n  display: block;\n  width: 0;\n  height: 100%;\n  background: linear-gradient(90deg, #6f9a6f, #a9d3a9);\n  transition: width .2s ease;\n}\nhtml body .r34g-dlq-item[data-state=\"error\"] .r34g-dlq-state { color: #ffb3ae; }\nhtml body .r34g-dlq-item[data-state=\"done\"] .r34g-dlq-state { color: #a9f0a9; }\nhtml body .r34g-dlq-item[data-state=\"skip\"] .r34g-dlq-state,\nhtml body .r34g-dlq-item[data-state=\"open\"] .r34g-dlq-state { color: #ffd479; }\n\nhtml body .r34g-dlg {\n  position: fixed !important;\n  inset: 0;\n  z-index: 2147482090 !important;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  padding: 20px;\n  background: rgba(6, 9, 6, .62);\n}\nhtml body .r34g-dlg-box {\n  width: 430px;\n  max-width: 92vw;\n  max-height: 86vh;\n  overflow: auto;\n  padding: 16px 18px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 10px;\n  background: var(--r34g-bg);\n  color: var(--r34g-text);\n  box-shadow: var(--r34g-shadow);\n  font: 12px/1.5 verdana, sans-serif;\n  text-align: left;\n}\nhtml body .r34g-dlg-box.r34g-dlg-wide {\n  width: 620px;\n}\nhtml body .r34g-dlg-box h5 {\n  margin: 0 0 8px;\n  color: var(--r34g-link);\n  font-size: 14px;\n}\nhtml body .r34g-dlg-box p {\n  margin: 0 0 9px;\n}\nhtml body .r34g-dlg-head {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  margin-bottom: 10px;\n}\nhtml body .r34g-dlg-head b {\n  flex: 1;\n  color: var(--r34g-link);\n  font-size: 14px;\n}\nhtml body .r34g-dlg .r34g-close {\n  padding: 0 6px !important;\n  border: 0 !important;\n  background: transparent !important;\n  color: var(--r34g-text-soft) !important;\n  font: bold 18px/1 verdana, sans-serif !important;\n  cursor: pointer;\n}\nhtml body .r34g-dlg .r34g-close:hover {\n  color: #ffffff !important;\n}\nhtml body .r34g-dlg-row {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  margin: 0 0 8px;\n}\nhtml body .r34g-dlg-row input[type=\"number\"] {\n  width: 72px;\n  padding: 3px 7px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 5px;\n  background: var(--r34g-bg-alt);\n  color: var(--r34g-text);\n  font: 12px verdana, sans-serif;\n}\nhtml body .r34g-dlg-actions {\n  display: flex;\n  flex-wrap: wrap;\n  justify-content: flex-end;\n  gap: 8px;\n  margin-top: 12px;\n}\nhtml body .r34g-dlg-status {\n  min-height: 16px;\n  color: var(--r34g-text-soft);\n  font-size: 11.5px;\n}\nhtml body #r34g-warn .r34g-notes {\n  margin: 0 0 10px 18px;\n  padding: 0;\n  color: var(--r34g-text-soft);\n  font-size: 11.5px;\n}\nhtml body #r34g-warn .r34g-hint {\n  color: var(--r34g-text-soft);\n  font-size: 11.5px;\n}\n";
+  var css = "html {\n  --r34g-cols: 5;\n  --r34g-aspect: 1 / 1;\n  --r34g-gap: 12px;\n  --r34g-radius: 8px;\n  --r34g-card: #232a23;\n  --r34g-card-hover: #2a322a;\n  --r34g-line: #3d473d;\n  --r34g-accent: var(--c-link-soft, #93b393);\n  --r34g-bg: var(--c-bg, #303a30);\n  --r34g-bg-alt: var(--c-bg-alt, #293129);\n  --r34g-bg-deep: var(--c-bg-deep, #303030);\n  --r34g-text: var(--c-text, #c0c0c0);\n  --r34g-text-soft: var(--c-text-soft, #878787);\n  --r34g-link: var(--c-link, #b0e0b0);\n  --r34g-shadow: 0 18px 48px rgba(0, 0, 0, .55);\n  --r34g-vwidth: 1000px;\n  --r34g-z: 2147482000;\n}\n\nhtml[data-r34g-cols=\"3\"] { --r34g-cols: 3; }\nhtml[data-r34g-cols=\"4\"] { --r34g-cols: 4; }\nhtml[data-r34g-cols=\"5\"] { --r34g-cols: 5; }\nhtml[data-r34g-cols=\"6\"] { --r34g-cols: 6; }\nhtml[data-r34g-cols=\"7\"] { --r34g-cols: 7; }\nhtml[data-r34g-aspect=\"1\"] { --r34g-aspect: 1 / 1; }\nhtml[data-r34g-aspect=\"4/5\"] { --r34g-aspect: 4 / 5; }\nhtml[data-r34g-aspect=\"3x4\"] { --r34g-aspect: 3 / 4; }\nhtml[data-r34g-aspect=\"auto\"] { --r34g-aspect: auto; }\nhtml[data-r34g-aspect=\"auto\"] { --r34g-fit: contain; }\nhtml[data-r34g-fit=\"contain\"] { --r34g-fit: contain; }\nhtml[data-r34g-fit=\"cover\"] { --r34g-fit: cover; }\nhtml[data-r34g-hover=\"off\"] .image-list .thumb img.preview { transform: none !important; }\n\n#r34g-nav-item a {\n  display: inline-flex;\n  align-items: center;\n  gap: 5px;\n  cursor: pointer;\n}\n\n#r34g-nav-item a b {\n  font-weight: normal;\n  font-size: 1.15em;\n  line-height: 1;\n}\n\n#r34g-nav-item a:hover {\n  color: var(--c-link, #b0e0b0) !important;\n}\n\n#r34g-nav-item a svg {\n  width: 14px;\n  height: 14px;\n}\n\n#r34g-nav-item.r34g-active a {\n  color: var(--c-link, #b0e0b0) !important;\n  text-shadow: 0 0 0 currentColor;\n}\n\nhtml body #r34g-modal .r34g-title svg {\n  width: 15px;\n  height: 15px;\n}\n\nhtml body #post-list > .content,\nhtml body .image-list {\n  min-width: 0;\n}\n\nhtml body #post-list > .content {\n  flex: 1 1 auto !important;\n  width: auto !important;\n  max-width: none !important;\n}\n\nhtml body .image-list {\n  display: grid !important;\n  grid-template-columns: repeat(var(--r34g-cols), minmax(0, 1fr)) !important;\n  gap: var(--r34g-gap) !important;\n  align-items: start !important;\n  align-content: start !important;\n  justify-content: stretch !important;\n  width: 100% !important;\n  margin: 0 !important;\n  padding: 0 !important;\n}\n\nhtml body .image-list > .thumb {\n  position: relative !important;\n  display: block !important;\n  width: auto !important;\n  height: auto !important;\n  min-width: 0 !important;\n  margin: 0 !important;\n  padding: 0 !important;\n  border-radius: var(--r34g-radius) !important;\n  background: var(--r34g-card);\n  overflow: hidden;\n  box-shadow: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 2px 10px rgba(0, 0, 0, .28);\n  transition: background .18s ease, box-shadow .18s ease, transform .18s ease;\n}\n\nhtml body .image-list > .thumb::before {\n  content: \"\";\n  display: block;\n  padding-top: 0;\n}\n\nhtml body .image-list > .thumb > a {\n  position: relative !important;\n  display: block !important;\n  width: 100% !important;\n  height: 100% !important;\n  aspect-ratio: var(--r34g-aspect) !important;\n  text-align: center !important;\n  overflow: hidden;\n  border-radius: var(--r34g-radius) !important;\n  background: linear-gradient(160deg, rgba(255, 255, 255, .03), rgba(0, 0, 0, .25));\n  outline: 1px solid rgba(255, 255, 255, .05);\n  outline-offset: -1px;\n}\n\nhtml body .image-list > .thumb:hover {\n  background: var(--r34g-card-hover);\n  transform: translateY(-2px);\n  box-shadow: 0 6px 20px rgba(0, 0, 0, .45);\n}\n\nhtml body .image-list > .thumb:hover > a {\n  outline-color: rgba(147, 179, 147, .6);\n}\n\nhtml body .image-list > .thumb:hover img.preview,\nhtml body .image-list > .thumb:hover img.r34g-ready {\n  filter: brightness(1.06) saturate(1.04);\n}\n\nhtml body .image-list > .thumb > a::after {\n  content: \"\";\n  position: absolute;\n  inset: 0;\n  background: linear-gradient(to top, rgba(0, 0, 0, .78) 0%, rgba(0, 0, 0, .32) 32%, rgba(0, 0, 0, 0) 62%);\n  opacity: 0;\n  transition: opacity .2s ease;\n  pointer-events: none;\n}\n\nhtml body .image-list > .thumb:hover > a::after {\n  opacity: 1;\n}\n\nhtml body .image-list > .thumb img.preview,\nhtml body .image-list > .thumb img,\nhtml body .image-list > .thumb video {\n  display: block !important;\n  width: 100% !important;\n  height: 100% !important;\n  max-width: none !important;\n  max-height: none !important;\n  margin: 0 !important;\n  object-fit: var(--r34g-fit, cover) !important;\n  object-position: center 22%;\n  border: 0 !important;\n  box-sizing: border-box !important;\n  opacity: 0;\n  transition: opacity .35s ease, transform .3s ease, filter .3s ease;\n}\n\nhtml body .image-list > .thumb img.r34g-ready {\n  opacity: 1;\n}\n\nhtml body .image-list > .thumb:hover img.preview,\nhtml body .image-list > .thumb:hover img.r34g-ready {\n  transform: scale(1.045);\n}\n\nhtml body .image-list > .thumb img.webm-thumb {\n  border: 0 !important;\n  outline: 0 !important;\n}\n\nhtml body .image-list > .thumb > a > .score-info {\n  position: absolute !important;\n  right: 7px !important;\n  bottom: 7px !important;\n  z-index: 3;\n  display: inline-flex !important;\n  align-items: center;\n  gap: 4px;\n  margin: 0 !important;\n  padding: 2px 7px !important;\n  border-radius: 999px !important;\n  background: rgba(0, 0, 0, .62) !important;\n  border: 1px solid rgba(255, 255, 255, .12);\n  border-left-width: 3px;\n  color: #e8e8e8 !important;\n  font-size: 11px !important;\n  line-height: 1.45 !important;\n  letter-spacing: .2px;\n  text-align: center !important;\n  backdrop-filter: blur(3px);\n  transition: background .2s ease, transform .2s ease, border-color .2s ease;\n}\n\nhtml body .image-list > .thumb:hover > a > .score-info {\n  background: rgba(0, 0, 0, .85) !important;\n  transform: translateY(-1px);\n}\n\nhtml body .image-list > .thumb > a > .score-info.low {\n  border-left-color: #d9534f !important;\n}\n\nhtml body .image-list > .thumb > a > .score-info.medium {\n  border-left-color: #f0ad4e !important;\n}\n\nhtml body .image-list > .thumb > a > .score-info.high {\n  border-left-color: #5cb85c !important;\n}\n\nhtml[data-r34g-score=\"off\"] .image-list .thumb > a > .score-info {\n  display: none !important;\n}\n\nhtml body .image-list .thumb .r34g-badges {\n  position: absolute;\n  top: 7px;\n  left: 7px;\n  z-index: 3;\n  display: flex;\n  gap: 5px;\n  opacity: .92;\n  transition: opacity .2s ease;\n}\n\nhtml body .image-list .thumb:hover .r34g-badges {\n  opacity: 1;\n}\n\nhtml body .image-list .thumb .r34g-badge {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  min-width: 20px;\n  height: 20px;\n  padding: 0 5px;\n  border-radius: 6px;\n  background: rgba(0, 0, 0, .68);\n  border: 1px solid rgba(255, 255, 255, .14);\n  color: #f2f2f2;\n  font-size: 10px;\n  font-weight: bold;\n  letter-spacing: .3px;\n  line-height: 1;\n  backdrop-filter: blur(3px);\n}\n\nhtml body .image-list .thumb .r34g-badge.r34g-video {\n  color: #8fd0ff;\n  border-color: rgba(143, 208, 255, .4);\n}\n\nhtml body .image-list .thumb .r34g-badge.r34g-gif {\n  color: #ffd479;\n  border-color: rgba(255, 212, 121, .4);\n}\n\nhtml body .image-list .thumb .r34g-badge.r34g-sound {\n  color: #a9f0a9;\n  border-color: rgba(169, 240, 169, .4);\n}\n\nhtml[data-r34g-badges=\"off\"] .image-list .thumb .r34g-badges {\n  display: none !important;\n}\n\nhtml body .image-list .thumb .r34g-meta {\n  position: absolute;\n  left: 0;\n  right: 0;\n  bottom: 0;\n  z-index: 2;\n  padding: 22px 8px 7px;\n  text-align: left;\n  font-size: 10px;\n  color: #d8d8d8;\n  text-shadow: 0 1px 2px rgba(0, 0, 0, .9);\n  opacity: 0;\n  transform: translateY(4px);\n  transition: opacity .2s ease, transform .2s ease;\n  pointer-events: none;\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n}\n\nhtml body .image-list .thumb:hover .r34g-meta {\n  opacity: 1;\n  transform: none;\n}\n\nhtml body .image-list .thumb .r34g-meta .r34g-taglist {\n  display: block;\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  color: #cfd8cf;\n}\n\nhtml body .image-list > .thumb.r34g-hidden-by-filter {\n  display: none !important;\n}\n\nhtml body .r34g-ad-hidden {\n  display: none !important;\n}\n\nhtml.r34g-drawer-open {\n  overflow: hidden;\n}\n\nhtml body .sidebar {\n  align-self: flex-start;\n  max-height: calc(100vh - 12px);\n  position: sticky;\n  top: 8px;\n  overflow-y: auto;\n  overflow-x: hidden;\n  padding: 0 10px 14px 0;\n  scrollbar-width: thin;\n  scrollbar-color: #4b564b rgba(0, 0, 0, .25);\n  z-index: 4;\n}\n\nhtml body #r34g-drawer-head {\n  display: none;\n  align-items: center;\n  gap: 8px;\n  margin: 0 0 8px;\n  padding-bottom: 7px;\n  border-bottom: 1px solid var(--r34g-line);\n}\n\nhtml body #r34g-drawer-head h5 {\n  flex: 1;\n  margin: 0 !important;\n  color: var(--r34g-link);\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 12.5px;\n  letter-spacing: .06em;\n  text-transform: uppercase;\n}\n\nhtml body #r34g-drawer-close {\n  width: 30px;\n  height: 30px;\n  padding: 0;\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 7px;\n  background: #333d33;\n  color: var(--r34g-text) !important;\n  font-size: 16px;\n  line-height: 1;\n  cursor: pointer;\n}\n\nhtml body #r34g-drawer-close:hover {\n  border-color: var(--r34g-accent);\n  color: #eafaea !important;\n}\n\nhtml body .tag-search input[type=\"text\"],\nhtml body .tag-search input[type=\"search\"] {\n  width: 100% !important;\n  box-sizing: border-box !important;\n  padding: 4px 7px !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 5px !important;\n  background: var(--r34g-bg-deep) !important;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 12px !important;\n  outline: none;\n}\n\nhtml body .tag-search input[type=\"text\"]:focus,\nhtml body .tag-search input[type=\"search\"]:focus {\n  border-color: var(--r34g-accent) !important;\n}\n\nhtml body .tag-search input[type=\"submit\"] {\n  margin-top: 5px;\n  padding: 4px 12px !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 5px !important;\n  background: #333d33 !important;\n  color: var(--r34g-link) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 12px !important;\n  cursor: pointer;\n}\n\nhtml body .tag-search input[type=\"submit\"]:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #eafaea !important;\n}\n\nhtml body .sidebar small {\n  display: block;\n  margin-top: 4px;\n  color: var(--r34g-text-soft);\n  font-size: 10.5px;\n}\n\nhtml[data-r34g-sticky=\"off\"] body .sidebar {\n  position: static;\n  max-height: none;\n  overflow: visible;\n}\n\nhtml body .sidebar::-webkit-scrollbar {\n  width: 9px;\n}\n\nhtml body .sidebar::-webkit-scrollbar-thumb {\n  background: #4b564b;\n  border-radius: 6px;\n}\n\nhtml body .sidebar::-webkit-scrollbar-track {\n  background: rgba(0, 0, 0, .2);\n}\n\nhtml body .tag-search h5,\nhtml body #r34g-sidebar-tags-title {\n  margin: 0 0 6px !important;\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 12px !important;\n  letter-spacing: .08em;\n  text-transform: uppercase;\n  color: var(--r34g-text-soft) !important;\n  border-bottom: 1px solid var(--r34g-line);\n  padding-bottom: 5px;\n}\n\nhtml body #r34g-tag-filter {\n  width: 100% !important;\n  box-sizing: border-box !important;\n  margin: 0 0 7px !important;\n  padding: 4px 6px !important;\n  background: var(--r34g-bg-deep) !important;\n  color: var(--r34g-text) !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 4px !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 11px !important;\n  outline: none;\n}\n\nhtml body #r34g-tag-filter:focus {\n  border-color: var(--r34g-accent) !important;\n}\n\nhtml body #r34g-tag-filter::placeholder {\n  color: #6f7a6f;\n}\n\nhtml[data-r34g-filter=\"off\"] body #r34g-tag-filter {\n  display: none !important;\n}\n\nhtml body .sidebar ul {\n  list-style: none;\n  padding: 0;\n  margin: 0;\n}\n\nhtml body .sidebar li {\n  padding: 1px 0 !important;\n  line-height: 1.45;\n}\n\nhtml body .sidebar li a {\n  font-size: 13px !important;\n  line-height: 1.5;\n  color: var(--c-link-metadata, #90d9ed);\n}\n\nhtml body .sidebar li a:hover {\n  text-decoration: underline;\n  color: #d9f4ff;\n}\n\nhtml body .sidebar li {\n  display: flex !important;\n  align-items: flex-start;\n  gap: 6px;\n  padding: 1px 2px !important;\n  line-height: 1.5;\n  border-radius: 4px;\n  transition: background .12s ease;\n}\n\nhtml body .sidebar li > a {\n  flex: 1 1 auto;\n  min-width: 0;\n  overflow-wrap: anywhere;\n}\n\nhtml body .sidebar .tag-count {\n  flex: 0 0 auto;\n  min-width: 46px;\n  text-align: right;\n  color: var(--r34g-text-soft) !important;\n  font-size: 10.5px !important;\n  line-height: 1.85;\n  padding-left: 6px;\n}\n\nhtml body .sidebar li > a[href^=\"https://rule34.xxx/\"],\nhtml body .sidebar li > a[href*=\"page=wiki\"] {\n  order: 3;\n  flex: 0 0 auto;\n  width: 0;\n  overflow: hidden;\n  opacity: 0;\n  padding-left: 3px;\n  color: var(--r34g-text-soft) !important;\n  font-size: 11px !important;\n  line-height: 1.9;\n  text-decoration: none;\n  transition: width .15s ease, opacity .15s ease;\n}\n\nhtml body .sidebar li:hover > a[href^=\"https://rule34.xxx/\"],\nhtml body .sidebar li:hover > a[href*=\"page=wiki\"] {\n  width: 13px;\n  opacity: 1;\n  text-align: center;\n}\n\nhtml body .sidebar li > a[href*=\"page=post\"] {\n  order: 1;\n}\n\nhtml body .sidebar li > .tag-count {\n  order: 2;\n}\n\nhtml body .sidebar li:hover {\n  background: rgba(255, 255, 255, .045);\n}\n\nhtml body .sidebar .tag-type-general a { color: var(--c-link-metadata, #90d9ed); }\nhtml body .sidebar .tag-type-artist a { color: var(--c-link-artist, #f0a0a0); }\nhtml body .sidebar .tag-type-character a { color: var(--c-link-character, #f0f0a0); }\nhtml body .sidebar .tag-type-copyright a { color: var(--c-link-copyright, #f0a0f0); }\n\nhtml body .sidebar .tag-count {\n  color: var(--r34g-text-soft) !important;\n  font-size: 10.5px !important;\n  padding-left: 3px;\n}\n\nhtml body .sidebar li.r34g-tag-hidden {\n  display: none !important;\n}\n\nhtml body #r34g-sidebar-section {\n  border-top: 1px solid var(--r34g-line);\n  margin-top: 10px;\n  padding-top: 9px;\n}\n\nhtml body #r34g-sidebar-toggle {\n  display: none;\n  position: fixed;\n  left: 12px;\n  bottom: 14px;\n  z-index: calc(var(--r34g-z) - 5);\n  align-items: center;\n  gap: 6px;\n  padding: 8px 12px;\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 999px;\n  background: var(--r34g-bg-alt);\n  color: var(--r34g-link) !important;\n  font-family: verdana, sans-serif;\n  font-size: 12px;\n  cursor: pointer;\n  box-shadow: 0 6px 18px rgba(0, 0, 0, .5);\n}\n\nhtml body #r34g-sidebar-toggle:hover {\n  border-color: var(--r34g-accent);\n  color: #dff0df !important;\n}\n\nhtml body #r34g-drawer-backdrop {\n  display: none;\n  position: fixed;\n  inset: 0;\n  z-index: calc(var(--r34g-z) - 6);\n  background: rgba(0, 0, 0, .6);\n}\n\nhtml body #r34g-to-top {\n  position: fixed;\n  right: 12px;\n  bottom: 14px;\n  z-index: calc(var(--r34g-z) - 5);\n  width: 38px;\n  height: 38px;\n  padding: 0;\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 50%;\n  background: var(--r34g-bg-alt);\n  color: var(--r34g-link) !important;\n  font-size: 15px;\n  cursor: pointer;\n  opacity: 0;\n  pointer-events: none;\n  transition: opacity .25s ease, border-color .2s ease;\n  box-shadow: 0 6px 18px rgba(0, 0, 0, .5);\n}\n\nhtml body #r34g-to-top.r34g-visible {\n  opacity: .92;\n  pointer-events: auto;\n}\n\nhtml body #r34g-to-top:hover {\n  border-color: var(--r34g-accent);\n}\n\nhtml body #paginator {\n  margin-top: 14px !important;\n}\n\nhtml body #paginator .pagination {\n  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  justify-content: center;\n  gap: 4px;\n  row-gap: 6px;\n  padding: 7px 8px;\n  background: var(--r34g-bg-alt);\n  border: 1px solid var(--r34g-line);\n  border-radius: var(--r34g-radius);\n}\n\nhtml body #paginator #manualpage {\n  display: inline-flex !important;\n  align-items: center;\n  gap: 4px;\n  margin-left: 6px;\n  padding-left: 8px;\n  border-left: 1px solid var(--r34g-line);\n}\n\nhtml body #paginator #manualpage input[type=\"text\"] {\n  width: 62px !important;\n  height: 28px;\n  box-sizing: border-box;\n  padding: 0 7px !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 6px !important;\n  background: var(--r34g-bg-deep) !important;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 12px !important;\n  outline: none;\n}\n\nhtml body #paginator #manualpage input[type=\"text\"]:focus {\n  border-color: var(--r34g-accent) !important;\n}\n\nhtml body #paginator #manualpage input[type=\"text\"]::placeholder {\n  color: #6f7a6f;\n}\n\nhtml body #paginator #manualpage input[type=\"submit\"] {\n  height: 28px;\n  padding: 0 10px !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 6px !important;\n  background: #333d33;\n  color: var(--r34g-link) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 12px !important;\n  cursor: pointer;\n}\n\nhtml body #paginator #manualpage input[type=\"submit\"]:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #eafaea !important;\n}\n\nhtml body #paginator .pagination a,\nhtml body #paginator .pagination b,\nhtml body #paginator .pagination span {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  min-width: 30px;\n  height: 28px;\n  padding: 0 9px !important;\n  border: 1px solid transparent;\n  border-radius: 6px;\n  color: var(--r34g-link) !important;\n  font-size: 12.5px !important;\n  line-height: 1 !important;\n  transition: background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease;\n}\n\nhtml body #paginator .pagination a:hover {\n  background: var(--c-bg-highlight, #505a50);\n  border-color: rgba(147, 179, 147, .55);\n  color: #eafaea !important;\n  transform: translateY(-1px);\n}\n\nhtml body #paginator .pagination b {\n  background: var(--r34g-accent);\n  border-color: rgba(255, 255, 255, .25);\n  color: var(--r34g-bg) !important;\n  font-weight: bold;\n  box-shadow: 0 2px 8px rgba(0, 0, 0, .35);\n}\n\nhtml body #paginator .pagination a.arrow,\nhtml body #paginator .pagination a[alt] {\n  color: var(--r34g-text-soft) !important;\n}\n\nhtml body #paginator .pagination a.arrow:hover,\nhtml body #paginator .pagination a[alt]:hover {\n  color: #eafaea !important;\n}\n\nhtml body .image-list + br,\nhtml body #post-list > br {\n  display: none;\n}\n\nhtml body #r34g-modal {\n  position: fixed;\n  inset: 0;\n  z-index: var(--r34g-z);\n  display: none;\n  align-items: center;\n  justify-content: center;\n  padding: 24px 16px;\n  background: rgba(0, 0, 0, .66);\n  backdrop-filter: blur(2px);\n  font-family: verdana, sans-serif;\n  text-align: left;\n  color-scheme: dark;\n}\n\nhtml body #r34g-modal.r34g-open {\n  display: flex;\n}\n\nhtml body #r34g-modal .r34g-dialog {\n  display: flex;\n  flex-direction: column;\n  width: min(880px, 100%);\n  max-height: min(84vh, 780px);\n  background: var(--r34g-bg-alt);\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 10px;\n  box-shadow: var(--r34g-shadow);\n  color: var(--r34g-text);\n  font-size: 12.8px;\n  overflow: hidden;\n}\n\nhtml body #r34g-modal .r34g-head {\n  display: flex;\n  align-items: center;\n  gap: 14px;\n  padding: 10px 14px 0;\n  border-bottom: 1px solid var(--r34g-line);\n  background: linear-gradient(#2d362d, var(--r34g-bg-alt));\n}\n\nhtml body #r34g-modal .r34g-title {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  padding-bottom: 9px;\n  color: var(--r34g-link);\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 13px;\n  font-weight: bold;\n  letter-spacing: .06em;\n  text-transform: uppercase;\n  white-space: nowrap;\n}\n\nhtml body #r34g-modal .r34g-tabs {\n  display: flex;\n  align-items: flex-end;\n  gap: 4px;\n  flex: 1;\n  overflow-x: auto;\n  scrollbar-width: none;\n}\n\nhtml body #r34g-modal .r34g-tabs::-webkit-scrollbar {\n  display: none;\n}\n\nhtml body #r34g-modal .r34g-tab {\n  padding: 7px 13px;\n  border: 1px solid transparent;\n  border-bottom: 0;\n  border-radius: 7px 7px 0 0;\n  background: transparent;\n  color: var(--r34g-link) !important;\n  font-family: verdana, sans-serif;\n  font-size: 12px;\n  white-space: nowrap;\n  cursor: pointer;\n  position: relative;\n  bottom: -1px;\n}\n\nhtml body #r34g-modal .r34g-tab:hover {\n  background: rgba(255, 255, 255, .045);\n  color: #dff0df !important;\n}\n\nhtml body #r34g-modal .r34g-tab.r34g-tab-active {\n  background: var(--r34g-bg);\n  border-color: var(--r34g-line);\n  border-bottom: 1px solid var(--r34g-bg);\n  color: #ffffff !important;\n}\n\nhtml body #r34g-modal .r34g-tab-short {\n  display: none;\n}\n\nhtml body #r34g-modal .r34g-close {\n  width: 30px;\n  height: 30px;\n  margin-bottom: 8px;\n  padding: 0;\n  border: 1px solid transparent;\n  border-radius: 6px;\n  background: transparent;\n  color: var(--r34g-text-soft) !important;\n  font-size: 17px;\n  line-height: 1;\n  cursor: pointer;\n}\n\nhtml body #r34g-modal .r34g-close:hover {\n  background: rgba(217, 83, 79, .16);\n  border-color: rgba(217, 83, 79, .5);\n  color: #ff9a96 !important;\n}\n\nhtml body #r34g-modal .r34g-body {\n  flex: 1;\n  min-height: 0;\n  overflow-y: auto;\n  padding: 14px 16px;\n  background: var(--r34g-bg);\n  scrollbar-width: thin;\n  scrollbar-color: #4b564b rgba(0, 0, 0, .25);\n}\n\nhtml body #r34g-modal .r34g-body::-webkit-scrollbar {\n  width: 10px;\n}\n\nhtml body #r34g-modal .r34g-body::-webkit-scrollbar-thumb {\n  background: #4b564b;\n  border-radius: 6px;\n}\n\nhtml body #r34g-modal .r34g-panel {\n  display: none;\n}\n\nhtml body #r34g-modal .r34g-panel.r34g-panel-active {\n  display: block;\n}\n\nhtml body #r34g-modal .r34g-foot {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  padding: 10px 14px;\n  border-top: 1px solid var(--r34g-line);\n  background: var(--r34g-bg-alt);\n}\n\nhtml body #r34g-modal .r34g-foot .r34g-spacer {\n  flex: 1;\n}\n\nhtml body #r34g-modal .r34g-foot button,\nhtml body #r34g-modal .r34g-btn {\n  padding: 6px 14px;\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 6px;\n  background: #333d33;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif;\n  font-size: 12px;\n  cursor: pointer;\n  transition: background .15s ease, border-color .15s ease, color .15s ease;\n}\n\nhtml body #r34g-modal .r34g-foot button:hover,\nhtml body #r34g-modal .r34g-btn:hover {\n  border-color: var(--r34g-accent);\n  color: #eafaea !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettingsSave {\n  background: var(--r34g-accent);\n  border-color: var(--r34g-accent);\n  color: var(--r34g-bg) !important;\n  font-weight: bold;\n}\n\nhtml body #r34g-modal #ibenhancerSettingsSave:hover {\n  background: var(--c-link, #b0e0b0);\n  color: #22301f !important;\n}\n\nhtml body #r34g-modal .r34g-section {\n  margin: 0 0 16px;\n}\n\nhtml body #r34g-modal .r34g-section > h6 {\n  margin: 0 0 4px;\n  padding-bottom: 5px;\n  border-bottom: 1px solid var(--r34g-line);\n  color: var(--r34g-link);\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 11.5px;\n  font-weight: bold;\n  letter-spacing: .09em;\n  text-transform: uppercase;\n}\n\nhtml body #r34g-modal .r34g-hint {\n  margin: 2px 0 8px;\n  color: var(--r34g-text-soft);\n  font-size: 11px;\n  line-height: 1.5;\n}\n\nhtml body #r34g-modal .r34g-row {\n  display: flex;\n  align-items: center;\n  gap: 10px;\n  min-height: 30px;\n  padding: 3px 2px;\n  border-bottom: 1px dashed rgba(255, 255, 255, .055);\n}\n\nhtml body #r34g-modal .r34g-row:last-child {\n  border-bottom: 0;\n}\n\nhtml body #r34g-modal .r34g-row > .r34g-label {\n  flex: 1;\n  min-width: 0;\n  line-height: 1.45;\n  color: var(--r34g-text);\n}\n\nhtml body #r34g-modal .r34g-row > .r34g-value {\n  display: flex;\n  align-items: center;\n  gap: 6px;\n  flex: 0 0 auto;\n}\n\nhtml body #r34g-modal .r34g-row > .r34g-value label {\n  display: inline-flex !important;\n  align-items: center;\n  gap: 6px;\n}\n\nhtml.r34g-modal-open {\n  overflow: hidden !important;\n}\n\nhtml body #r34g-modal .r34g-row .r34g-note {\n  display: block;\n  color: var(--r34g-text-soft);\n  font-size: 10.5px;\n}\n\nhtml body #r34g-modal .r34g-seg {\n  display: inline-flex;\n  gap: 3px;\n  padding: 2px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 7px;\n  background: var(--r34g-bg-deep);\n}\n\nhtml body #r34g-modal .r34g-seg button {\n  padding: 4px 10px;\n  border: 0;\n  border-radius: 5px;\n  background: transparent;\n  color: var(--r34g-text-soft) !important;\n  font-family: verdana, sans-serif;\n  font-size: 11.5px;\n  cursor: pointer;\n}\n\nhtml body #r34g-modal .r34g-seg button:hover {\n  color: #eafaea !important;\n}\n\nhtml body #r34g-modal .r34g-seg button.r34g-on {\n  background: var(--r34g-accent);\n  color: #22301f !important;\n  font-weight: bold;\n}\n\nhtml body .r34g-switch {\n  position: relative;\n  display: inline-block;\n  flex: 0 0 auto;\n  width: 40px;\n  height: 20px;\n  vertical-align: middle;\n}\n\nhtml body .r34g-switch > input {\n  position: absolute;\n  inset: 0;\n  width: 100% !important;\n  height: 100% !important;\n  margin: 0 !important;\n  opacity: 0 !important;\n  cursor: pointer;\n  z-index: 2;\n}\n\nhtml body .r34g-switch > .r34g-slider {\n  position: absolute;\n  inset: 0;\n  border: 1px solid var(--r34g-line);\n  border-radius: 999px;\n  background: #3b453b;\n  transition: background .2s ease, border-color .2s ease;\n}\n\nhtml body .r34g-switch > .r34g-slider::before {\n  content: \"\";\n  position: absolute;\n  top: 2px;\n  left: 2px;\n  width: 14px;\n  height: 14px;\n  border-radius: 50%;\n  background: #c9cfc9;\n  transition: transform .2s ease, background .2s ease;\n}\n\nhtml body .r34g-switch > input:checked + .r34g-slider {\n  background: var(--r34g-accent);\n  border-color: var(--r34g-accent);\n}\n\nhtml body .r34g-switch > input:checked + .r34g-slider::before {\n  transform: translateX(20px);\n  background: #f4fff4;\n}\n\nhtml body .r34g-switch > input:focus-visible + .r34g-slider {\n  box-shadow: 0 0 0 2px rgba(147, 179, 147, .45);\n}\n\nhtml body #r34g-modal #ibenhancerSettings-options {\n  overflow: visible !important;\n  width: auto !important;\n  height: auto !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettings-options > .r34g-moved,\nhtml body #r34g-modal #ibenhancerSettings-options > br {\n  display: none !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettings-options label {\n  white-space: normal !important;\n  display: flex !important;\n  align-items: center;\n  gap: 10px;\n  width: 100%;\n  line-height: 1.45;\n}\n\nhtml body #r34g-modal #ibenhancerSettings input[type=\"checkbox\"] {\n  flex: 0 0 auto;\n  margin: 0 !important;\n  width: auto !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettings input[type=\"number\"],\nhtml body #r34g-modal #ibenhancerSettings select {\n  margin: 0 !important;\n  padding: 3px 5px !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 5px !important;\n  background: var(--r34g-bg-deep) !important;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 11.5px !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettings button {\n  padding: 4px 9px !important;\n  margin: 0 !important;\n  border: 1px solid var(--c-bg-highlight, #505a50) !important;\n  border-radius: 5px !important;\n  background: #333d33 !important;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 11.5px !important;\n  cursor: pointer;\n}\n\nhtml body #r34g-modal #ibenhancerSettings button:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #eafaea !important;\n}\n\nhtml body #r34g-modal #ibenhancerSettings .tooltip-140 {\n  position: relative;\n}\n\nhtml body #r34g-modal #r34g-icon-grid {\n  display: grid;\n  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));\n  gap: 1px 14px;\n  margin-top: 6px;\n  padding: 8px 10px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 7px;\n  background: rgba(0, 0, 0, .16);\n}\n\nhtml body #r34g-modal #r34g-icon-grid label {\n  display: flex !important;\n  align-items: center;\n  gap: 8px;\n  padding: 1px 0;\n  font-size: 11.5px !important;\n}\n\nhtml body #r34g-modal #r34g-icon-grid .r34g-icon-text {\n  flex: 1;\n  min-width: 0;\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\nhtml body #r34g-modal #r34g-icon-grid .r34g-switch {\n  width: 34px;\n  height: 17px;\n}\n\nhtml body #r34g-modal #r34g-icon-grid .r34g-switch > .r34g-slider::before {\n  width: 11px;\n  height: 11px;\n}\n\nhtml body #r34g-modal #r34g-icon-grid .r34g-switch > input:checked + .r34g-slider::before {\n  transform: translateX(17px);\n}\n\nhtml body #r34g-modal #r34g-actions-row {\n  gap: 6px;\n}\n\nhtml body #r34g-modal #ibenhancer-favorite-tags,\nhtml body #r34g-modal #ibenhancer-changelog {\n  background: transparent !important;\n  border: 0 !important;\n  padding: 0 !important;\n  width: auto !important;\n  color: var(--r34g-text) !important;\n  font-family: verdana, sans-serif !important;\n  font-size: 12.8px !important;\n}\n\nhtml body #r34g-modal #ibenhancer-favorite-tags *,\nhtml body #r34g-modal #ibenhancer-changelog * {\n  color: var(--r34g-text) !important;\n  font-size: 12px !important;\n}\n\nhtml body #r34g-modal #ibenhancer-changelog-updates > div,\nhtml body #r34g-modal #ibenhancer-changelog > div {\n  border-bottom: 1px dashed rgba(255, 255, 255, .07);\n  padding: 5px 0;\n  line-height: 1.5;\n}\n\nhtml body #r34g-modal #ibenhancer-changelog > div:first-child,\nhtml body #r34g-modal #ibenhancer-changelog > a {\n  color: var(--r34g-link) !important;\n  font-weight: bold;\n}\n\nhtml body #r34g-sidebar-favs {\n  margin-top: 10px;\n  padding-top: 9px;\n  border-top: 1px solid var(--r34g-line);\n}\n\nhtml body #ibenhancer {\n  display: block;\n}\n\nhtml.r34g-integrated body #ibenhancer {\n  display: none !important;\n}\n\nhtml body #ibenhancerSettings-blocker {\n  display: none !important;\n}\n\nhtml.r34g-integrated body #ibenhancerSettings.show {\n  display: none !important;\n}\n\n@media (max-width: 900px) {\n  html body #r34g-sidebar-toggle {\n    display: inline-flex;\n  }\n\n  html body #r34g-drawer-head {\n    display: flex;\n  }\n\n  html {\n    --r34g-gap: 10px;\n  }\n\n  html body .sidebar {\n    position: fixed !important;\n    top: 0;\n    left: 0;\n    bottom: 0;\n    width: min(320px, 88vw) !important;\n    min-width: 0 !important;\n    max-width: none !important;\n    max-height: none !important;\n    padding: 12px 12px 24px;\n    background: var(--r34g-bg-alt);\n    border-right: 1px solid var(--c-bg-highlight, #505a50);\n    box-shadow: 12px 0 32px rgba(0, 0, 0, .5);\n    transform: translateX(-102%);\n    transition: transform .24s ease;\n    z-index: calc(var(--r34g-z) - 4);\n    overflow-y: auto;\n  }\n\n  html.r34g-drawer-open body .sidebar {\n    transform: none;\n  }\n\n  html.r34g-drawer-open body #r34g-drawer-backdrop {\n    display: block;\n  }\n\n  html body #post-list > .content {\n    flex: 1 1 100% !important;\n    margin: 0 !important;\n  }\n}\n\n@media (max-width: 620px) {\n  html body #r34g-modal .r34g-head {\n    flex-wrap: wrap;\n    gap: 6px 10px;\n    padding: 9px 12px 0;\n  }\n\n  html body #r34g-modal .r34g-title {\n    padding-bottom: 0;\n  }\n\n  html body #r34g-modal .r34g-tabs {\n    order: 3;\n    flex: 1 1 100%;\n    flex-wrap: wrap;\n    overflow-x: visible;\n    gap: 4px 6px;\n    padding-bottom: 0;\n  }\n\n  html body #r34g-modal .r34g-tab {\n    padding: 6px 10px;\n    font-size: 11.5px;\n  }\n\n  html body #r34g-modal .r34g-tab-long {\n    display: none;\n  }\n\n  html body #r34g-modal .r34g-tab-short {\n    display: inline;\n  }\n\n  html body #r34g-modal .r34g-close {\n    margin-left: auto;\n    margin-bottom: 0;\n  }\n\n  html body #r34g-modal .r34g-body {\n    padding: 12px 12px;\n  }\n\n  html body #r34g-modal .r34g-row {\n    flex-wrap: wrap;\n    row-gap: 4px;\n    padding: 5px 2px;\n  }\n\n  html body #r34g-modal .r34g-row > .r34g-seg {\n    flex: 1 1 100%;\n    justify-content: space-between;\n  }\n\n  html body #r34g-modal .r34g-foot {\n    flex-wrap: wrap;\n    gap: 6px;\n  }\n\n  html body #r34g-modal .r34g-foot #r34g-reset {\n    flex: 1 1 100%;\n    text-align: center;\n  }\n\n  html body #r34g-modal .r34g-foot .r34g-spacer {\n    display: none;\n  }\n\n  html body #r34g-modal #r34g-icon-grid {\n    grid-template-columns: 1fr;\n  }\n\n  html body #r34g-modal .r34g-dialog {\n    max-height: 90vh;\n  }\n  html {\n    --r34g-gap: 8px;\n    --r34g-radius: 6px;\n  }\n\n  html[data-r34g-cols] {\n    --r34g-cols: 3;\n  }\n\n  html body #post-list {\n    padding: 0 8px !important;\n  }\n\n  html body #paginator .pagination {\n    gap: 3px;\n    padding: 6px;\n  }\n\n  html body #paginator .pagination a,\n  html body #paginator .pagination b,\n  html body #paginator .pagination span {\n    min-width: 24px;\n    height: 24px;\n    padding: 0 6px !important;\n  }\n\n  html body #r34g-modal .r34g-dialog {\n    max-height: 90vh;\n  }\n\n  html body #r34g-modal .r34g-title span.r34g-title-text {\n    display: none;\n  }\n}\n\nhtml body .image-list .thumb .r34g-seen-badge {\n  position: absolute;\n  top: 7px;\n  right: 7px;\n  z-index: 4;\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 24px;\n  height: 24px;\n  border-radius: 50%;\n  background: rgba(6, 12, 6, .74);\n  border: 1px solid rgba(147, 179, 147, .55);\n  color: #d9f4d9;\n  box-shadow: 0 2px 8px rgba(0, 0, 0, .5);\n}\n\nhtml body .image-list .thumb .r34g-seen-badge svg {\n  width: 15px;\n  height: 15px;\n}\n\nhtml body .image-list .thumb.r34g-seen > a::before {\n  content: \"\";\n  position: absolute;\n  inset: 0;\n  z-index: 1;\n  pointer-events: none;\n  box-shadow: inset 0 0 0 2px rgba(147, 179, 147, .5);\n  border-radius: var(--r34g-radius);\n}\n\nhtml[data-r34g-seen=\"off\"] body .image-list .thumb .r34g-seen-badge {\n  display: none !important;\n}\n\nhtml[data-r34g-seendim=\"on\"] body .image-list .thumb.r34g-seen img {\n  filter: grayscale(.5) brightness(.6) !important;\n}\n\nhtml[data-r34g-seendim=\"on\"] body .image-list .thumb.r34g-seen:hover img {\n  filter: grayscale(.15) brightness(.92) !important;\n}\n\nhtml body #r34g-toasts {\n  position: fixed;\n  left: 50%;\n  bottom: 22px;\n  transform: translateX(-50%);\n  z-index: 2147482100;\n  display: flex;\n  flex-direction: column;\n  gap: 6px;\n  align-items: center;\n  pointer-events: none;\n}\n\nhtml body .r34g-toast {\n  max-width: 460px;\n  padding: 8px 14px;\n  border: 1px solid var(--c-bg-highlight, #505a50);\n  border-radius: 7px;\n  background: rgba(24, 32, 24, .96);\n  color: #d8e6d8;\n  font: 12px/1.45 verdana, sans-serif;\n  box-shadow: 0 10px 30px rgba(0, 0, 0, .6);\n  transition: opacity .28s ease, transform .28s ease;\n}\n\nhtml body .r34g-toast.r34g-toast-out {\n  opacity: 0;\n  transform: translateY(6px);\n}\n\nhtml body .r34g-search {\n  margin: 0 0 12px;\n}\n\nhtml body .r34g-search input {\n  width: 100%;\n  box-sizing: border-box;\n  padding: 6px 9px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  background: var(--r34g-bg-deep);\n  color: var(--r34g-text);\n  font: 12px verdana, sans-serif;\n  outline: none;\n}\n\nhtml body .r34g-search input:focus {\n  border-color: var(--r34g-accent);\n}\n\nhtml body #r34g-modal .r34g-mini,\nhtml body #r34g-tags-panel .r34g-mini {\n  padding: 4px 10px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  background: #333d33;\n  color: var(--r34g-link) !important;\n  font: 11.5px verdana, sans-serif;\n  cursor: pointer;\n}\n\nhtml body #r34g-modal .r34g-mini:hover,\nhtml body #r34g-tags-panel .r34g-mini:hover {\n  border-color: var(--r34g-accent);\n  color: #eafaea !important;\n}\n\nhtml body .r34g-mini-row {\n  display: inline-flex;\n  gap: 6px;\n  flex-wrap: wrap;\n  align-items: center;\n}\n\nhtml body #r34g-modal .r34g-num,\nhtml body #r34g-modal .r34g-text,\nhtml body #r34g-modal .r34g-select,\nhtml body #r34g-modal .r34g-textarea {\n  box-sizing: border-box;\n  padding: 3px 6px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 5px;\n  background: var(--r34g-bg-deep);\n  color: var(--r34g-text);\n  font: 11.5px verdana, sans-serif;\n  outline: none;\n}\n\nhtml body #r34g-modal .r34g-num:focus,\nhtml body #r34g-modal .r34g-text:focus,\nhtml body #r34g-modal .r34g-select:focus,\nhtml body #r34g-modal .r34g-textarea:focus {\n  border-color: var(--r34g-accent);\n}\n\nhtml body #r34g-modal .r34g-text {\n  width: 100%;\n  min-width: 180px;\n}\n\nhtml body #r34g-modal .r34g-textarea {\n  width: 100%;\n  min-height: 66px;\n  resize: vertical;\n  line-height: 1.45;\n}\n\nhtml body #r34g-modal .r34g-mono {\n  font-family: monospace, monospace;\n}\n\nhtml body #r34g-modal .r34g-value-wide {\n  flex: 0 1 56%;\n  max-width: 56%;\n}\n\nhtml body #r34g-modal .r34g-stack {\n  display: block;\n}\n\nhtml body #r34g-modal .r34g-row.r34g-filtered-out,\nhtml body #r34g-modal #r34g-icon-grid label.r34g-filtered-out,\nhtml body #r34g-modal .r34g-section.r34g-filtered-out {\n  display: none !important;\n}\n\nhtml body #r34g-modal .r34g-section.r34g-collapsed {\n  display: none !important;\n}\n\nhtml body #r34g-modal .r34g-enh-sticky {\n  position: sticky;\n  top: -14px;\n  z-index: 3;\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n  margin: -14px -16px 14px;\n  padding: 10px 16px;\n  background: var(--r34g-bg-alt);\n  border-bottom: 1px solid var(--r34g-line);\n}\n\nhtml body #r34g-modal .r34g-enh-sticky .r34g-note {\n  flex: 1 1 220px;\n}\n\nhtml body #r34g-modal .r34g-notes {\n  margin: 4px 0 0;\n  padding-left: 18px;\n  color: var(--r34g-text);\n  font-size: 12px;\n  line-height: 1.6;\n}\n\nhtml body #r34g-modal .r34g-notes li {\n  margin-bottom: 3px;\n}\n\nhtml body #r34g-modal .r34g-panel-actions {\n  display: inline-flex;\n  gap: 6px;\n  align-items: center;\n}\n\nhtml body .r34g-vhost {\n  flex: 1 1 auto !important;\n  width: auto !important;\n  min-width: 0 !important;\n  max-width: none !important;\n}\n\nhtml body #gelcomVideoContainer,\nhtml body .r34g-vwrap {\n  position: relative !important;\n  width: 100% !important;\n  max-width: var(--r34g-vwidth) !important;\n  margin: 0 auto !important;\n  background: #000;\n  overflow: hidden;\n}\n\nhtml[data-r34g-vbg=\"ninguno\"] body #gelcomVideoContainer,\nhtml[data-r34g-vbg=\"ninguno\"] body .r34g-vwrap {\n  background: transparent;\n}\n\nhtml[data-r34g-vradius=\"on\"] body #gelcomVideoContainer,\nhtml[data-r34g-vradius=\"on\"] body .r34g-vwrap {\n  border-radius: 10px;\n}\n\nhtml[data-r34g-vshadow=\"on\"] body #gelcomVideoContainer,\nhtml[data-r34g-vshadow=\"on\"] body .r34g-vwrap {\n  box-shadow: 0 14px 40px rgba(0, 0, 0, .55);\n}\n\nhtml[data-r34g-vcinema=\"on\"] body::before {\n  content: \"\";\n  position: fixed;\n  inset: 0;\n  z-index: 60;\n  background: rgba(0, 0, 0, .84);\n}\n\nhtml[data-r34g-vcinema=\"on\"] body #gelcomVideoContainer,\nhtml[data-r34g-vcinema=\"on\"] body .r34g-vwrap {\n  z-index: 61 !important;\n}\n\nhtml body .r34g-vwrap .r34g-vbackdrop {\n  position: absolute;\n  inset: -30px;\n  z-index: 0;\n  background-size: cover;\n  background-position: center;\n  filter: blur(26px) brightness(.45) saturate(1.25);\n  opacity: .9;\n  pointer-events: none;\n}\n\nhtml body .r34g-vwrap video,\nhtml body #gelcomVideoPlayer {\n  position: relative;\n  z-index: 1;\n  display: block !important;\n  width: 100% !important;\n  height: auto !important;\n  max-height: 84vh !important;\n  margin: 0 auto !important;\n  background: #000;\n  object-fit: contain;\n}\n\nhtml[data-r34g-vfit=\"cover\"] body .r34g-vwrap video {\n  object-fit: cover !important;\n}\n\nhtml[data-r34g-vfit=\"contain\"] body .r34g-vwrap video {\n  object-fit: contain !important;\n}\n\nhtml body .r34g-vbar {\n  position: absolute;\n  left: 0;\n  right: 0;\n  bottom: 0;\n  z-index: 6;\n  display: flex;\n  flex-direction: column;\n  gap: 3px;\n  padding: 26px 10px 7px;\n  background: linear-gradient(to top, rgba(0, 0, 0, .88) 0%, rgba(0, 0, 0, .5) 55%, rgba(0, 0, 0, 0) 100%);\n  color: #ececec;\n  font-family: verdana, sans-serif;\n  transition: opacity .25s ease;\n}\n\nhtml body .r34g-vbar.r34g-idle {\n  opacity: 0;\n}\n\nhtml body .r34g-vbar:hover {\n  opacity: 1 !important;\n}\n\nhtml body .r34g-vbar-top {\n  display: flex;\n  align-items: center;\n}\n\nhtml body .r34g-vbar input[type=\"range\"] {\n  width: 100%;\n  height: 16px;\n  margin: 0;\n  padding: 0;\n  accent-color: var(--r34g-accent);\n  cursor: pointer;\n  background: transparent;\n}\n\nhtml body .r34g-vbar .r34g-vvolume {\n  width: 74px;\n}\n\nhtml body .r34g-vbar-bottom {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n}\n\nhtml body .r34g-vbar .r34g-vgrow {\n  flex: 1;\n}\n\nhtml body .r34g-vbar-main {\n  display: flex;\n  align-items: center;\n  gap: 3px;\n}\n\nhtml body .r34g-vbar .r34g-vbtn {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 28px;\n  height: 28px;\n  padding: 0;\n  border: 1px solid transparent;\n  border-radius: 6px;\n  background: transparent;\n  color: #e4e4e4 !important;\n  font: bold 11.5px/1 verdana, sans-serif;\n  cursor: pointer;\n  transition: background .15s ease, border-color .15s ease, color .15s ease;\n}\n\nhtml body .r34g-vbar .r34g-vbtn svg {\n  width: 16px;\n  height: 16px;\n}\n\nhtml body .r34g-vbar .r34g-vbtn:hover {\n  background: rgba(255, 255, 255, .12);\n  border-color: rgba(147, 179, 147, .55);\n  color: #fff !important;\n}\n\nhtml body .r34g-vbar .r34g-vbtn.r34g-on {\n  color: var(--r34g-accent) !important;\n  border-color: rgba(147, 179, 147, .55);\n}\n\nhtml body .r34g-vbar .r34g-vspeed {\n  width: auto;\n  min-width: 42px;\n  padding: 0 7px;\n}\n\nhtml body .r34g-vbar .r34g-vtime {\n  font-size: 11.5px;\n  line-height: 1;\n  min-width: 96px;\n  color: #dcdcdc;\n  text-shadow: 0 1px 2px rgba(0, 0, 0, .8);\n}\n\nhtml body .r34g-vbar .r34g-vvol {\n  display: flex;\n  align-items: center;\n  gap: 2px;\n}\n\nhtml.r34g-vbar-on .fluid_controls_container,\nhtml.r34g-vbar-on .fluid_video_wrapper > .fluid_controls_container,\nhtml.r34g-vbar-on .fluid_control_video,\nhtml.r34g-vbar-on .video-js .vjs-control-bar {\n  display: none !important;\n}\n\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_play_button,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_duration,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_theatre,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_playback_rate,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_fullscreen,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_video_volume,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_download,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_card,\nhtml.r34g-vbar-on .fluid_video_wrapper .fluid_control_vast_skip {\n  display: none !important;\n}\n\nhtml body #r34g-tags-panel {\n  box-sizing: border-box;\n  max-width: var(--r34g-vwidth);\n  margin: 14px auto;\n  padding: 10px 12px;\n  background: var(--r34g-bg-alt);\n  border: 1px solid var(--r34g-line);\n  border-radius: 10px;\n  color: var(--r34g-text);\n  font-family: verdana, sans-serif;\n  font-size: 12px;\n  text-align: left;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-launch {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-toggle {\n  flex: 1 1 220px;\n  display: inline-flex;\n  align-items: center;\n  justify-content: flex-start;\n  gap: 8px;\n  padding: 2px 0;\n  border: 0;\n  background: transparent;\n  color: var(--r34g-link) !important;\n  font: bold 13px verdana, sans-serif;\n  cursor: pointer;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-toggle svg {\n  width: 16px;\n  height: 16px;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-head {\n  display: flex;\n  align-items: center;\n  gap: 10px;\n  flex-wrap: wrap;\n  margin: 8px 0;\n  padding-bottom: 7px;\n  border-bottom: 1px solid var(--r34g-line);\n}\n\nhtml body #r34g-tags-panel .r34g-tp-head b {\n  color: var(--r34g-link);\n  font-family: Tahoma, verdana, sans-serif;\n  font-size: 12px;\n  letter-spacing: .06em;\n  text-transform: uppercase;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-count {\n  flex: 1;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-group {\n  margin-bottom: 9px;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-group-head {\n  display: flex;\n  align-items: baseline;\n  gap: 8px;\n  flex-wrap: wrap;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-group-head b {\n  color: #dff0df;\n  font-size: 12px;\n}\n\nhtml body #r34g-tags-panel .r34g-chips {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 5px;\n  margin-top: 5px;\n  min-width: 0;\n}\n\nhtml body .r34g-chip {\n  display: inline-flex;\n  align-items: center;\n  gap: 5px;\n  max-width: 100%;\n  min-width: 0;\n  box-sizing: border-box;\n  padding: 3px 9px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 999px;\n  background: var(--r34g-bg-deep);\n  color: var(--r34g-text) !important;\n  font: 11.5px/1.4 verdana, sans-serif;\n  cursor: pointer;\n  transition: border-color .15s ease, opacity .15s ease, background .15s ease;\n}\n\nhtml body .r34g-chip .r34g-chip-name {\n  overflow-wrap: anywhere;\n}\n\nhtml body .r34g-chip:hover {\n  border-color: var(--r34g-accent);\n  background: #364236;\n}\n\nhtml body .r34g-chip.r34g-chip-off {\n  opacity: .66;\n  border-color: rgba(217, 83, 79, .55);\n}\n\nhtml body .r34g-chip.r34g-chip-off .r34g-chip-name {\n  text-decoration: line-through;\n  color: #ffb3ae;\n}\n\nhtml body .r34g-chip .r34g-chip-count {\n  color: var(--r34g-text-soft);\n  font-size: 9.5px;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-outputwrap {\n  margin: 10px 0 0;\n}\n\nhtml body #r34g-tags-panel .r34g-tp-output {\n  width: 100%;\n  box-sizing: border-box;\n  min-height: 58px;\n  padding: 7px 9px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  background: var(--r34g-bg-deep);\n  color: #cfe8cf;\n  font: 12px/1.5 monospace, monospace;\n  resize: vertical;\n}\n\nhtml body #r34g-tags-panel .r34g-hint,\nhtml body .r34g-hint {\n  color: var(--r34g-text-soft);\n}\n\nhtml body #r34g-tags-panel .r34g-tp-status {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  margin-top: 8px;\n  color: var(--r34g-text-soft);\n  font-size: 11.5px;\n}\n\nhtml body .r34g-spinner {\n  width: 14px;\n  height: 14px;\n  border: 2px solid rgba(255, 255, 255, .25);\n  border-top-color: var(--r34g-accent);\n  border-radius: 50%;\n  animation: r34g-spin .8s linear infinite;\n}\n\nhtml body #r34g-tags-panel .r34g-rel {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n  padding: 3px 0;\n  border-bottom: 1px dashed rgba(255, 255, 255, .06);\n}\n\nhtml body #r34g-tags-panel .r34g-rel:last-child {\n  border-bottom: 0;\n}\n\nhtml body #r34g-tags-panel .r34g-rel-text {\n  flex: 1 1 240px;\n  color: #cfd8cf;\n  font-size: 11.5px;\n}\n\n@keyframes r34g-spin {\n  to {\n    transform: rotate(360deg);\n  }\n}\n\n\n/* API de rule34: diagnóstico en Ajustes → Etiquetas */\n.r34g-probe {\n  margin: 8px 0 0;\n  padding: 8px 10px;\n  background: rgba(0, 0, 0, .18);\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  color: var(--r34g-text-soft);\n  font-size: 11.5px;\n  text-align: left;\n}\n\n.r34g-probe:empty {\n  display: none;\n}\n\n.r34g-probe-line + .r34g-probe-line {\n  margin-top: 4px;\n}\n\n.r34g-probe-line b {\n  color: var(--r34g-accent);\n}\n\n.r34g-probe-bad b {\n  color: #d98b7f;\n}\n\n/* Sugerencias de etiquetas (API) bajo el buscador del panel lateral */\nhtml body #r34g-tag-filter + .r34g-suggest {\n  display: block;\n}\n\nhtml body .r34g-suggest {\n  position: relative;\n  z-index: 30;\n  margin: 4px 0 6px;\n  max-height: 224px;\n  overflow-y: auto;\n  background: var(--r34g-bg-deep);\n  border: 1px solid var(--r34g-line);\n  border-radius: 6px;\n  box-shadow: 0 10px 26px rgba(0, 0, 0, .45);\n  text-align: left;\n}\n\nhtml body .r34g-suggest[hidden] {\n  display: none !important;\n}\n\nhtml body .r34g-suggest-row {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 8px;\n  width: 100%;\n  padding: 4px 8px;\n  border: 0;\n  border-bottom: 1px solid rgba(255, 255, 255, .04);\n  background: transparent;\n  color: var(--r34g-text);\n  font: 11.5px verdana, sans-serif;\n  text-align: left;\n  cursor: pointer;\n}\n\nhtml body .r34g-suggest-row:last-child {\n  border-bottom: 0;\n}\n\nhtml body .r34g-suggest-row:hover {\n  background: var(--r34g-card-hover);\n  color: #eaf6ea;\n}\n\nhtml body .r34g-suggest-name {\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n\nhtml body .r34g-suggest-count {\n  flex: 0 0 auto;\n  color: var(--r34g-text-soft);\n  font-size: 10.5px;\n}\n\n/* ---- Botón flotante de Ajustes: siempre accesible (clave de rule34, IA, opciones) ---- */\nhtml body #r34g-fab {\n  position: fixed !important;\n  right: 18px !important;\n  bottom: 18px !important;\n  z-index: calc(var(--r34g-z) - 4) !important;\n  display: inline-flex !important;\n  align-items: center;\n  gap: 7px;\n  margin: 0 !important;\n  padding: 9px 14px 9px 12px !important;\n  border: 1px solid var(--r34g-accent) !important;\n  border-radius: 999px !important;\n  background: linear-gradient(#3a463a, #2c362c) !important;\n  color: var(--r34g-link) !important;\n  font: bold 12.5px verdana, sans-serif !important;\n  cursor: pointer;\n  box-shadow: 0 8px 22px rgba(0, 0, 0, .5);\n  opacity: .92;\n  transition: opacity .15s, transform .15s;\n}\nhtml body #r34g-fab:hover {\n  opacity: 1;\n  transform: translateY(-1px);\n}\nhtml body #r34g-fab svg {\n  width: 14px;\n  height: 14px;\n  fill: currentColor;\n}\nhtml[data-r34g-fab=\"off\"] #r34g-fab {\n  display: none !important;\n}\nhtml.r34g-modal-open #r34g-fab {\n  display: none !important;\n}\n\n/* ---- Descargas: botones, barra del post, cola y dialogos ---- */\nhtml body .r34g-btn,\nhtml body .r34g-dlq .r34g-mini {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  gap: 6px;\n  padding: 6px 12px !important;\n  margin: 0 !important;\n  border: 1px solid var(--r34g-line) !important;\n  border-radius: 6px !important;\n  background: var(--r34g-bg-alt) !important;\n  color: var(--r34g-text) !important;\n  font: 12px verdana, sans-serif !important;\n  line-height: 1.2 !important;\n  text-decoration: none !important;\n  cursor: pointer;\n}\nhtml body .r34g-dlq .r34g-mini {\n  padding: 3px 9px !important;\n  font-size: 11px !important;\n}\nhtml body .r34g-btn:hover,\nhtml body .r34g-dlq .r34g-mini:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #ffffff !important;\n}\nhtml body .r34g-btn.r34g-on {\n  background: linear-gradient(#3d4b3d, #2f3b2f) !important;\n  border-color: var(--r34g-accent) !important;\n  color: var(--r34g-link) !important;\n}\nhtml body .r34g-btn svg,\nhtml body .r34g-dlq .r34g-mini svg {\n  width: 14px;\n  height: 14px;\n}\nhtml body .r34g-note {\n  color: var(--r34g-text-soft);\n  font-size: 11px;\n}\n\nhtml body .image-list .thumb .r34g-dl-btn {\n  position: absolute;\n  left: 7px;\n  top: 34px;\n  z-index: 5;\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 28px;\n  height: 28px;\n  padding: 0 !important;\n  margin: 0 !important;\n  border: 1px solid rgba(255, 255, 255, .22) !important;\n  border-radius: 50%;\n  background: rgba(10, 14, 10, .78);\n  color: #e8f4e8;\n  cursor: pointer;\n  opacity: 0;\n  transform: translateY(3px);\n  transition: opacity .16s, transform .16s, background .16s;\n}\nhtml body .image-list .thumb:hover .r34g-dl-btn,\nhtml body .image-list .thumb .r34g-dl-btn:focus-visible {\n  opacity: 1;\n  transform: none;\n}\nhtml body .image-list .thumb .r34g-dl-btn:hover {\n  background: #38513a;\n  border-color: var(--r34g-accent) !important;\n}\nhtml body .image-list .thumb .r34g-dl-btn svg {\n  width: 16px;\n  height: 16px;\n}\nhtml body .image-list .thumb .r34g-dl-btn.r34g-busy {\n  opacity: 1;\n  transform: none;\n  animation: r34g-dl-pulse 1.1s ease-in-out infinite;\n}\n@keyframes r34g-dl-pulse {\n  0%, 100% { box-shadow: 0 0 0 0 rgba(147, 179, 147, 0); }\n  50% { box-shadow: 0 0 0 5px rgba(147, 179, 147, .28); }\n}\nhtml body .image-list .thumb .r34g-dl-badge {\n  position: absolute;\n  top: 37px;\n  right: 7px;\n  z-index: 4;\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 20px;\n  height: 20px;\n  border-radius: 50%;\n  background: rgba(8, 18, 8, .78);\n  border: 1px solid rgba(147, 179, 147, .5);\n  color: #cfeccf;\n}\nhtml body .image-list .thumb .r34g-dl-badge svg {\n  width: 13px;\n  height: 13px;\n}\n\nhtml body #r34g-dl-bar {\n  display: flex !important;\n  flex-wrap: wrap;\n  align-items: center;\n  gap: 8px;\n  margin: 0 0 10px !important;\n  padding: 8px 10px !important;\n  border: 1px solid var(--r34g-line);\n  border-radius: 8px;\n  background: rgba(20, 26, 20, .9);\n  text-align: left;\n}\nhtml body .r34g-dl-name {\n  color: var(--r34g-text-soft);\n  font: 11.5px monospace;\n  word-break: break-all;\n}\nhtml body #r34g-grid-bar {\n  display: flex !important;\n  align-items: center;\n  gap: 8px;\n  flex-wrap: wrap;\n  margin: 0 0 10px !important;\n  padding: 5px 9px !important;\n  border: 1px solid var(--r34g-line);\n  border-radius: 8px;\n  background: rgba(20, 26, 20, .9);\n  text-align: left;\n  font: 11.5px verdana, sans-serif;\n}\nhtml[data-r34g-gridbar=\"off\"] body #r34g-grid-bar {\n  display: none !important;\n}\nhtml body .r34g-grid-label {\n  color: var(--r34g-text-soft);\n  text-transform: uppercase;\n  letter-spacing: .04em;\n  font-size: 10.5px;\n}\nhtml body .r34g-grid-btn {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  min-width: 22px;\n  padding: 2px 7px !important;\n  margin: 0 !important;\n  border: 1px solid var(--r34g-line) !important;\n  border-radius: 5px !important;\n  background: var(--r34g-bg-alt) !important;\n  color: var(--r34g-text) !important;\n  font: 11.5px verdana, sans-serif !important;\n  line-height: 1.35 !important;\n  cursor: pointer;\n}\nhtml body .r34g-grid-btn:hover {\n  border-color: var(--r34g-accent) !important;\n  color: #fff !important;\n}\nhtml body .r34g-grid-range {\n  -webkit-appearance: none !important;\n  appearance: none !important;\n  width: 132px !important;\n  height: 4px !important;\n  margin: 0 !important;\n  padding: 0 !important;\n  border: 0 !important;\n  border-radius: 3px !important;\n  background: #465046 !important;\n  cursor: pointer;\n}\nhtml body .r34g-grid-range:focus {\n  outline: none !important;\n}\nhtml body .r34g-grid-range::-webkit-slider-thumb {\n  -webkit-appearance: none !important;\n  appearance: none !important;\n  width: 13px !important;\n  height: 13px !important;\n  border: 1px solid rgba(255, 255, 255, .4) !important;\n  border-radius: 50% !important;\n  background: var(--r34g-link, #b0e0b0) !important;\n  cursor: pointer;\n}\nhtml body .r34g-grid-range::-moz-range-thumb {\n  width: 12px !important;\n  height: 12px !important;\n  border: 1px solid rgba(255, 255, 255, .4) !important;\n  border-radius: 50% !important;\n  background: var(--r34g-link, #b0e0b0) !important;\n  cursor: pointer;\n}\nhtml body .r34g-grid-val {\n  min-width: 96px;\n  color: var(--r34g-link);\n  font: 11.5px monospace;\n}\n\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-sel-box {\n  width: 20px;\n  height: 20px;\n  left: 7px;\n  top: 33px;\n  border-radius: 5px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-sel-box svg {\n  width: 13px;\n  height: 13px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-dl-btn {\n  width: 20px;\n  height: 20px;\n  left: 7px;\n  top: 33px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-dl-btn svg {\n  width: 12px;\n  height: 12px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-seen-badge {\n  width: 20px;\n  height: 20px;\n  top: 5px;\n  right: 5px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-seen-badge svg {\n  width: 13px;\n  height: 13px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-dl-badge {\n  width: 17px;\n  height: 17px;\n  top: 27px;\n  right: 5px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-dl-badge svg {\n  width: 11px;\n  height: 11px;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb > a > .score-info {\n  display: none !important;\n}\nhtml[data-r34g-card=\"tiny\"] body .image-list .thumb .r34g-meta {\n  display: none !important;\n}\n\nhtml body #r34g-dl-batch {\n  display: flex !important;\n  align-items: center;\n  gap: 10px;\n  margin: 0 0 12px !important;\n  text-align: left;\n}\n\nhtml body .image-list .thumb .r34g-sel-box {\n  position: absolute;\n  left: 7px;\n  top: 34px;\n  z-index: 6;\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 24px;\n  height: 24px;\n  padding: 0 !important;\n  margin: 0 !important;\n  border: 1px solid rgba(255, 255, 255, .38) !important;\n  border-radius: 6px;\n  background: rgba(10, 14, 10, .72);\n  color: #e6f6e6;\n  cursor: pointer;\n  opacity: 0;\n  transform: translateY(-3px);\n  transition: opacity .16s, transform .16s, background .16s, border-color .16s;\n  pointer-events: none;\n}\nhtml body.r34g-selecting .image-list .thumb .r34g-sel-box {\n  opacity: 1;\n  transform: none;\n  pointer-events: auto;\n}\nhtml body.r34g-selecting .image-list .thumb .r34g-dl-btn {\n  display: none !important;\n}\nhtml body .image-list .thumb .r34g-sel-box svg {\n  width: 15px;\n  height: 15px;\n  opacity: 0;\n  transition: opacity .12s;\n}\nhtml body .image-list .thumb .r34g-sel-box:hover {\n  border-color: var(--r34g-accent) !important;\n  background: rgba(30, 46, 30, .92);\n}\nhtml body .image-list .thumb .r34g-sel-box.r34g-on {\n  background: #3f7a44;\n  border-color: #a8ddac !important;\n  color: #ffffff;\n}\nhtml body .image-list .thumb .r34g-sel-box.r34g-on svg {\n  opacity: 1;\n}\nhtml body.r34g-selecting .image-list .thumb.r34g-picked > a::before {\n  content: \"\";\n  position: absolute;\n  inset: 0;\n  z-index: 3;\n  pointer-events: none;\n  box-shadow: inset 0 0 0 3px rgba(150, 226, 160, .9);\n  border-radius: var(--r34g-radius);\n}\nhtml body .r34g-sel-note {\n  color: var(--r34g-link);\n  font-size: 11.5px;\n  font-weight: bold;\n}\nhtml body #r34g-dl-selpill {\n  position: fixed !important;\n  right: 18px !important;\n  bottom: 18px !important;\n  z-index: calc(var(--r34g-z) - 3) !important;\n  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  gap: 8px;\n  max-width: 460px;\n  padding: 8px 10px !important;\n  border: 1px solid var(--r34g-line);\n  border-radius: 10px;\n  background: rgba(18, 24, 18, .97);\n  color: var(--r34g-text);\n  box-shadow: var(--r34g-shadow);\n  font: 11.5px verdana, sans-serif;\n  text-align: left;\n}\nhtml body #r34g-dl-selpill .r34g-selpill-info {\n  color: var(--r34g-text-soft);\n}\nhtml body #r34g-dl-selpill .r34g-selpill-info b {\n  color: var(--r34g-link);\n  font-size: 14px;\n}\nhtml body #r34g-dl-selpill .r34g-selpill-x {\n  padding: 6px 9px !important;\n}\nhtml body .r34g-btn[disabled] {\n  opacity: .5;\n  cursor: default;\n}\n\nhtml body #r34g-dlq {\n  position: fixed !important;\n  left: 18px !important;\n  bottom: 18px !important;\n  z-index: calc(var(--r34g-z) - 3) !important;\n  display: flex;\n  flex-direction: column;\n  width: 340px;\n  max-width: 46vw;\n  max-height: 44vh;\n  border: 1px solid var(--r34g-line);\n  border-radius: 10px;\n  background: rgba(18, 24, 18, .97);\n  color: var(--r34g-text);\n  box-shadow: var(--r34g-shadow);\n  font: 11.5px verdana, sans-serif;\n  text-align: left;\n}\nhtml body .r34g-dlq-head {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  padding: 7px 9px;\n  border-bottom: 1px solid var(--r34g-line);\n}\nhtml body .r34g-dlq-head b {\n  color: var(--r34g-link);\n  font-size: 12.5px;\n}\nhtml body .r34g-dlq-count {\n  flex: 1;\n  color: var(--r34g-text-soft);\n}\nhtml body .r34g-dlq-list {\n  overflow: auto;\n  padding: 4px 0;\n}\nhtml body .r34g-dlq-item {\n  display: grid;\n  grid-template-columns: 1fr 70px;\n  gap: 3px 8px;\n  align-items: center;\n  padding: 5px 9px;\n}\nhtml body .r34g-dlq-name {\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  color: #dbe6db;\n}\nhtml body .r34g-dlq-state {\n  grid-column: 1 / -1;\n  overflow: hidden;\n  white-space: nowrap;\n  text-overflow: ellipsis;\n  color: var(--r34g-text-soft);\n  font-size: 10.5px;\n}\nhtml body .r34g-dlq-bar {\n  height: 6px;\n  border-radius: 4px;\n  background: rgba(255, 255, 255, .1);\n  overflow: hidden;\n}\nhtml body .r34g-dlq-bar > i {\n  display: block;\n  width: 0;\n  height: 100%;\n  background: linear-gradient(90deg, #6f9a6f, #a9d3a9);\n  transition: width .2s ease;\n}\nhtml body .r34g-dlq-item[data-state=\"error\"] .r34g-dlq-state { color: #ffb3ae; }\nhtml body .r34g-dlq-item[data-state=\"done\"] .r34g-dlq-state { color: #a9f0a9; }\nhtml body .r34g-dlq-item[data-state=\"skip\"] .r34g-dlq-state,\nhtml body .r34g-dlq-item[data-state=\"open\"] .r34g-dlq-state { color: #ffd479; }\n\nhtml body .r34g-dlg {\n  position: fixed !important;\n  inset: 0;\n  z-index: 2147482090 !important;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  padding: 20px;\n  background: rgba(6, 9, 6, .62);\n}\nhtml body .r34g-dlg-box {\n  width: 430px;\n  max-width: 92vw;\n  max-height: 86vh;\n  overflow: auto;\n  padding: 16px 18px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 10px;\n  background: var(--r34g-bg);\n  color: var(--r34g-text);\n  box-shadow: var(--r34g-shadow);\n  font: 12px/1.5 verdana, sans-serif;\n  text-align: left;\n}\nhtml body .r34g-dlg-box.r34g-dlg-wide {\n  width: 620px;\n}\nhtml body .r34g-dlg-box h5 {\n  margin: 0 0 8px;\n  color: var(--r34g-link);\n  font-size: 14px;\n}\nhtml body .r34g-dlg-box p {\n  margin: 0 0 9px;\n}\nhtml body .r34g-dlg-head {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  margin-bottom: 10px;\n}\nhtml body .r34g-dlg-head b {\n  flex: 1;\n  color: var(--r34g-link);\n  font-size: 14px;\n}\nhtml body .r34g-dlg .r34g-close {\n  padding: 0 6px !important;\n  border: 0 !important;\n  background: transparent !important;\n  color: var(--r34g-text-soft) !important;\n  font: bold 18px/1 verdana, sans-serif !important;\n  cursor: pointer;\n}\nhtml body .r34g-dlg .r34g-close:hover {\n  color: #ffffff !important;\n}\nhtml body .r34g-dlg-row {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  margin: 0 0 8px;\n}\nhtml body .r34g-dlg-row input[type=\"number\"] {\n  width: 72px;\n  padding: 3px 7px;\n  border: 1px solid var(--r34g-line);\n  border-radius: 5px;\n  background: var(--r34g-bg-alt);\n  color: var(--r34g-text);\n  font: 12px verdana, sans-serif;\n}\nhtml body .r34g-dlg-actions {\n  display: flex;\n  flex-wrap: wrap;\n  justify-content: flex-end;\n  gap: 8px;\n  margin-top: 12px;\n}\nhtml body .r34g-dlg-status {\n  min-height: 16px;\n  color: var(--r34g-text-soft);\n  font-size: 11.5px;\n}\nhtml body #r34g-warn .r34g-notes {\n  margin: 0 0 10px 18px;\n  padding: 0;\n  color: var(--r34g-text-soft);\n  font-size: 11.5px;\n}\nhtml body #r34g-warn .r34g-hint {\n  color: var(--r34g-text-soft);\n  font-size: 11.5px;\n}\n";
   var style = document.createElement("style");
   style.id = "r34g-styles";
   style.textContent = css;
@@ -39,7 +39,7 @@
   if (R.core) return;
   R.core = true;
 
-  R.VERSION = "0.3.0";
+  R.VERSION = "0.5.0";
   R.NAME = "Rule34 Gallery Suite";
 
   var SETTINGS_KEY = "r34g.settings.v2";
@@ -47,7 +47,9 @@
   var SEEN_LIMIT = 20000;
 
   R.DEFAULTS = {
-    cols: "5",
+    cols: "auto",
+    thumbSize: 200,
+    gridBar: true,
     aspect: "1",
     fit: "cover",
     score: true,
@@ -122,6 +124,14 @@
       localStorage.setItem("r34g.mig.cuadrada", "1");
     }
   } catch (e) {}
+  // migración 0.5.0: las columnas fijas por defecto (5) pasan a automáticas, que se calculan
+  // a partir del tamaño de miniatura elegido. Quien haya elegido otro número, lo conserva.
+  try {
+    if (!localStorage.getItem("r34g.mig.tamano")) {
+      if (!stored.cols || stored.cols === "5") stored.cols = R.DEFAULTS.cols;
+      localStorage.setItem("r34g.mig.tamano", "1");
+    }
+  } catch (e) {}
   var settings = Object.assign({}, R.DEFAULTS, stored);
   R.settings = settings;
   writeJSON(SETTINGS_KEY, settings);
@@ -133,6 +143,7 @@
   R.applySettings = function () {
     var h = document.documentElement;
     h.setAttribute("data-r34g-cols", String(settings.cols));
+    h.setAttribute("data-r34g-gridbar", settings.gridBar ? "on" : "off");
     h.setAttribute("data-r34g-aspect", settings.aspect);
     h.setAttribute("data-r34g-fit", settings.fit);
     h.setAttribute("data-r34g-score", settings.score ? "on" : "off");
@@ -1322,6 +1333,220 @@
 
   R.watchGallery = watchGallery;
 
+  var GRID_BAR_ID = "r34g-grid-bar";
+  var GRID_MIN = 110;
+  var GRID_MAX = 400;
+  var GRID_TINY = 120;
+
+  function clampSize(n) {
+    return Math.max(GRID_MIN, Math.min(GRID_MAX, Math.round(n)));
+  }
+
+  function gridTarget() {
+    var n = util.num(R.settings.thumbSize);
+    if (!n || n <= 0) return 0;
+    return clampSize(n);
+  }
+
+  function gridAuto() {
+    return !R.settings.cols || R.settings.cols === "auto";
+  }
+
+  // Columnas mínimas que hacen que ninguna tarjeta pase del tamaño pedido: con N columnas cada
+  // tarjeta mide (ancho - (N-1)*hueco)/N, así que buscamos el N más pequeño que cumpla
+  // (ancho + hueco) <= N * (tamaño + hueco).
+  function gridCols(list) {
+    var t = gridTarget();
+    if (!t || !gridAuto()) return 0;
+    var w = list.clientWidth;
+    if (!w) return 0;
+    var gap = parseFloat(getComputedStyle(list).columnGap);
+    if (!isFinite(gap) || gap < 0) gap = 12;
+    return Math.max(1, Math.ceil((w + gap) / (t + gap)));
+  }
+
+  function applyGridSize() {
+    var list = document.querySelector(".image-list");
+    if (!list) return 0;
+    var cols = gridCols(list);
+    if (cols) list.style.setProperty("--r34g-cols", String(cols));
+    else list.style.removeProperty("--r34g-cols");
+    var gap = parseFloat(getComputedStyle(list).columnGap);
+    if (!isFinite(gap) || gap < 0) gap = 12;
+    var w = list.clientWidth;
+    var used = cols || parseFloat(getComputedStyle(list).getPropertyValue("--r34g-cols")) || 1;
+    var cardW = w ? (w - (used - 1) * gap) / used : 0;
+    markCardWidth(cardW);
+    setupGrid.lastW = w;
+    return cols;
+  }
+
+  // Con tarjetas muy estrechas los botones y el chip de puntuación se pisarían: avisamos por CSS
+  // para encogerlos (y esconder la puntuación) en vez de dejar la esquina hecha un lío.
+  function markCardWidth(cardW) {
+    var tiny = cardW > 0 && cardW < GRID_TINY ? "tiny" : "normal";
+    var h = document.documentElement;
+    if (h.getAttribute("data-r34g-card") !== tiny) h.setAttribute("data-r34g-card", tiny);
+    return tiny;
+  }
+
+  R.applyGridSize = applyGridSize;
+
+  function gridCardWidth() {
+    var list = document.querySelector(".image-list");
+    var thumb = list && list.querySelector(".thumb");
+    return thumb ? Math.round(thumb.getBoundingClientRect().width) : 0;
+  }
+
+  function syncGridBar() {
+    var bar = document.getElementById(GRID_BAR_ID);
+    if (!bar) return;
+    var t = gridTarget();
+    var range = bar.querySelector(".r34g-grid-range");
+    var out = bar.querySelector(".r34g-grid-val");
+    if (range && t && range.value !== String(t)) range.value = String(t);
+    if (!out) return;
+    var real = gridCardWidth();
+    var text = t ? t + " px" + (real && Math.abs(real - t) > 8 ? " \u2192 " + real + " px" : "") : "\u2014";
+    var title = t ? "M\u00e1ximo " + t + " px" + (real ? "; ahora miden " + real + " px" : "") : "Tama\u00f1o libre";
+    if (out.textContent !== text) out.textContent = text;
+    if (out.title !== title) out.title = title;
+  }
+
+  function setGridSize(value) {
+    if (!gridAuto()) R.set("cols", "auto");
+    R.set("thumbSize", clampSize(value));
+    applyGridSize();
+    syncGridBar();
+  }
+
+  function buildGridBar() {
+    var existing = document.getElementById(GRID_BAR_ID);
+    var list = document.querySelector(".image-list");
+    if (!list || !list.parentNode) {
+      if (existing) existing.remove();
+      return;
+    }
+    if (existing) {
+      syncGridBar();
+      return;
+    }
+    var bar = util.el("div", "r34g-grid-bar");
+    bar.id = GRID_BAR_ID;
+    var label = util.el("span", "r34g-grid-label", "Miniaturas");
+    label.title = "Reduce o agranda los cuadrados de la galer\u00eda (tambi\u00e9n con Alt + rueda sobre la cuadr\u00edcula)";
+    bar.appendChild(label);
+
+    var minus = util.el("button", "r34g-grid-btn", "\u2212");
+    minus.type = "button";
+    minus.title = "M\u00e1s peque\u00f1as";
+    minus.addEventListener("click", function () {
+      setGridSize((gridTarget() || 200) - 20);
+    });
+    bar.appendChild(minus);
+
+    var range = util.el("input", "r34g-grid-range");
+    range.type = "range";
+    range.min = String(GRID_MIN);
+    range.max = String(GRID_MAX);
+    range.step = "5";
+    range.value = String(gridTarget() || 200);
+    range.title = "Tama\u00f1o máximo de cada miniatura";
+    range.addEventListener("input", function () {
+      setGridSize(Number(range.value));
+    });
+    bar.appendChild(range);
+
+    var plus = util.el("button", "r34g-grid-btn", "+");
+    plus.type = "button";
+    plus.title = "M\u00e1s grandes";
+    plus.addEventListener("click", function () {
+      setGridSize((gridTarget() || 200) + 20);
+    });
+    bar.appendChild(plus);
+
+    var out = util.el("span", "r34g-grid-val");
+    bar.appendChild(out);
+
+    var natural = util.el("button", "r34g-grid-btn", "Natural");
+    natural.type = "button";
+    natural.title = "Tama\u00f1o original de las miniaturas de rule34 (\u2248250 px): n\u00edtidas y ocupando menos";
+    natural.addEventListener("click", function () {
+      setGridSize(250);
+    });
+    bar.appendChild(natural);
+
+    var compact = util.el("button", "r34g-grid-btn", "Compacto");
+    compact.type = "button";
+    compact.title = "Miniaturas peque\u00f1as (130 px): muchas m\u00e1s por fila";
+    compact.addEventListener("click", function () {
+      setGridSize(130);
+    });
+    bar.appendChild(compact);
+
+    list.parentNode.insertBefore(bar, list);
+    syncGridBar();
+  }
+
+  function setupGrid() {
+    applyGridSize();
+    buildGridBar();
+    if (setupGrid.on) return;
+    setupGrid.on = true;
+    var pending = false;
+    var relayout = function () {
+      pending = false;
+      applyGridSize();
+      syncGridBar();
+    };
+    // el cambio de columnas cambia la altura de la cuadrícula y algunos navegadores se quejan
+    // («ResizeObserver loop»): lo hacemos fuera de la entrega del observador y solo si el ancho cambió.
+    var schedule = function () {
+      if (pending) return;
+      pending = true;
+      setTimeout(relayout, 0);
+    };
+    window.addEventListener("resize", schedule, { passive: true });
+    window.addEventListener(
+      "wheel",
+      function (e) {
+        if (!e.altKey || !e.target || !e.target.closest) return;
+        if (!e.target.closest(".image-list")) return;
+        e.preventDefault();
+        var next = clampSize((gridTarget() || 200) + (e.deltaY < 0 ? 20 : -20));
+        setGridSize(next);
+        util.toast("Miniaturas: " + next + " px", 1100);
+      },
+      { passive: false }
+    );
+    if (window.ResizeObserver && document.body) {
+      var ro = new ResizeObserver(function () {
+        var list = document.querySelector(".image-list");
+        if (!list || !list.clientWidth || list.clientWidth === setupGrid.lastW) return;
+        schedule();
+      });
+      ro.observe(document.body);
+      var list = document.querySelector(".image-list");
+      if (list) ro.observe(list);
+    }
+    // red de seguridad: en algunos navegadores (o con la pestaña oculta) ni el evento resize ni el
+    // ResizeObserver avisan, y la cuadrícula se queda con las columnas del ancho anterior.
+    setInterval(function () {
+      var list = document.querySelector(".image-list");
+      if (!list) return;
+      var w = list.clientWidth;
+      if (!w || w === setupGrid.lastW) return;
+      relayout();
+    }, 1000);
+  }
+
+  R.syncGridBar = syncGridBar;
+  R.applySettingsGrid = function () {
+    applyGridSize();
+    syncGridBar();
+    buildGridBar();
+  };
+
   function buildTagFilter() {
     var tagList = document.querySelector(".sidebar ul");
     if (!tagList || document.getElementById("r34g-tag-filter")) return;
@@ -1502,19 +1727,54 @@
   }
 
   function buildPanel(panel) {
-    var grid = ui.section(panel, "Cuadr\u00edcula", "Cinco columnas con tarjetas cuadradas por defecto: lo que importa es ver la galer\u00eda, no la imagen completa. Cambia los valores si quieres otra cosa.");
+    var grid = ui.section(panel, "Cuadr\u00edcula", "Las tarjetas se reparten el ancho de la p\u00e1gina. Con columnas en \u00abAuto\u00bb el n\u00famero se calcula a partir del tama\u00f1o de miniatura, as\u00ed que nunca salen m\u00e1s grandes de lo que pidas.");
     ui.seg({
       section: grid,
       key: "cols",
       title: "Columnas",
-      note: "N\u00famero de miniaturas por fila.",
+      note: "Auto = seg\u00fan el ancho y el tama\u00f1o de abajo. Un n\u00famero fijo manda sobre el tama\u00f1o.",
       options: [
+        { label: "Auto", value: "auto", title: "Calcula las columnas para que quepan miniaturas del tama\u00f1o elegido" },
         { label: "3", value: "3" },
         { label: "4", value: "4" },
         { label: "5", value: "5" },
         { label: "6", value: "6" },
         { label: "7", value: "7" }
       ]
+    });
+    ui.number({
+      section: grid,
+      key: "thumbSize",
+      title: "Tama\u00f1o de miniatura",
+      note: "M\u00e1ximo en p\u00edxeles. Si reduces este valor, caben m\u00e1s por fila. Atajo: Alt + rueda del rat\u00f3n sobre la galer\u00eda.",
+      min: GRID_MIN,
+      max: GRID_MAX,
+      step: 5,
+      suffix: "px",
+      event: "input"
+    });
+    var sizeRow = util.el("div", "r34g-mini-row");
+    var presets = [
+      { label: "Muy peque\u00f1as (110)", value: 110 },
+      { label: "Peque\u00f1as (160)", value: 160 },
+      { label: "Natural (250)", value: 250, title: "El tama\u00f1o original de las miniaturas de rule34: se ven n\u00edtidas, sin ampliar" }
+    ];
+    presets.forEach(function (p) {
+      var b = util.el("button", "r34g-mini", p.label);
+      b.type = "button";
+      if (p.title) b.title = p.title;
+      b.addEventListener("click", function () {
+        setGridSize(p.value);
+        util.toast("Miniaturas: " + p.value + " px");
+      });
+      sizeRow.appendChild(b);
+    });
+    grid.appendChild(sizeRow);
+    ui.toggle({
+      section: grid,
+      key: "gridBar",
+      title: "Barra de tama\u00f1o sobre la galer\u00eda",
+      note: "Control r\u00e1pido (deslizador y botones) encima de las miniaturas, sin abrir este panel."
     });
     ui.seg({
       section: grid,
@@ -1596,6 +1856,7 @@
 
   R.onReady(function () {
     watchGallery();
+    setupGrid();
     var hasGallery = !!document.querySelector(".image-list");
     var hasTags = !!document.getElementById("tag-sidebar");
     if (hasGallery || hasTags) buildPageTools();
@@ -1607,6 +1868,11 @@
     buildTagFilter();
     var id = util.currentPostId();
     if (id && R.settings.seen) R.seen.add(id);
+    R.changeHooks.push(function () {
+      setupGrid();
+      applyGridSize();
+      syncGridBar();
+    });
   });
 })();
 
@@ -4248,6 +4514,8 @@
   var DIR_STORE = "handles";
   var DIR_KEY = "downloads";
   var QUEUE_ID = "r34g-dlq";
+  var SEL_KEY = "r34g.dlsel.v1";
+  var sel = { on: false, ids: [] };
 
   function testHook(name) {
     var test = R.downloads.test;
@@ -5164,6 +5432,181 @@
     });
   }
 
+  function selLoad() {
+    try {
+      var raw = sessionStorage.getItem(SEL_KEY);
+      if (!raw) return;
+      var arr = JSON.parse(raw);
+      if (arr && arr.length) sel.ids = arr.map(String);
+    } catch (e) {}
+  }
+
+  function selSave() {
+    try {
+      sessionStorage.setItem(SEL_KEY, JSON.stringify(sel.ids));
+    } catch (e) {}
+  }
+
+  function selHas(id) {
+    return !!id && sel.ids.indexOf(String(id)) !== -1;
+  }
+
+  function selPageIds() {
+    var out = [];
+    Array.prototype.forEach.call(document.querySelectorAll(".image-list .thumb"), function (thumb) {
+      var link = thumb.querySelector("a") || thumb;
+      var id = util.postIdFromHref(link.getAttribute ? link.getAttribute("href") : "");
+      if (id && out.indexOf(id) === -1) out.push(id);
+    });
+    return out;
+  }
+
+  function selToggle(id) {
+    id = String(id);
+    if (!sel.on) selSetMode(true);
+    var i = sel.ids.indexOf(id);
+    if (i === -1) sel.ids.push(id);
+    else sel.ids.splice(i, 1);
+    selSave();
+    selRender();
+  }
+
+  function selAllPage() {
+    selPageIds().forEach(function (id) {
+      if (sel.ids.indexOf(id) === -1) sel.ids.push(id);
+    });
+    selSave();
+    selRender();
+  }
+
+  function selClear() {
+    sel.ids = [];
+    selSave();
+    selRender();
+  }
+
+  function selKey(e) {
+    if (e.key !== "Escape") return;
+    var m = document.getElementById("r34g-modal");
+    if (m && m.classList.contains("r34g-open")) return;
+    selSetMode(false);
+  }
+
+  function selSetMode(on) {
+    sel.on = !!on;
+    if (document.body) document.body.classList.toggle("r34g-selecting", sel.on);
+    document.removeEventListener("keydown", selKey, true);
+    if (sel.on) {
+      document.addEventListener("keydown", selKey, true);
+      decorateAll(document);
+    }
+    var bar = document.getElementById("r34g-dl-batch");
+    if (bar) bar.remove();
+    buildBatchBar();
+    selRender();
+  }
+
+  function downloadSelected() {
+    var ids = sel.ids.slice();
+    if (!ids.length) {
+      util.toast("No hay nada seleccionado");
+      return;
+    }
+    var skipped = 0;
+    var fresh = ids.filter(function (id) {
+      if (R.settings.dlSkip && hist().has(id)) {
+        skipped++;
+        return false;
+      }
+      return true;
+    });
+    ensureDirPermission();
+    fresh.forEach(function (id) {
+      enqueue(id, null, false);
+    });
+    if (fresh.length) {
+      util.toast(fresh.length + " post" + (fresh.length === 1 ? "" : "s") + " en cola" + (skipped ? " \u00b7 " + skipped + " omitido" + (skipped === 1 ? "" : "s") + " por historial" : ""));
+    } else if (skipped) {
+      util.toast("Los " + skipped + " seleccionados ya estaban en el historial");
+    }
+    selClear();
+  }
+
+  function selRender() {
+    var n = sel.ids.length;
+    Array.prototype.forEach.call(document.querySelectorAll(".r34g-sel-box"), function (box) {
+      var on = selHas(box.getAttribute("data-id"));
+      box.classList.toggle("r34g-on", on);
+      var thumb = box.closest ? box.closest(".thumb") : null;
+      if (thumb) thumb.classList.toggle("r34g-picked", on);
+    });
+    var bar = document.getElementById("r34g-dl-batch");
+    if (bar) {
+      var tog = bar.querySelector("#r34g-dl-selbtn");
+      if (tog) {
+        tog.classList.toggle("r34g-on", sel.on);
+        var lbl = tog.querySelector("span");
+        if (lbl) lbl.textContent = sel.on ? " Salir de selecci\u00f3n" : " Seleccionar";
+      }
+      var all = bar.querySelector("#r34g-dl-selall");
+      var none = bar.querySelector("#r34g-dl-selnone");
+      if (all) all.hidden = !sel.on;
+      if (none) none.hidden = !sel.on;
+      var note = bar.querySelector(".r34g-sel-note");
+      if (note) {
+        note.hidden = !(sel.on || n);
+        note.textContent = n + " seleccionado" + (n === 1 ? "" : "s");
+      }
+    }
+    buildSelPill();
+  }
+
+  function buildSelPill() {
+    var pill = document.getElementById("r34g-dl-selpill");
+    if (!sel.on || !isListPage() || !R.settings.dlOn) {
+      if (pill) pill.remove();
+      return;
+    }
+    if (!pill) {
+      pill = util.el("div", "r34g-dl-selpill");
+      pill.id = "r34g-dl-selpill";
+      document.body.appendChild(pill);
+    }
+    while (pill.firstChild) pill.removeChild(pill.firstChild);
+    var n = sel.ids.length;
+    var info = util.el("span", "r34g-selpill-info");
+    info.appendChild(util.el("b", null, String(n)));
+    info.appendChild(document.createTextNode(" seleccionado" + (n === 1 ? "" : "s")));
+    pill.appendChild(info);
+    var go = util.el("button", "r34g-btn");
+    go.type = "button";
+    go.id = "r34g-dl-selgo";
+    go.disabled = !n;
+    if (n) go.classList.add("r34g-on");
+    go.title = "Descarga los posts marcados (respeta \u00abomitir ya descargados\u00bb)";
+    go.appendChild(util.icon("dl"));
+    go.appendChild(document.createTextNode(" Descargar" + (n ? " " + n : "")));
+    go.addEventListener("click", downloadSelected);
+    pill.appendChild(go);
+    var all = util.el("button", "r34g-btn", "Todas");
+    all.type = "button";
+    all.title = "Marcar todos los posts de esta p\u00e1gina";
+    all.addEventListener("click", selAllPage);
+    pill.appendChild(all);
+    var none = util.el("button", "r34g-btn", "Ninguna");
+    none.type = "button";
+    none.title = "Vaciar la selecci\u00f3n";
+    none.addEventListener("click", selClear);
+    pill.appendChild(none);
+    var exit = util.el("button", "r34g-btn r34g-selpill-x", "\u2715");
+    exit.type = "button";
+    exit.title = "Salir del modo selecci\u00f3n (Esc)";
+    exit.addEventListener("click", function () {
+      selSetMode(false);
+    });
+    pill.appendChild(exit);
+  }
+
   function buildDlButton(thumb) {
     var link = thumb.querySelector("a") || thumb;
     var id = util.postIdFromHref(link.getAttribute ? link.getAttribute("href") : "");
@@ -5179,6 +5622,27 @@
     });
     var link = thumb.querySelector("a") || thumb;
     link.appendChild(btn);
+  }
+
+  function selBox(thumb) {
+    var link = thumb.querySelector("a") || thumb;
+    var id = util.postIdFromHref(link.getAttribute ? link.getAttribute("href") : "");
+    if (!id) return;
+    var box = thumb.querySelector(".r34g-sel-box");
+    if (!box) {
+      box = util.el("button", "r34g-sel-box");
+      box.type = "button";
+      box.title = "Marcar para descargar en bloque";
+      box.setAttribute("aria-label", "Marcar este post");
+      box.appendChild(util.icon("check"));
+      box.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        selToggle(box.getAttribute("data-id"));
+      });
+      (thumb.querySelector("a") || thumb).appendChild(box);
+    }
+    box.setAttribute("data-id", id);
   }
 
   function downloadBadge(thumb) {
@@ -5201,7 +5665,15 @@
 
   function decorateThumb(thumb) {
     if (!thumb || !thumb.querySelector) return;
-    if (R.settings.dlOn && !thumb.querySelector(".r34g-dl-btn")) buildDlButton(thumb);
+    if (R.settings.dlOn) {
+      if (!thumb.querySelector(".r34g-dl-btn")) buildDlButton(thumb);
+      selBox(thumb);
+    } else {
+      var box = thumb.querySelector(".r34g-sel-box");
+      if (box) box.remove();
+      var gone = thumb.querySelector(".r34g-dl-btn");
+      if (gone) gone.remove();
+    }
     downloadBadge(thumb);
   }
 
@@ -5233,6 +5705,28 @@
       });
     });
     mo.observe(list, { childList: true, subtree: true });
+  }
+
+  function watchSelectClicks() {
+    var list = document.querySelector(".image-list");
+    if (!list || list.dataset.r34gSelWatch) return;
+    list.dataset.r34gSelWatch = "1";
+    list.addEventListener(
+      "click",
+      function (e) {
+        if (!sel.on || !e.target || !e.target.closest) return;
+        if (e.target.closest(".r34g-sel-box") || e.target.closest(".r34g-dl-btn")) return;
+        var thumb = e.target.closest(".thumb");
+        if (!thumb) return;
+        var link = thumb.querySelector("a") || thumb;
+        var id = util.postIdFromHref(link.getAttribute ? link.getAttribute("href") : "");
+        if (!id) return;
+        e.preventDefault();
+        e.stopPropagation();
+        selToggle(id);
+      },
+      true
+    );
   }
 
   function buildPostBar() {
@@ -5292,8 +5786,36 @@
       openBatchDialog();
     });
     bar.appendChild(btn);
+    var selBtn = util.el("button", "r34g-btn");
+    selBtn.type = "button";
+    selBtn.id = "r34g-dl-selbtn";
+    selBtn.title = "Marcar posts a mano y descargarlos todos de golpe (la selecci\u00f3n se mantiene al pasar de p\u00e1gina)";
+    selBtn.appendChild(util.icon("check"));
+    selBtn.appendChild(util.el("span", null, " Seleccionar"));
+    selBtn.addEventListener("click", function () {
+      selSetMode(!sel.on);
+    });
+    bar.appendChild(selBtn);
+    var allBtn = util.el("button", "r34g-btn", "Todas");
+    allBtn.type = "button";
+    allBtn.id = "r34g-dl-selall";
+    allBtn.title = "Marcar todos los posts de esta p\u00e1gina";
+    allBtn.hidden = true;
+    allBtn.addEventListener("click", selAllPage);
+    bar.appendChild(allBtn);
+    var noneBtn = util.el("button", "r34g-btn", "Ninguna");
+    noneBtn.type = "button";
+    noneBtn.id = "r34g-dl-selnone";
+    noneBtn.title = "Vaciar la selecci\u00f3n";
+    noneBtn.hidden = true;
+    noneBtn.addEventListener("click", selClear);
+    bar.appendChild(noneBtn);
+    var selNote = util.el("span", "r34g-sel-note");
+    selNote.hidden = true;
+    bar.appendChild(selNote);
     bar.appendChild(util.el("span", "r34g-note", "etiquetas: " + queryTags()));
     list.parentNode.insertBefore(bar, list);
+    selRender();
   }
 
   function closeBatchDialog() {
@@ -5308,6 +5830,7 @@
     var box = util.el("div", "r34g-dlg-box");
     box.appendChild(util.el("h5", null, "Descargar esta b\u00fasqueda"));
     box.appendChild(util.el("p", "r34g-hint", "Se recorren las p\u00e1ginas de la b\u00fasqueda actual (42 posts por p\u00e1gina) y se descargan una a una, respetando el l\u00edmite de descargas simult\u00e1neas."));
+    box.appendChild(util.el("p", "r34g-hint", "\u00bfQuieres elegir posts concretos? Pulsa \u00abSeleccionar\u00bb en la barra de arriba, marca las miniaturas que quieras (tambi\u00e9n desde otras p\u00e1ginas) y desc\u00e1rgalas todas de golpe con la barra de abajo a la derecha."));
     var rowPages = util.el("label", "r34g-dlg-row");
     rowPages.appendChild(util.el("span", null, "P\u00e1ginas"));
     var pages = util.el("input", "r34g-num");
@@ -5493,7 +6016,7 @@
       note: "usa el historial de descargas",
       key: "dlSkip"
     });
-    ui.button({
+    var batchBtn = ui.button({
       section: s5,
       title: "Descargar esta b\u00fasqueda",
       label: isListPage() ? "Descargar esta b\u00fasqueda\u2026" : "No est\u00e1s en una lista de resultados",
@@ -5502,6 +6025,34 @@
         else util.toast("Abre una b\u00fasqueda o una etiqueta para descargar sus resultados", 3600);
       }
     });
+    var refreshBatchLabel = function () {
+      batchBtn.textContent = isListPage() ? "Descargar esta b\u00fasqueda\u2026" : "No est\u00e1s en una lista de resultados";
+    };
+    R.controls.push(refreshBatchLabel);
+    var selHint = util.el("p", "r34g-hint");
+    s5.appendChild(selHint);
+    var selBtn = ui.button({
+      section: s5,
+      title: "Marcar miniaturas a mano y descargarlas en bloque (la selecci\u00f3n se mantiene al cambiar de p\u00e1gina)",
+      label: "Seleccionar miniaturas\u2026",
+      onClick: function () {
+        if (!isListPage()) {
+          util.toast("Abre una b\u00fasqueda o una etiqueta para marcar sus miniaturas", 3600);
+          return;
+        }
+        selSetMode(!sel.on);
+        if (R.closeModal) R.closeModal();
+        util.toast(sel.on ? "Marca las miniaturas que quieras descargar" : "Modo selecci\u00f3n cerrado");
+      }
+    });
+    var refreshSelHint = function () {
+      selHint.textContent = sel.on
+        ? "Modo selecci\u00f3n activo: " + sel.ids.length + " marcado" + (sel.ids.length === 1 ? "" : "s") + ". Pulsa la barra de abajo a la derecha para descargarlos."
+        : "Adem\u00e1s de b\u00fasquedas enteras, puedes marcar miniaturas a mano (tambi\u00e9n desde varias p\u00e1ginas) y descargarlas todas de golpe.";
+      selBtn.textContent = isListPage() ? (sel.on ? "Salir del modo selecci\u00f3n" : "Seleccionar miniaturas\u2026") : "No est\u00e1s en una lista de resultados";
+    };
+    refreshSelHint();
+    R.controls.push(refreshSelHint);
 
     var s6 = ui.section(panel, "Historial de descargas", "Se guarda en este navegador; sirve para marcar lo ya descargado y para omitirlo");
     var info = util.el("p", "r34g-hint");
@@ -5579,17 +6130,22 @@
 
   function rebuild() {
     watchGallery();
+    watchSelectClicks();
     buildPostBar();
     buildBatchBar();
     decorateAll(document);
+    selRender();
     syncDirState();
+    if (R.refreshControls) R.refreshControls();
   }
 
   R.downloads.rebuild = rebuild;
 
   R.onReady(function () {
     loadDir();
+    selLoad();
     watchGallery();
+    watchSelectClicks();
     buildPostBar();
     buildBatchBar();
     syncDirState();
@@ -5605,6 +6161,7 @@
       if (key === "dlOn") {
         decorateAll(document);
         buildBatchBar();
+        if (!R.settings.dlOn && sel.on) selSetMode(false);
       }
       if (key === "dlPost") buildPostBar();
     });
@@ -5622,7 +6179,18 @@
     ensureDirPermission: ensureDirPermission,
     dirName: dirName,
     runBatch: runBatch,
-    queue: queue
+    queue: queue,
+    select: {
+      state: sel,
+      ids: function () {
+        return sel.ids.slice();
+      },
+      mode: selSetMode,
+      toggle: selToggle,
+      all: selAllPage,
+      clear: selClear,
+      download: downloadSelected
+    }
   };
 })();
 
@@ -5988,6 +6556,16 @@
   var ui = R.ui;
 
   var NOTES = [
+    ["0.5.0", [
+      "Galer\u00eda escalable: las miniaturas ya no se estiran al ancho de la p\u00e1gina. Ahora eliges el tama\u00f1o m\u00e1ximo en p\u00edxeles (por defecto 200) y la suite calcula sola las columnas que caben, as\u00ed que en pantallas grandes salen muchas m\u00e1s por fila y se ven igual de n\u00edtidas.",
+      "Control r\u00e1pido: barra \u00abMiniaturas\u00bb encima de la cuadr\u00edcula con deslizador, botones \u2212 y +, \u00abNatural\u00bb (250 px, el tama\u00f1o original de rule34), \u00abCompacto\u00bb (130 px) y el valor real que est\u00e1n midiendo. Se puede ocultar en Ajustes \u2192 Galer\u00eda.",
+      "Atajo: Alt + rueda del rat\u00f3n sobre la galer\u00eda para reducir o agrandar al momento. En Ajustes \u2192 Galer\u00eda est\u00e1 tambi\u00e9n el n\u00famero exacto y preajustes, y la opci\u00f3n \u00abColumnas\u00bb pasa a \u00abAuto\u00bb (fijar un n\u00famero sigue funcionando)."
+    ]],
+    ["0.4.0", [
+      "Selecci\u00f3n manual de miniaturas: en las p\u00e1ginas de lista aparece \u00abSeleccionar\u00bb al lado de \u00abDescargar esta b\u00fasqueda\u00bb. Con el modo activo, cada miniatura ense\u00f1a una casilla arriba a la izquierda (tambi\u00e9n puedes pulsar la miniatura entera) y abajo a la derecha sale una barra con el contador, \u00abDescargar\u00bb, \u00abTodas\u00bb y \u00abNinguna\u00bb.",
+      "La selecci\u00f3n se mantiene al cambiar de p\u00e1gina dentro de la misma pesta\u00f1a, as\u00ed que puedes ir marcando en varias p\u00e1ginas y lanzarlo todo al final. Esc sale del modo selecci\u00f3n sin borrar lo marcado.",
+      "\u00abDescargar\u00bb respeta la opci\u00f3n \u00abomitir los que ya est\u00e1n en el historial\u00bb de la pesta\u00f1a Descargas y avisa de cu\u00e1ntos se han omitido."
+    ]],
     ["0.3.0", [
       "Nueva pesta\u00f1a Descargas: bot\u00f3n de descarga en cada miniatura y sobre el archivo del post, con nombre y carpeta propios ({id}_{artist}_{character} dentro de rule34/{artist}, todo configurable), elecci\u00f3n de carpeta real en Chrome y Edge, cola con progreso y l\u00edmite de descargas a la vez, historial de descargas (marca lo que ya has bajado y puede omitirlo) y descarga de una b\u00fasqueda entera por p\u00e1ginas.",
       "Nuevo aviso de \u00abotro descargador instalado\u00bb: si tienes Pixiv Downloader (el descargador multibooru que tambi\u00e9n act\u00faa en rule34.xxx) la suite lo detecta y te ofrece ocultar sus botones en esta p\u00e1gina, ocultarlos siempre o no volver a avisar. Desde aqu\u00ed no se puede desinstalar, pero s\u00ed apartar su interfaz para que los dos no peleen por las mismas miniaturas y el mismo archivo. Tambi\u00e9n avisa si tienes dos copias de esta misma suite cargadas a la vez.",
