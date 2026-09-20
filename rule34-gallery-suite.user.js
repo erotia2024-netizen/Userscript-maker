@@ -2,7 +2,7 @@
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
 // @version      0.8.21
-// @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA gratis sin configurar nada) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
+// @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA opcional), aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
 // @supportURL   https://github.com/erotia2024-netizen/Userscript-maker/issues
@@ -39,7 +39,7 @@
   if (R.core) return;
   R.core = true;
 
-  R.VERSION = "0.8.7";
+  R.VERSION = "0.8.4";
   R.NAME = "Rule34 Gallery Suite";
 
   var SETTINGS_KEY = "r34g.settings.v2";
@@ -85,8 +85,6 @@
     tKey: "",
     tPromptFmt: "comas",
     tPromptArt: true,
-    tPromptArtPos: "first",
-    tPromptArtW: "1",
     tPromptMeta: false,
     tPromptPre: "",
     tPromptSuf: "",
@@ -1998,9 +1996,8 @@
     });
     var runAi = util.el("button", "r34g-mini", "Analizar con IA");
     runAi.type = "button";
-    runAi.title = "Usa la IA para repartir y afinar las etiquetas. De f\u00e1brica es gratis y no hay que configurar nada";
+    runAi.title = "Usa el motor de IA configurado en Ajustes \u2192 Etiquetas";
     runAi.addEventListener("click", function () {
-      if (R.ai && R.ai.warm) R.ai.warm();
       runAnalysis(true);
     });
     bar.appendChild(run);
@@ -3362,48 +3359,40 @@
     "Haz tres cosas:",
     "1) Reparte las etiquetas generales entre los personajes a los que describen realmente. Si una etiqueta describe a varios personajes o a la escena en general, ponla en \"shared\". Si describe a uno solo, ponla con ese personaje.",
     "2) Detecta etiquetas redundantes (sinónimos, singular/plural, o una que ya queda cubierta por otra con más posts) y ponlas en \"discard\" indicando con \"kept\" la etiqueta que se queda.",
-    "3) Escribe en \"prompt\" un prompt en inglés de una sola línea, separado por comas, para pegar en una app de generación de imágenes: empieza por el artista (si lo hay, puesto delante es lo que más fija su estilo), después el sujeto y su apariencia, luego la escena y las acciones y al final la serie. No repitas etiquetas, no juntes sinónimos de lo mismo y deja fuera las etiquetas de medio o formato (video, webm, animated, sound, watermark).",
+    "3) Escribe en \"prompt\" un prompt en inglés de una sola línea, separado por comas, para pegar en una app de generación de imágenes: primero el sujeto y su apariencia, después la escena y las acciones, luego la serie y al final el estilo o el artista. No repitas etiquetas, no juntes sinónimos de lo mismo y deja fuera las etiquetas de medio o formato (video, webm, animated, sound, watermark).",
     "No inventes etiquetas que no estén en la lista. Responde SOLO con JSON válido, sin texto adicional, con esta forma exacta:",
     '{"characters":[{"tag":"tag_del_personaje","tags":["..."]}],"shared":["..."],"discard":[{"tag":"...","kept":"..."}],"prompt":"prompt en inglés separado por comas","notas":"..."}'
   ].join(" ");
 
-  // Cualquier endpoint compatible con OpenAI sirve. Los dos primeros son gratis y no piden nada:
-  // el puente de Perchance (usa este generador de relevo) y Pollinations; los dem\u00e1s, si acaso, con
-  // su clave gratuita.
+  // Cualquier endpoint compatible con OpenAI sirve. Los tres primeros tienen nivel gratuito
+  // (con clave gratuita) y suelen ir mejor que la cola p\u00fablica de Pollinations.
   // El compilador sustituye "on" por "on" u "off" según el panel Proyecto.
   var BRIDGE_MODE = "on";
 
   var AI_PROVIDERS = [
     {
-      value: "perchance",
-      label: "IA de Perchance (gratis, sin clave)",
-      free: true,
-      bridge: true
-    },
-    {
-      value: "pollinations",
-      label: "Pollinations (gratis, sin clave)",
-      endpoint: "https://text.pollinations.ai/openai",
-      model: "openai",
-      free: true
-    },
-    {
       value: "groq",
-      label: "Groq (nivel gratis, con clave)",
+      label: "Groq (nivel gratis)",
       endpoint: "https://api.groq.com/openai/v1/chat/completions",
       model: "llama-3.1-8b-instant"
     },
     {
       value: "gemini",
-      label: "Google Gemini (nivel gratis, con clave)",
+      label: "Google Gemini (nivel gratis)",
       endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
       model: "gemini-2.0-flash"
     },
     {
       value: "openrouter",
-      label: "OpenRouter (modelos :free, con clave)",
+      label: "OpenRouter (modelos :free)",
       endpoint: "https://openrouter.ai/api/v1/chat/completions",
       model: "meta-llama/llama-3.1-8b-instruct:free"
+    },
+    {
+      value: "pollinations",
+      label: "Pollinations (sin clave, con cola)",
+      endpoint: "https://text.pollinations.ai/openai",
+      model: "openai"
     },
     {
       value: "openai",
@@ -3423,20 +3412,19 @@
       endpoint: "http://localhost:11434/v1/chat/completions",
       model: "llama3.1"
     },
+    {
+      value: "perchance",
+      label: "IA de Perchance (gratis, sin clave)",
+      bridge: true
+    },
     { value: "custom", label: "Personalizado" }
   ];
 
-  // Los proveedores que funcionan sin configurar nada (sin clave y sin registro).
-  function keylessProviders() {
-    return AI_PROVIDERS.filter(function (p) {
-      return p.free;
-    });
-  }
-
-  function providerShort(value) {
-    var p = providerByKey(value);
-    if (!p) return String(value);
-    return p.label.replace(/\s*\([^)]*\)\s*$/, "");
+  function providerOf(endpoint) {
+    var found = AI_PROVIDERS.filter(function (p) {
+      return p.endpoint && p.endpoint === endpoint;
+    })[0];
+    return found ? found.value : "custom";
   }
 
   function providerByKey(key) {
@@ -3445,46 +3433,18 @@
     })[0];
   }
 
-  // Versi\u00f3n del bloque de IA guardado en el navegador: al subirla se aplican las mejoras de golpe
-  // (la instrucci\u00f3n nueva, el motor gratuito por defecto) sin que el usuario toque nada.
-  var AI_VERSION = 2;
-
-  // Gratis y sin configurar nada: el puente de Perchance si la copia lo lleva; si no, Pollinations.
-  function freeDefault() {
-    return BRIDGE_MODE !== "off" ? "perchance" : "pollinations";
-  }
-
-  // La instrucci\u00f3n guardada puede ser una versi\u00f3n vieja de la de por defecto (por ejemplo, la que
-  // todav\u00eda no ped\u00eda el prompt). Si el usuario no la edit\u00f3, se cambia por la actual.
-  function legacyInstruction(text) {
-    return !text || String(text).indexOf('"prompt"') === -1;
-  }
-
   function loadAI() {
     var stored = null;
     try {
       stored = JSON.parse(localStorage.getItem(AI_KEY) || "null");
     } catch (e) {}
     var cfg = stored && typeof stored === "object" ? stored : {};
-    var migrated = false;
-    if ((Number(cfg.v) || 0) < AI_VERSION) {
-      if (!cfg.customInstruction && legacyInstruction(cfg.instruction)) cfg.instruction = AI_DEFAULT_INSTRUCTION;
-      if (cfg.provider === "pollinations" && !cfg.key && BRIDGE_MODE !== "off") cfg.provider = "perchance";
-      cfg.v = AI_VERSION;
-      migrated = true;
-    }
     cfg.endpoint = cfg.endpoint || R.settings.tEndpoint || "https://text.pollinations.ai/openai";
     cfg.model = cfg.model || "openai";
     cfg.key = cfg.key || "";
     cfg.instruction = cfg.instruction || AI_DEFAULT_INSTRUCTION;
-    cfg.provider = cfg.provider || freeDefault();
+    cfg.provider = cfg.provider || providerOf(cfg.endpoint);
     cfg.bridge = cfg.bridge || R.settings.tBridge || "";
-    cfg.v = AI_VERSION;
-    if (migrated) {
-      try {
-        localStorage.setItem(AI_KEY, JSON.stringify(cfg));
-      } catch (e) {}
-    }
     return cfg;
   }
 
@@ -3613,39 +3573,20 @@
     });
     return new Promise(function (resolve, reject) {
       var id = "r34g-" + ++bridgeSeq + "-" + Date.now();
-      var done = false;
-      var entry = {};
-      // Una sola salida: o contesta el generador, o salta el aviso de que no carg\u00f3, o se agota el tiempo.
-      var settle = function (fn) {
-        if (done) return;
-        done = true;
+      var timer = setTimeout(function () {
         delete bridgeWaiting[id];
-        clearTimeout(entry.timer);
-        clearTimeout(entry.guard);
-        fn();
-      };
-      entry.timer = setTimeout(function () {
-        settle(function () {
-          reject(new Error("la IA de Perchance tard\u00f3 demasiado en responder"));
-        });
+        reject(new Error("la IA de Perchance no respondi\u00f3 a tiempo"));
       }, 120000);
-      entry.guard = setTimeout(function () {
-        if (entry.sent) return;
-        settle(function () {
-          reject(new Error("el generador de Perchance no carg\u00f3 (\u00bfest\u00e1 guardado y es p\u00fablico?)"));
-        });
-      }, 30000);
-      entry.settle = settle;
-      bridgeWaiting[id] = entry;
+      bridgeWaiting[id] = { res: resolve, rej: reject, timer: timer };
       var frame = bridgeFrameFor(url);
       var send = function () {
-        entry.sent = true;
+        if (!bridgeWaiting[id]) return;
         try {
           frame.contentWindow.postMessage({ r34g: "ai-request", id: id, system: system, user: user }, "*");
         } catch (e) {
-          settle(function () {
-            reject(new Error("no se pudo hablar con el generador"));
-          });
+          clearTimeout(timer);
+          delete bridgeWaiting[id];
+          reject(new Error("no se pudo hablar con el generador"));
         }
       };
       if (frame.dataset.r34gReady === "1") setTimeout(send, 250);
@@ -3661,101 +3602,33 @@
     if (!/\.perchance\.org$/.test((e.origin || "").replace(/^https?:\/\//, ""))) return;
     var w = bridgeWaiting[d.id];
     if (!w) return;
-    w.settle(function () {
-      if (d.error) w.rej(new Error(String(d.error).slice(0, 180)));
-      else w.res(String(d.text == null ? "" : d.text));
-    });
+    clearTimeout(w.timer);
+    delete bridgeWaiting[d.id];
+    if (d.error) w.rej(new Error(String(d.error).slice(0, 180)));
+    else w.res(String(d.text == null ? "" : d.text));
   });
 
-  // El iframe del puente tarda en cargar la p\u00e1gina del generador la primera vez. Arrancarlo un poco
-  // antes (al abrir el an\u00e1lisis) evita que esa espera se sume a la consulta.
-  ai.warm = function () {
-    try {
-      if (BRIDGE_MODE !== "off") {
-        var url = bridgeUrl();
-        if (url) bridgeFrameFor(url);
-      }
-    } catch (e) {}
-  };
-
-  // Transporte http. En rule34.xxx el script corre bajo Tampermonkey, as\u00ed que si hay
-  // GM_xmlhttpRequest se usa \u00e9l: la petici\u00f3n sale por el gestor de userscripts y se salta el CORS del
-  // sitio. En el laboratorio (o si el gestor no lo ofrece) se usa fetch normal.
-  function gmXhr() {
-    try {
-      if (typeof GM_xmlhttpRequest === "function") return GM_xmlhttpRequest;
-    } catch (e) {}
-    try {
-      if (typeof window !== "undefined" && typeof window.GM_xmlhttpRequest === "function") return window.GM_xmlhttpRequest;
-    } catch (e) {}
-    return null;
-  }
-
-  function hostOf(url) {
-    return String(url || "")
-      .replace(/^https?:\/\//i, "")
-      .split("/")[0];
-  }
-
-  function viaFetch(url, headers, body) {
-    return fetch(url, { method: "POST", headers: headers, body: body }).then(function (res) {
-      return res.text().then(function (text) {
-        return { status: res.status, ok: res.ok, text: text };
-      });
+  // Proveedor "IA de Perchance" con red de seguridad: si el generador no responde (privado,
+  // renombrado o borrado), seguimos con Pollinations, que es gratis y no pide clave.
+  function perchanceAsk(messages) {
+    return bridgeAsk(messages).catch(function (err) {
+      util.toast("La IA de Perchance no respondi\u00f3 (" + ((err && err.message) || err) + "). Sigo con Pollinations, que no necesita clave.");
+      return directAsk(FALLBACK, messages);
     });
   }
 
-  function httpPost(url, headers, body) {
-    var gm = gmXhr();
-    if (!gm) return viaFetch(url, headers, body);
-    return new Promise(function (resolve, reject) {
-      var done = false;
-      var finish = function (fn) {
-        if (done) return;
-        done = true;
-        fn();
-      };
-      try {
-        gm({
-          method: "POST",
-          url: url,
-          headers: headers,
-          data: body,
-          timeout: 180000,
-          onload: function (res) {
-            finish(function () {
-              var status = Number(res.status) || 0;
-              resolve({ status: status, ok: status >= 200 && status < 300, text: res.responseText || "" });
-            });
-          },
-          onerror: function () {
-            finish(function () {
-              reject(new Error("no se pudo conectar con " + hostOf(url)));
-            });
-          },
-          ontimeout: function () {
-            finish(function () {
-              reject(new Error("se agot\u00f3 el tiempo conectando con " + hostOf(url)));
-            });
-          }
-        });
-      } catch (e) {
-        finish(function () {
-          reject(new Error(String((e && e.message) || e)));
-        });
-      }
-    });
-  }
-
-  // Petici\u00f3n directa a un endpoint compatible con OpenAI (Groq, Gemini, OpenRouter, Pollinations\u2026).
+  // Petición directa a un endpoint compatible con OpenAI (Groq, Gemini, OpenRouter, Pollinations…).
   function directAsk(cfg, messages) {
-    if (!cfg || !cfg.endpoint) return Promise.reject(new Error("falta la direcci\u00f3n del motor de IA"));
+    if (!cfg.endpoint) return Promise.reject(new Error("falta la direcci\u00f3n del motor de IA"));
     var headers = { "Content-Type": "application/json" };
     if (cfg.key) headers.Authorization = "Bearer " + cfg.key;
-    return httpPost(cfg.endpoint, headers, JSON.stringify({ model: cfg.model, messages: messages, temperature: 0.2 }))
-      .then(function (res) {
-        if (!res.ok) {
-          var body = res.text || "";
+    return fetch(cfg.endpoint, {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify({ model: cfg.model, messages: messages, temperature: 0.2 })
+    }).then(function (res) {
+      if (!res.ok) {
+        return res.text().then(function (body) {
           var detail = "";
           try {
             var j = JSON.parse(body);
@@ -3763,103 +3636,47 @@
             detail = detail ? String(detail) : "";
           } catch (e) {}
           if (!detail) detail = String(body || "").slice(0, 120);
-          if (!res.status) throw new Error("no se pudo conectar con " + hostOf(cfg.endpoint));
           if (res.status === 429) {
-            throw new Error("l\u00edmite alcanzado (429). Prueba en un rato, usa el an\u00e1lisis local o cambia de proveedor.");
+            var wait = res.headers ? res.headers.get("retry-after") : "";
+            throw new Error(
+              "l\u00edmite alcanzado" + (wait ? " (reintentar en " + wait + " s)" : "") + ". Usa el an\u00e1lisis local o cambia de proveedor."
+            );
           }
           if (res.status === 401 || res.status === 403) {
             throw new Error("clave rechazada (" + res.status + "). Rev\u00edsala o cambia de proveedor.");
           }
-          throw new Error("HTTP " + res.status + " en " + hostOf(cfg.endpoint) + (detail ? ": " + detail.slice(0, 140) : ""));
-        }
+          throw new Error("HTTP " + res.status + (detail ? ": " + detail.slice(0, 140) : ""));
+        });
+      }
+      return res.text().then(function (body) {
         var data;
         try {
-          data = JSON.parse(res.text);
+          data = JSON.parse(body);
         } catch (e) {
-          return res.text;
+          return body;
         }
         if (data && data.choices && data.choices[0] && data.choices[0].message) return data.choices[0].message.content || "";
         if (typeof data === "string") return data;
         if (data && typeof data.text === "string") return data.text;
         return JSON.stringify(data);
-      })
-      .catch(function (e) {
-        var msg = (e && e.message) || String(e);
-        if (/failed to fetch|network ?error|load failed|err_/i.test(msg)) {
-          throw new Error("no se pudo conectar con " + hostOf(cfg.endpoint) + " (sin red o bloqueado; puede ser el bloqueador de anuncios)");
-        }
-        throw e;
       });
+    }).catch(function (e) {
+      var msg = (e && e.message) || String(e);
+      if (/failed to fetch|network ?error|load failed|err_/i.test(msg)) {
+        throw new Error("no se pudo conectar (revisa la direcci\u00f3n, la conexi\u00f3n o el CORS del proveedor)");
+      }
+      throw e;
+    });
   }
 
   // Proveedor de reserva: gratis y sin clave.
   var FALLBACK = { endpoint: "https://text.pollinations.ai/openai", model: "openai", key: "" };
 
-  // Config con la que se pregunta a cada proveedor: para el elegido se respeta lo que haya guardado el
-  // usuario (direcci\u00f3n, modelo y clave); los de reserva van con los valores de f\u00e1brica y sin clave.
-  function cfgForProvider(key) {
-    if (key === ai.config.provider && ai.config.endpoint) return ai.config;
-    if (key === "pollinations") return { endpoint: FALLBACK.endpoint, model: FALLBACK.model, key: "" };
-    var p = providerByKey(key);
-    return { endpoint: p && p.endpoint, model: p && p.model, key: "" };
-  }
-
-  // Cadena de intentos: primero lo que eligi\u00f3 el usuario y despu\u00e9s, como red, los proveedores que no
-  // piden nada. As\u00ed \u00abAnalizar con IA\u00bb conecta aunque no se haya configurado absolutamente nada.
-  function askChain() {
-    var chain = [];
-    var primary = ai.config.provider;
-    if (primary === "perchance" && BRIDGE_MODE === "off") primary = "pollinations";
-    chain.push(primary);
-    if (BRIDGE_MODE !== "off") chain.push("perchance");
-    chain.push("pollinations");
-    keylessProviders().forEach(function (p) {
-      if (chain.indexOf(p.value) === -1) chain.push(p.value);
-    });
-    return chain.filter(function (key, n) {
-      return key && chain.indexOf(key) === n;
-    });
-  }
-
-  function askProvider(key, messages) {
-    if (key === "perchance") return bridgeAsk(messages);
-    return directAsk(cfgForProvider(key), messages);
-  }
-
-  function chainError(errors) {
-    if (!errors.length) return new Error("no hay ning\u00fan proveedor de IA disponible");
-    return new Error(
-      errors
-        .map(function (e) {
-          return e.who + ": " + e.msg;
-        })
-        .join(" \u00b7 ")
-    );
-  }
-
   ai.request = function (messages) {
     if (typeof window.__r34gAIHook === "function") return Promise.resolve(window.__r34gAIHook(messages));
-    if (ai.warm) ai.warm();
-    var chain = askChain();
-    var errors = [];
-    function attempt(n) {
-      if (n >= chain.length) return Promise.reject(chainError(errors));
-      var key = chain[n];
-      if (n > 0) {
-        util.toast("\u00ab" + providerShort(chain[n - 1]) + "\u00bb no respondi\u00f3; pruebo con \u00ab" + providerShort(key) + "\u00bb\u2026", 2600);
-      }
-      return askProvider(key, messages)
-        .then(function (text) {
-          if (text == null || !String(text).trim()) throw new Error("devolvi\u00f3 una respuesta vac\u00eda");
-          ai.lastProvider = key;
-          return text;
-        })
-        .catch(function (e) {
-          errors.push({ who: providerShort(key), msg: (e && e.message) || String(e) });
-          return attempt(n + 1);
-        });
-    }
-    return attempt(0);
+    var cfg = ai.config;
+    if (cfg.provider === "perchance" && BRIDGE_MODE !== "off") return perchanceAsk(messages);
+    return directAsk(cfg, messages);
   };
 
   R.ai = ai;
@@ -3902,8 +3719,7 @@
   }
 
   function roleOf(tag) {
-    var n = norm(tag.name);
-    if (META_TAGS[n] || META_TAGS[n.replace(/\s+/g, "_")]) return "meta";
+    if (META_TAGS[norm(tag.name)]) return "meta";
     var t = (tag.type || "").toLowerCase();
     if (t === "character") return "character";
     if (t === "copyright") return "copyright";
@@ -3912,12 +3728,8 @@
     return "general";
   }
 
-  // `root` puede ser el documento de la página o cualquier documento/elemento con el panel de
-  // etiquetas dentro (así se puede analizar una copia guardada del post sin abrirla).
-  function parse(root) {
-    root = root || document;
-    var side = root.getElementById ? root.getElementById("tag-sidebar") : null;
-    if (!side) side = root.querySelector ? root.querySelector("#tag-sidebar") : null;
+  function parse() {
+    var side = document.getElementById("tag-sidebar");
     if (!side) return [];
     var out = [];
     var group = "";
@@ -4211,65 +4023,33 @@
   // Prompt para otras apps (esta suite no genera imágenes). Se arma con las etiquetas que
   // quedan activas en el panel, ordenadas por sujeto, escena, serie, artista y medio, y sin
   // repetir ninguna: una etiqueta que describe a varios personajes no sale dos veces.
-  // (El análisis lo ofrece en Local o redactado por la IA, y el usuario lo copia a su app.)
-  // El artista va primero por defecto: es lo que más pesa para clavar el estilo del dibujante.
-  function artistTokens(result) {
-    var seen = {};
-    var out = [];
-    result.artists.forEach(function (a) {
-      var key = norm(a.name);
-      if (!key || seen[key]) return;
-      seen[key] = 1;
-      out.push(String(a.name).replace(/_/g, " ").replace(/\s+/g, " ").trim());
-    });
-    return out;
-  }
-
-  function artistWeight() {
-    var n = parseInt(R.settings.tPromptArtW, 10);
-    if (isNaN(n) || n < 1) n = 1;
-    if (n > 3) n = 3;
-    return n;
-  }
-
   function promptTags(result) {
     var seen = {};
     var out = [];
     function push(name) {
-      if (!name || result.discarded[name]) return false;
+      if (!name || result.discarded[name]) return;
       var key = norm(name);
-      if (!key || seen[key]) return false;
+      if (!key || seen[key]) return;
       seen[key] = 1;
       out.push(String(name).replace(/_/g, " ").replace(/\s+/g, " ").trim());
-      return true;
     }
-    function pushArtists() {
-      var weight = artistWeight();
-      artistTokens(result).forEach(function (name) {
-        if (!push(name)) return;
-        for (var i = 1; i < weight; i++) out.push(name);
-      });
-    }
-    var withArtist = R.settings.tPromptArt !== false;
-    var artistFirst = R.settings.tPromptArtPos !== "last";
-    if (withArtist && artistFirst) pushArtists();
     result.characters.forEach(function (c) {
       push(c.tag);
       c.tags.forEach(push);
     });
-    var buckets = { general: [], copyright: [], meta: [] };
+    var buckets = { general: [], copyright: [], artist: [], meta: [] };
     result.tags
       .slice()
       .sort(function (a, b) {
         return (b.count || 0) - (a.count || 0);
       })
       .forEach(function (t) {
-        if (t.role === "character" || t.role === "artist") return;
+        if (t.role === "character") return;
         (buckets[t.role] || buckets.general).push(t.name);
       });
     buckets.general.forEach(push);
     buckets.copyright.forEach(push);
-    if (withArtist && !artistFirst) pushArtists();
+    if (R.settings.tPromptArt !== false) buckets.artist.forEach(push);
     if (R.settings.tPromptMeta === true) buckets.meta.forEach(push);
     return out;
   }
@@ -4291,23 +4071,19 @@
   function promptNote(result) {
     var n = promptTags(result).length;
     var bits = [n + (n === 1 ? " etiqueta lista" : " etiquetas listas") + ", sin repetidas"];
-    var medio = 0;
+    var out = result.tags.length - n;
+    if (out > 0) bits.push(out + " fuera");
     if (R.settings.tPromptMeta !== true) {
-      medio = result.tags.filter(function (t) {
+      var meta = result.tags.filter(function (t) {
         return t.role === "meta";
       }).length;
+      if (meta) bits.push(meta + " de medio fuera");
     }
-    var fuera = result.tags.length - n - medio;
-    if (fuera > 0) bits.push(fuera + " fuera del resultado");
-    if (medio > 0) bits.push(medio + " de medio fuera");
     return bits.join(" \u00b7 ");
   }
 
   function promptMode(host, result) {
-    var m = host && host.dataset.r34gPromptMode;
-    if (m === "user:ai" && result.aiPrompt) return "ai";
-    if (m === "user:local") return "local";
-    return result.aiPrompt ? "ai" : "local";
+    return host && host.dataset.r34gPromptMode === "ai" && result.aiPrompt ? "ai" : "local";
   }
 
   function paintPrompt(host, result) {
@@ -4325,7 +4101,7 @@
     var box = util.el("div", "r34g-tp-prompt");
     var head = util.el("div", "r34g-tp-prompt-head");
     head.appendChild(util.el("b", null, "Prompt para otra app"));
-    head.appendChild(util.el("span", "r34g-note r34g-prompt-note", promptNote(result)));
+    head.appendChild(util.el("span", "r34g-note", promptNote(result)));
     var row = util.el("span", "r34g-mini-row");
     var modes = [];
     function modeBtn(label, value, title) {
@@ -4334,20 +4110,17 @@
       b.title = title;
       b.dataset.mode = value;
       b.addEventListener("click", function () {
-        host.dataset.r34gPromptMode = "user:" + value;
+        host.dataset.r34gPromptMode = value;
         modes.forEach(function (m) {
           m.el.classList.toggle("r34g-on", m.value === value);
         });
-        if (value === "ai" && !result.aiPrompt) askAiPrompt(result, host);
-        else paintPrompt(host, result);
+        paintPrompt(host, result);
       });
       modes.push({ el: b, value: value });
       return b;
     }
     row.appendChild(modeBtn("Local", "local", "Prompt que arma aqu\u00ed el an\u00e1lisis, sin internet ni claves"));
-    row.appendChild(
-      modeBtn("IA", "ai", "Prompt redactado por la IA a partir de las mismas etiquetas (una consulta; queda guardado por post)")
-    );
+    if (result.aiPrompt) row.appendChild(modeBtn("IA", "ai", "Prompt redactado por la IA a partir de las mismas etiquetas"));
     var copy = util.el("button", "r34g-mini r34g-prompt-copy", "Copiar prompt");
     copy.type = "button";
     copy.title = "Copia el prompt para pegarlo en la app de imagen o de v\u00eddeo que uses";
@@ -4355,19 +4128,6 @@
       util.copy(promptValue(host, result));
     });
     row.appendChild(copy);
-    var posPill = util.el("button", "r34g-prompt-opt");
-    posPill.type = "button";
-    var first = R.settings.tPromptArtPos !== "last";
-    posPill.textContent = first ? "Artista: primero" : "Artista: al final";
-    posPill.title = first
-      ? "El artista abre el prompt, que es donde m\u00e1s pesa para clavar su estilo. Pulsa para mandarlo al final."
-      : "El artista cierra el prompt. Pulsa para ponerlo al principio: lo que va delante pesa m\u00e1s en el estilo.";
-    posPill.classList.toggle("r34g-on", first);
-    posPill.addEventListener("click", function () {
-      R.set("tPromptArtPos", R.settings.tPromptArtPos === "last" ? "first" : "last");
-      renderInto(host, result);
-    });
-    row.appendChild(posPill);
     head.appendChild(row);
     box.appendChild(head);
     var ta = util.el("textarea", "r34g-prompt-out");
@@ -4380,141 +4140,12 @@
     box.appendChild(ta);
     var hint = util.el("p", "r34g-hint");
     hint.textContent =
-      "El prompt sale en ingl\u00e9s (las etiquetas de rule34 ya lo est\u00e1n) y sin repetir ninguna. Con el artista delante, lo primero que lee la app es su estilo; el resto va por sujeto, escena, serie y medio. P\u00e9galo tal cual en tu app de imagen o de v\u00eddeo: esta herramienta no genera im\u00e1genes, solo prepara el texto.";
+      "Etiquetas ordenadas por sujeto, escena, serie, artista y medio, y sin repetir ninguna: p\u00e9galo tal cual en tu app de imagen o de v\u00eddeo. Esta herramienta no genera im\u00e1genes, solo prepara el prompt.";
     box.appendChild(hint);
     modes.forEach(function (m) {
       m.el.classList.toggle("r34g-on", m.value === promptMode(host, result));
     });
     return box;
-  }
-
-  var AI_PROMPT_SYSTEM_TAIL = [
-    "No repitas etiquetas, no juntes sinónimos de lo mismo, no incluyas etiquetas de medio o formato (video, webm, animated, sound, watermark) y no añadas nada que no esté en la lista salvo conectores mínimos.",
-    "Si las etiquetas son de un vídeo, describe un fotograma fijo de la escena.",
-    "Responde solo con el prompt, sin comillas, sin listas y sin explicaciones."
-  ];
-
-  function aiPromptSystem() {
-    var first = R.settings.tPromptArtPos !== "last";
-    var weight = artistWeight();
-    var head = [
-      "Eres un experto en prompts para modelos de generación de imágenes (Stable Diffusion, Flux, Midjourney, NovelAI).",
-      "Recibes las etiquetas de un post de imageboard y devuelves UN SOLO prompt en inglés, en una línea y separado por comas.",
-      first
-        ? "Empieza el prompt con el artista del post (si lo hay): puesto delante es lo que más fija su estilo. Después el sujeto y su apariencia, luego la escena y las acciones, y al final la serie."
-        : "Empieza el prompt con el sujeto y su apariencia, después la escena y las acciones, luego la serie y al final el artista."
-    ];
-    if (weight > 1) head.push("Menciona al artista otra vez al final del prompt como referencia de estilo.");
-    return head.concat(AI_PROMPT_SYSTEM_TAIL).join(" ");
-  }
-
-  function aiPromptMessages(result) {
-    var lines = result.tags
-      .slice()
-      .sort(function (a, b) {
-        return (b.count || 0) - (a.count || 0);
-      })
-      .map(function (t) {
-        return "- " + String(t.name).replace(/_/g, " ") + " [" + t.role + "]";
-      });
-    var chars = result.characters.map(function (c) {
-      return "- " + String(c.tag).replace(/_/g, " ");
-    });
-    return [
-      { role: "system", content: aiPromptSystem() },
-      {
-        role: "user",
-        content: [
-          "Etiquetas del post (nombre [tipo]):",
-          lines.join("\n"),
-          "",
-          "Personajes detectados:",
-          chars.length ? chars.join("\n") : "- (ninguno)",
-          "",
-          "Escribe el prompt en inglés."
-        ].join("\n")
-      }
-    ];
-  }
-
-  function cleanPrompt(text) {
-    return String(text == null ? "" : text)
-      .replace(/```[a-z]*/gi, "")
-      .replace(/^\s*(prompt|prompt en ingl\u00e9s)\s*:\s*/i, "")
-      .replace(/^["'\s]+|["'\s]+$/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
-  function setPromptButtons(host, result, mode) {
-    if (mode) host.dataset.r34gPromptMode = mode;
-    var active = promptMode(host, result);
-    var opts = host.querySelectorAll(".r34g-prompt-opt");
-    Array.prototype.slice.call(opts).forEach(function (b) {
-      b.classList.toggle("r34g-on", b.dataset.mode === active);
-    });
-    paintPrompt(host, result);
-  }
-
-  // Aviso de "la IA est\u00e1 trabajando" con los segundos que lleva: la primera consulta al puente de
-  // Perchance tarda en cargar el iframe, as\u00ed que conviene que se vea que sigue en marcha.
-  function aiStatus(host, label) {
-    var box = util.el("div", "r34g-tp-status");
-    box.appendChild(util.el("span", "r34g-spinner"));
-    var text = util.el("span", null, label);
-    box.appendChild(text);
-    var t0 = Date.now();
-    var timer = setInterval(function () {
-      if (!box.parentNode) {
-        clearInterval(timer);
-        return;
-      }
-      var s = Math.round((Date.now() - t0) / 1000);
-      var wait = s >= 3 ? " " + s + " s" : "";
-      if (s >= 12 && s < 30) wait += " (la primera vez tarda un poco)";
-      text.textContent = label + wait;
-    }, 1000);
-    box.stop = function () {
-      clearInterval(timer);
-    };
-    if (host) host.appendChild(box);
-    return box;
-  }
-
-  function askAiPrompt(result, host) {
-    var key = aiCacheId();
-    var cacheKey = key ? "prompt-v2:" + key : "";
-    var cached = cacheKey ? aiCacheGet(cacheKey) : null;
-    if (cached && cached.text) {
-      result.aiPrompt = cached.text;
-      setPromptButtons(host, result, "user:ai");
-      util.toast("Prompt de la IA recuperado de la cach\u00e9 de este post");
-      return;
-    }
-    var box = host.querySelector(".r34g-tp-prompt");
-    var status = aiStatus(box, "La IA est\u00e1 redactando el prompt\u2026");
-    ai.request(aiPromptMessages(result)).then(
-      function (text) {
-        status.stop();
-        status.remove();
-        var clean = cleanPrompt(text);
-        if (!clean) {
-          util.toast("La IA no devolvi\u00f3 ning\u00fan prompt");
-          setPromptButtons(host, result, "user:local");
-          return;
-        }
-        result.aiPrompt = clean;
-        if (cacheKey) aiCachePut(cacheKey, { text: clean });
-        setPromptButtons(host, result, "user:ai");
-        util.toast("Prompt de la IA listo");
-      },
-      function (err) {
-        status.stop();
-        status.remove();
-        util.toast("La IA fall\u00f3: " + (err && err.message ? err.message : err), 4000);
-        setPromptButtons(host, result, "user:local");
-      }
-    );
   }
 
   function chip(result, tagName, opts) {
@@ -4593,8 +4224,6 @@
     var ta = host.querySelector(".r34g-tp-output");
     if (ta) ta.value = result.output;
     paintPrompt(host, result);
-    var pnote = host.querySelector(".r34g-prompt-note");
-    if (pnote) pnote.textContent = promptNote(result);
     var counter = host.querySelector(".r34g-tp-count");
     if (counter) {
       counter.textContent =
@@ -4624,6 +4253,9 @@
   function renderInto(host, result) {
     host.innerHTML = "";
     host.dataset.r34gResult = "1";
+    if (!host.dataset.r34gPromptMode || (host.dataset.r34gPromptMode === "ai" && !result.aiPrompt)) {
+      host.dataset.r34gPromptMode = result.aiPrompt ? "ai" : "local";
+    }
 
     if (!result.tags.length) {
       host.appendChild(util.el("p", "r34g-hint", "No se encontraron etiquetas en este post."));
@@ -4968,10 +4600,12 @@
       util.toast("IA: usando el an\u00e1lisis ya guardado de este post");
       return;
     }
-    var status = aiStatus(host, "Consultando a la IA\u2026");
+    var status = util.el("div", "r34g-tp-status");
+    status.appendChild(util.el("span", "r34g-spinner"));
+    status.appendChild(util.el("span", null, "Consultando a la IA\u2026"));
+    host.appendChild(status);
     ai.request(aiMessages(result)).then(
       function (text) {
-        status.stop();
         status.remove();
         var data = extractJSON(text);
         if (!data) {
@@ -4984,7 +4618,6 @@
         util.toast("An\u00e1lisis de IA aplicado");
       },
       function (err) {
-        status.stop();
         status.remove();
         util.toast("La IA fall\u00f3: " + (err && err.message ? err.message : err), 4000);
       }
@@ -4997,20 +4630,6 @@
     panel.hidden = false;
     document.documentElement.classList.add("r34g-tags-open");
     if (aiWanted) run(null, { ai: true });
-  }
-
-  // El bloque se pone encima del vídeo o de la imagen del post (arriba del todo de la columna del
-  // medio), que es lo primero que se mira: así no hay que bajar a buscarlo cuando el vídeo ocupa
-  // toda la pantalla. En una lista de búsqueda no hay medio y se usa la barra de encima de la
-  // cuadrícula.
-  function postMediaAnchor() {
-    var view = document.getElementById("post-view");
-    if (!view) return null;
-    return (
-      view.querySelector("#gelcomVideoContainer, .image-container") ||
-      view.querySelector("#image") ||
-      view.querySelector("video, img[src*='wimg']")
-    );
   }
 
   function buildPagePanel() {
@@ -5044,9 +4663,8 @@
     });
     var aiBtn = util.el("button", "r34g-mini", "Analizar con IA");
     aiBtn.type = "button";
-    aiBtn.title = "Manda las etiquetas a la IA (gratis y sin configurar nada) y afina el reparto y el prompt";
+    aiBtn.title = "Env\u00eda las etiquetas a la IA configurada en Ajustes \u2192 Etiquetas";
     aiBtn.addEventListener("click", function () {
-      if (ai.warm) ai.warm();
       show(true, true);
     });
     bar.appendChild(toggle);
@@ -5055,17 +4673,13 @@
     host.appendChild(bar);
     host.appendChild(body);
 
-    var anchor = postMediaAnchor() || document.querySelector("#post-view .image-sublinks") || document.querySelector("#post-view h4");
+    var anchor = document.querySelector("#post-view .image-sublinks") || document.querySelector("#post-view h4");
     if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(host, anchor);
     else document.getElementById("content").appendChild(host);
     if (R.settings.tAuto) setTimeout(function () {
       // con la cach\u00e9 por post, repetir un post no gasta peticiones: solo los nuevos
-      show(R.settings.tEngine === "ai" && !!R.settings.tAutoAI);
+      show(!!R.settings.tAutoAI);
     }, 600);
-    // si el an\u00e1lisis autom\u00e1tico va a usar la IA, se deja cargando ya el puente de Perchance
-    if (ai.warm && R.settings.tEngine === "ai" && R.settings.tAutoAI) setTimeout(function () {
-      ai.warm();
-    }, 1200);
     return host;
   }
 
@@ -5105,7 +4719,7 @@
     var promptSec = ui.section(
       panel,
       "Prompt para otras apps",
-      "El an\u00e1lisis prepara tambi\u00e9n un prompt en ingl\u00e9s listo para pegar en cualquier app de imagen o de v\u00eddeo, tanto desde una imagen como desde un v\u00eddeo: se arma con las etiquetas que quedan activas (las tachadas no entran) y sin repetir ninguna. El artista abre el prompt (es lo que m\u00e1s fija su estilo) y detr\u00e1s van el sujeto y su apariencia, la escena, la serie y el medio. Esta herramienta no genera im\u00e1genes: solo te da el texto."
+      "El an\u00e1lisis prepara tambi\u00e9n un prompt listo para pegar en cualquier app de imagen o de v\u00eddeo, tanto desde una imagen como desde un v\u00eddeo: se arma con las etiquetas que quedan activas (las tachadas no entran), ordenadas por sujeto, escena, serie, artista y medio, y sin repetir ninguna. Esta herramienta no genera im\u00e1genes: solo te da el texto."
     );
     ui.seg({
       section: promptSec,
@@ -5121,27 +4735,7 @@
       section: promptSec,
       key: "tPromptArt",
       title: "Incluir al artista",
-      note: "Es lo que fija el estilo, as\u00ed que va dentro por defecto. Qu\u00edtalo solo si quieres el personaje o la escena con otro estilo."
-    });
-    ui.seg({
-      section: promptSec,
-      key: "tPromptArtPos",
-      title: "D\u00f3nde va el artista",
-      note: "Lo que va delante pesa m\u00e1s, as\u00ed que \u00abprincipio\u00bb clava mejor su estilo; \u00abfinal\u00bb lo deja como coletilla de estilo. Tambi\u00e9n se cambia con el bot\u00f3n del propio recuadro.",
-      options: [
-        { label: "Al principio", value: "first" },
-        { label: "Al final", value: "last" }
-      ]
-    });
-    ui.seg({
-      section: promptSec,
-      key: "tPromptArtW",
-      title: "Peso del artista",
-      note: "\u00abDoble\u00bb escribe su nombre dos veces seguidas (y el bot\u00f3n IA lo repite al final): sirve para reforzar el estilo en apps que no usan pesos entre par\u00e9ntesis.",
-      options: [
-        { label: "Normal", value: "1" },
-        { label: "Doble", value: "2" }
-      ]
+      note: "Va al final del prompt, como referencia de estilo."
     });
     ui.toggle({
       section: promptSec,
@@ -5153,7 +4747,7 @@
       section: promptSec,
       title: "Principio del prompt",
       note: "Opcional. Por ejemplo tus etiquetas de calidad.",
-      placeholder: "masterpiece, best quality",
+      placeholder: "masterpiece, best quality, absurdres",
       get: function () {
         return R.settings.tPromptPre;
       },
@@ -5179,13 +4773,12 @@
     var engine = ui.section(
       panel,
       "Motor de IA",
-      "El an\u00e1lisis base es local y no necesita internet. La IA es opcional: sirve para repartir mejor las etiquetas entre personajes y para redactar el prompt. De f\u00e1brica usa \u00abIA de Perchance\u00bb, que es gratis y no pide clave ni registro: si ese falla, se prueba solo con \u00abPollinations\u00bb. Si ninguno responde, el an\u00e1lisis local sigue funcionando igual."
+      "La clasificaci\u00f3n base es local y no necesita internet. La IA es opcional y sirve para repartir mejor las etiquetas entre personajes. Si el proveedor te deja sin cuota, el an\u00e1lisis local sigue funcionando igual."
     );
     ui.seg({
       section: engine,
       key: "tEngine",
       title: "Modo",
-      note: "El bot\u00f3n \u00abAnalizar con IA\u00bb funciona siempre. Este interruptor solo decide si el an\u00e1lisis autom\u00e1tico (el de abajo) puede usar la IA.",
       options: [
         { label: "Solo local", value: "local" },
         { label: "IA externa", value: "ai" }
@@ -5194,7 +4787,7 @@
     ui.select({
       section: engine,
       title: "Proveedor",
-      note: "Los dos primeros son gratis y no piden nada: \u00abIA de Perchance\u00bb usa este generador como puente (va bien desde rule34.xxx) y \u00abPollinations\u00bb es un servicio p\u00fablico con cola. Los dem\u00e1s s\u00ed necesitan que pegues su clave abajo. Si el elegido falla, \u00abAnalizar con IA\u00bb prueba solo con los gratuitos.",
+      note: "Rellena la direcci\u00f3n y el modelo de golpe. Groq, Gemini y OpenRouter tienen nivel gratuito: pide la clave gratis en su web y p\u00e9gala abajo. Pollinations no pide clave pero tiene cola y devuelve l\u00edmites.",
       options: AI_PROVIDERS.map(function (p) {
         return { label: p.label, value: p.value };
       }),
@@ -5227,7 +4820,7 @@
     ui.text({
       section: engine,
       title: "Direcci\u00f3n del servicio",
-      note: "Solo se usa con los proveedores de direcci\u00f3n propia (Groq, Gemini, OpenRouter\u2026). Con \u00abIA de Perchance\u00bb y \u00abPollinations\u00bb se ignora.",
+      note: "Cualquier API compatible con OpenAI (chat/completions).",
       placeholder: "https://text.pollinations.ai/openai",
       mono: true,
       get: function () {
@@ -5269,15 +4862,13 @@
     ui.textarea({
       section: engine,
       title: "Instrucci\u00f3n para la IA",
-      note: "D\u00e9jalo vac\u00edo para usar la instrucci\u00f3n recomendada (pide characters/shared/discard y un prompt en ingl\u00e9s). Si escribes la tuya, se respeta aunque la de f\u00e1brica cambie.",
+      note: "D\u00e9jalo vac\u00edo para usar la instrucci\u00f3n recomendada. Debe pedir un JSON con characters/shared/discard y un prompt en ingl\u00e9s.",
       rows: 6,
       get: function () {
         return ai.config.instruction === AI_DEFAULT_INSTRUCTION ? "" : ai.config.instruction;
       },
       set: function (v) {
-        var custom = v.trim();
-        ai.config.instruction = custom || AI_DEFAULT_INSTRUCTION;
-        ai.config.customInstruction = !!custom;
+        ai.config.instruction = v.trim() || AI_DEFAULT_INSTRUCTION;
         ai.save();
       },
       event: "change",
@@ -5285,14 +4876,13 @@
         {
           label: "Probar conexi\u00f3n",
           onClick: function () {
-            util.toast("Probando\u2026 si el proveedor elegido falla, se prueba con los gratuitos", 2200);
+            util.toast("Probando\u2026", 1200);
             ai.request([{ role: "user", content: "Responde solo con la palabra OK" }]).then(
               function (t) {
-                var via = ai.lastProvider ? " con " + providerShort(ai.lastProvider) : "";
-                util.toast("Conectado" + via + ": " + String(t).replace(/\s+/g, " ").slice(0, 60), 5000);
+                util.toast("Respuesta: " + String(t).slice(0, 60));
               },
               function (e) {
-                util.toast("No conect\u00f3 ning\u00fan proveedor. " + (e && e.message ? e.message : e), 8000);
+                util.toast("Error: " + (e && e.message ? e.message : e), 4000);
               }
             );
           }
@@ -5435,8 +5025,6 @@
     promptTags: promptTags,
     promptText: promptText,
     promptBox: promptBox,
-    aiPrompt: askAiPrompt,
-    artistTokens: artistTokens,
     tagIndex: function (result) {
       return result;
     }
@@ -9011,30 +8599,6 @@
   var ui = R.ui;
 
   var NOTES = [
-    ["0.8.7", [
-      "\u00abAnalizar con IA\u00bb ya conecta sin configurar nada. De f\u00e1brica usa el puente gratuito de Perchance: el script abre este generador en un iframe oculto y le pide el texto, as\u00ed que no hay que pegar ninguna clave ni registrarse en ning\u00fan sitio. Si el puente no responde, se prueba solo con Pollinations y, si tampoco, el aviso cuenta qu\u00e9 ha fallado en cada uno.",
-      "En rule34.xxx las consultas salen por GM_xmlhttpRequest, que va por el gestor de userscripts y se salta el CORS del sitio (si el gestor no lo ofrece, se usa fetch igual que antes). Eso arregla el \u00abno se pudo conectar\u00bb de los proveedores externos.",
-      "Cadena de reserva: si el proveedor elegido falla (clave agotada, sin red, bloqueado por el bloqueador), se prueba autom\u00e1ticamente con los gratuitos y se avisa por el aviso emergente; el error final ya no es un \u00abno conecta\u00bb gen\u00e9rico, dice el proveedor, el estado HTTP y el detalle.",
-      "El proveedor por defecto pasa a ser el gratuito y sin clave, y los navegadores que ya ten\u00edan la configuraci\u00f3n antigua se actualizan solos (incluida la instrucci\u00f3n de IA, que ahora s\u00ed pide el prompt).",
-      "La primera consulta al puente tarda un poco (carga la p\u00e1gina del generador); despu\u00e9s va r\u00e1pido. El aviso del an\u00e1lisis ahora cuenta los segundos que lleva, y el puente se deja cargando antes de que lo necesites.",
-      "El \u00abModo\u00bb (Solo local / IA externa) ya hace algo: decide si el an\u00e1lisis autom\u00e1tico puede usar la IA. El bot\u00f3n \u00abAnalizar con IA\u00bb funciona siempre."
-    ]],
-    ["0.8.6", [
-      "El bloque \u00abEtiquetas por personaje\u00bb se coloca ahora justo encima del v\u00eddeo (o de la imagen) del post, en su misma columna. Antes ca\u00eda debajo del medio, entre el v\u00eddeo y los enlaces de Editar/Responder, as\u00ed que en un post de v\u00eddeo hab\u00eda que bajar para encontrarlo; ahora es lo primero que se ve, tambi\u00e9n en los posts que son v\u00eddeo.",
-      "Al desplegarlo, el v\u00eddeo baja y el bloque se queda arriba (no se solapan): la barra se lee antes de darle al play y el an\u00e1lisis no tapa nada.",
-      "Si la p\u00e1gina no trae ni v\u00eddeo ni imagen (un listado, por ejemplo) se mantiene como estaba: el bloque vuelve al sitio de siempre o a la barra \u00abAn\u00e1lisis de etiquetas\u00bb encima de la cuadr\u00edcula."
-    ]],
-    ["0.8.5", [
-      "El prompt ahora abre con el artista. Puesto delante es donde m\u00e1s pesa, as\u00ed que la imagen sale mucho m\u00e1s fiel al estilo del dibujante del post; detr\u00e1s van el sujeto y su apariencia, la escena, la serie y el medio. Se cambia con un bot\u00f3n nuevo en el propio recuadro (\u00abArtista: primero / al final\u00bb) y en Ajustes \u2192 Etiquetas \u2192 Prompt para otras apps.",
-      "Opci\u00f3n de peso: con \u00abDoble\u00bb el nombre del artista se escribe dos veces seguidas (y en el modo IA se repite al final como referencia de estilo), que es la forma de reforzarlo en las apps que no entienden pesos entre par\u00e9ntesis.",
-      "El texto de la secci\u00f3n y las instrucciones de la IA se han reescrito para dejar claro que el artista manda: el prompt de la IA tambi\u00e9n empieza por \u00e9l. Los prompts de IA ya guardados se vuelven a pedir (la cach\u00e9 cambia de clave) para no mezclar los dos estilos."
-    ]],
-    ["0.8.4", [
-      "El an\u00e1lisis de etiquetas ahora saca tambi\u00e9n un prompt en ingl\u00e9s listo para pegar en cualquier app de imagen o de v\u00eddeo (Stable Diffusion, Flux, NovelAI, Midjourney\u2026). Sale en su propio recuadro al final del an\u00e1lisis, con sus botones Local e IA, un bot\u00f3n Copiar prompt en la cabecera del panel y otro en el propio recuadro. Esta herramienta no genera im\u00e1genes: solo te deja el texto listo.",
-      "El prompt se arma con las mismas etiquetas que ves en el panel, as\u00ed que sale sin repetidas (una etiqueta que describe a varios personajes no se escribe dos veces) y sin las tachadas, y en orden de sujeto y apariencia, escena, serie, artista y medio. Se puede retocar a mano ah\u00ed mismo antes de copiarlo.",
-      "Al final del recuadro tienes Local (el prompt que arma el an\u00e1lisis, sin internet ni claves) e IA (el que redacta el motor de IA, que ahora tambi\u00e9n devuelve un prompt en ingl\u00e9s en la misma consulta, sin gastar una petici\u00f3n m\u00e1s).",
-      "En Ajustes \u2192 Etiquetas hay una secci\u00f3n nueva, \u00abPrompt para otras apps\u00bb: formato con comas o con espacios (estilo danbooru), incluir al artista, incluir el medio y los metadatos (video, webm, sound\u2026, fuera por defecto) y un principio y un final opcionales para tus etiquetas de calidad."
-    ]],
     ["0.8.3", [
       "El analizador de etiquetas sale de Ajustes y se pone en la propia p\u00e1gina: en las p\u00e1ginas de lista aparece una barra \u00abAn\u00e1lisis de etiquetas\u00bb justo encima de la barra de miniaturas, con los botones Analizar y Analizar con IA, y los resultados se despliegan ah\u00ed mismo (la barra se titula y se abre/cierra al pulsarla). Ya no hay que entrar en Ajustes para lanzar un an\u00e1lisis.",
       "En un post, el bloque \u00abEtiquetas por personaje\u00bb ya estaba en la p\u00e1gina, pero quedaba escondido del todo si ten\u00edas apagado el an\u00e1lisis autom\u00e1tico: ahora se ve su barra de botones igualmente (los resultados siguen ocultos hasta que pulsas Analizar).",
