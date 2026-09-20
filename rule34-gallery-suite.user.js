@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.9
+// @version      0.8.10
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA opcional) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -4149,7 +4149,7 @@
     box.appendChild(ta);
     var hint = util.el("p", "r34g-hint");
     hint.textContent =
-      "Etiquetas ordenadas por sujeto, escena, serie, artista y medio, y sin repetir ninguna: p\u00e9galo tal cual en tu app de imagen o de v\u00eddeo. Esta herramienta no genera im\u00e1genes, solo prepara el prompt.";
+      "El prompt sale en ingl\u00e9s (las etiquetas de rule34 ya lo est\u00e1n), ordenado por sujeto, escena, serie, artista y medio y sin repetir ninguna: p\u00e9galo tal cual en tu app de imagen o de v\u00eddeo. Esta herramienta no genera im\u00e1genes, solo prepara el texto.";
     box.appendChild(hint);
     modes.forEach(function (m) {
       m.el.classList.toggle("r34g-on", m.value === promptMode(host, result));
@@ -4819,7 +4819,7 @@
     var promptSec = ui.section(
       panel,
       "Prompt para otras apps",
-      "El an\u00e1lisis prepara tambi\u00e9n un prompt listo para pegar en cualquier app de imagen o de v\u00eddeo, tanto desde una imagen como desde un v\u00eddeo: se arma con las etiquetas que quedan activas (las tachadas no entran), ordenadas por sujeto, escena, serie, artista y medio, y sin repetir ninguna. Esta herramienta no genera im\u00e1genes: solo te da el texto."
+      "El an\u00e1lisis prepara tambi\u00e9n un prompt en ingl\u00e9s listo para pegar en cualquier app de imagen o de v\u00eddeo, tanto desde una imagen como desde un v\u00eddeo: se arma con las etiquetas que quedan activas (las tachadas no entran), ordenadas por sujeto, escena, serie, artista y medio, y sin repetir ninguna. Esta herramienta no genera im\u00e1genes: solo te da el texto."
     );
     ui.seg({
       section: promptSec,
@@ -8701,7 +8701,7 @@
 
   var NOTES = [
     ["0.8.4", [
-      "El an\u00e1lisis de etiquetas ahora saca tambi\u00e9n un prompt listo para pegar en cualquier app de imagen o de v\u00eddeo (Stable Diffusion, Flux, NovelAI, Midjourney\u2026). Sale en su propio recuadro al final del an\u00e1lisis, con sus botones Local e IA, un bot\u00f3n Copiar prompt en la cabecera del panel y otro en el propio recuadro. Esta herramienta no genera im\u00e1genes: solo te deja el texto listo.",
+      "El an\u00e1lisis de etiquetas ahora saca tambi\u00e9n un prompt en ingl\u00e9s listo para pegar en cualquier app de imagen o de v\u00eddeo (Stable Diffusion, Flux, NovelAI, Midjourney\u2026). Sale en su propio recuadro al final del an\u00e1lisis, con sus botones Local e IA, un bot\u00f3n Copiar prompt en la cabecera del panel y otro en el propio recuadro. Esta herramienta no genera im\u00e1genes: solo te deja el texto listo.",
       "El prompt se arma con las mismas etiquetas que ves en el panel, as\u00ed que sale sin repetidas (una etiqueta que describe a varios personajes no se escribe dos veces) y sin las tachadas, y en orden de sujeto y apariencia, escena, serie, artista y medio. Se puede retocar a mano ah\u00ed mismo antes de copiarlo.",
       "Al final del recuadro tienes Local (el prompt que arma el an\u00e1lisis, sin internet ni claves) e IA (el que redacta el motor de IA, que ahora tambi\u00e9n devuelve un prompt en ingl\u00e9s en la misma consulta, sin gastar una petici\u00f3n m\u00e1s).",
       "En Ajustes \u2192 Etiquetas hay una secci\u00f3n nueva, \u00abPrompt para otras apps\u00bb: formato con comas o con espacios (estilo danbooru), incluir al artista, incluir el medio y los metadatos (video, webm, sound\u2026, fuera por defecto) y un principio y un final opcionales para tus etiquetas de calidad."
