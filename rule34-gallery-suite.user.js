@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Rule34 Gallery Suite
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
-// @version      0.8.15
+// @version      0.8.16
 // @description  Reconstruye rule34.xxx para PC: galeria escalable (tu eliges el tamano de miniatura) con icono de "ya visto", descarga de originales con nombre y carpeta propios (cola que se puede continuar y reintentar tras recargar), seleccion manual de posts (con lista de lo marcado) y lotes de una busqueda entera en un solo .zip, seccion de videos con barra de controles propia, analizador de etiquetas por personaje (con IA opcional) que ademas prepara un prompt listo para pegar en cualquier app de imagen o video, aviso si hay otro descargador en conflicto, y panel "Mejoras" con todas las opciones del ensamblador, en espanol.
 // @author       rule34-gallery-suite
 // @homepageURL  https://github.com/erotia2024-netizen/Userscript-maker
@@ -3366,8 +3366,9 @@
     '{"characters":[{"tag":"tag_del_personaje","tags":["..."]}],"shared":["..."],"discard":[{"tag":"...","kept":"..."}],"prompt":"prompt en inglés separado por comas","notas":"..."}'
   ].join(" ");
 
-  // Cualquier endpoint compatible con OpenAI sirve. Los tres primeros tienen nivel gratuito
-  // (con clave gratuita) y suelen ir mejor que la cola p\u00fablica de Pollinations.
+  // Cualquier endpoint compatible con OpenAI sirve. Los dos primeros son gratis y no piden nada:
+  // el puente de Perchance (usa este generador de relevo) y Pollinations; los dem\u00e1s, si acaso, con
+  // su clave gratuita.
   // El compilador sustituye "on" por "on" u "off" según el panel Proyecto.
   var BRIDGE_MODE = "on";
 
@@ -3450,18 +3451,46 @@
     })[0];
   }
 
+  // Versi\u00f3n del bloque de IA guardado en el navegador: al subirla se aplican las mejoras de golpe
+  // (la instrucci\u00f3n nueva, el motor gratuito por defecto) sin que el usuario toque nada.
+  var AI_VERSION = 2;
+
+  // Gratis y sin configurar nada: el puente de Perchance si la copia lo lleva; si no, Pollinations.
+  function freeDefault() {
+    return BRIDGE_MODE !== "off" ? "perchance" : "pollinations";
+  }
+
+  // La instrucci\u00f3n guardada puede ser una versi\u00f3n vieja de la de por defecto (por ejemplo, la que
+  // todav\u00eda no ped\u00eda el prompt). Si el usuario no la edit\u00f3, se cambia por la actual.
+  function legacyInstruction(text) {
+    return !text || String(text).indexOf('"prompt"') === -1;
+  }
+
   function loadAI() {
     var stored = null;
     try {
       stored = JSON.parse(localStorage.getItem(AI_KEY) || "null");
     } catch (e) {}
     var cfg = stored && typeof stored === "object" ? stored : {};
+    var migrated = false;
+    if ((Number(cfg.v) || 0) < AI_VERSION) {
+      if (!cfg.customInstruction && legacyInstruction(cfg.instruction)) cfg.instruction = AI_DEFAULT_INSTRUCTION;
+      if (cfg.provider === "pollinations" && !cfg.key && BRIDGE_MODE !== "off") cfg.provider = "perchance";
+      cfg.v = AI_VERSION;
+      migrated = true;
+    }
     cfg.endpoint = cfg.endpoint || R.settings.tEndpoint || "https://text.pollinations.ai/openai";
     cfg.model = cfg.model || "openai";
     cfg.key = cfg.key || "";
     cfg.instruction = cfg.instruction || AI_DEFAULT_INSTRUCTION;
-    cfg.provider = cfg.provider || providerOf(cfg.endpoint);
+    cfg.provider = cfg.provider || freeDefault();
     cfg.bridge = cfg.bridge || R.settings.tBridge || "";
+    cfg.v = AI_VERSION;
+    if (migrated) {
+      try {
+        localStorage.setItem(AI_KEY, JSON.stringify(cfg));
+      } catch (e) {}
+    }
     return cfg;
   }
 
