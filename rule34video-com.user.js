@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.68
+// @version      0.1.69
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -18,7 +18,7 @@
 
 (function () {
   "use strict";
-  var css = "/* ---------------------------------------------------------------------------------------------\n   rule34video.com — limpieza de la página.\n   El CSS del sitio se carga después que este, así que todo va con !important: estas reglas tienen\n   que ganar sí o sí.\n   --------------------------------------------------------------------------------------------- */\n\n/* 1) Botones de promoción del header: «AI Jerk Off» (enlace de afiliado) y «ThePornDude».\n      Se ocultan aquí para que no parpadeen, y core.js además los quita del DOM y vigila que no\n      vuelvan (la web repinta el header con su propio JS). */\n.panel_header.panel_header--promo,\na.button_fav.ai,\na.button_fav.theporndude {\n  display: none !important;\n}\n\n/* 2) La banda de aviso de rule34gen, la que sale pegada debajo del header («Due to the massive\n      influx of AI generated video's…»). Se esconde el enlace y sus dos contenedores, y también el\n      `.headline` que solo la envuelve a ella: si no, se quedaría su margen inferior como hueco. */\na.emger,\n#top-header,\n#emergency-response-opt,\n.headline:has(> a.emger) {\n  display: none !important;\n}\n\n/* 3) El hueco entre la paginación («Jump to … OK») y el logo del pie.\n      Entre esas dos cosas no hay más que la banda de anuncios del pie (.footer_spots), y esa banda\n      reserva 250 px de alto por cada hueco de anuncio aunque no haya anuncio que cargar\n      (.columns_spots .spots { min-height:250px } en el CSS de la web): eso es el vacío que se ve.\n      Se le quitan el alto mínimo y los márgenes, así mide exactamente lo que mida el anuncio que\n      cargue — y cero si no hay ninguno. Además el pie arranca un poco más arriba. */\n.footer_spots {\n  margin-top: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_spots .columns_spots,\n.footer_spots .spots {\n  min-height: 0 !important;\n  margin: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_holder {\n  padding-top: 16px !important;\n}\n\n/* 4) Los botones de afiliado de la columna lateral (los de happyleafmotion) traen su animación en el\n      propio `style=\"\"` del enlace: un gradiente de fondo que se mueve en bucle (`gradientShift 8s` y\n      `r34flow 10s`). Un `background-position` animado no se puede componer en la GPU: el navegador\n      **repinta ese botón en cada frame, para siempre** mientras la pestaña esté abierta. Aquí solo se\n      le para la animación al botón (el `!important` gana al `style=\"\"` del propio enlace): se sigue\n      viendo y se puede pinchar igual —no se toca nada de lo que paga la web— pero deja de gastar CPU.\n      Medido con la pestaña quieta: eran las dos únicas animaciones infinitas que quedaban en la\n      página además del spinner de «cargando» del reproductor. */\na.button_fav.sidebar_ad {\n  animation: none !important;\n}\n\n/* 5) La ficha de anuncio de la rejilla, ya en el pie. La traslada core.js (ver `localStorage\n      [\"r34gv.ads\"]`): en vez de ir entre los vídeos haciéndose pasar por uno, va a la fila de anuncios\n      del propio pie (`.footer_spots .columns_spots`, donde la web tiene sus zonas y el hueco de\n      JuicyAds), al lado de ellos —o, si la página no trae esa fila, al hueco entre la paginación\n      («Jump to … OK») y el pie—. Aquí solo se le da sitio —centrada y del ancho de una ficha— y se le\n      quitan los adornos de vídeo: la duración («23:40»), el icono HD, el de play y la fila de\n      nota/vistas, que son relleno de la plantilla. El cartel «AD» se queda: el anuncio tiene que\n      poder distinguirse de lo demás. */\n.r34gv-footer-ad {\n  clear: both !important;\n  width: 336px !important;\n  max-width: 92% !important;\n  margin: 22px auto 4px !important;\n}\n\n.r34gv-footer-ad .item.thumb {\n  float: none !important;\n  width: 100% !important;\n  height: auto !important;\n  margin: 0 !important;\n}\n\n.r34gv-footer-ad .time,\n.r34gv-footer-ad .quality,\n.r34gv-footer-ad .custom-play,\n.r34gv-footer-ad .thumb_info {\n  display: none !important;\n}\n\n/* 6) La banda de anuncio que estaba debajo del reproductor, ya al final del contenido (la traslada\n      core.js). La web la hace de todo el ancho (1250 px) con el anuncio de 300×250 centrado dentro:\n      al final de la página esa banda ancha y casi vacía se ve mal, así que aquí se encoge a lo que\n      mide el anuncio y se centra — deja de parecer una fila vacía y es un hueco de anuncio, y punto.\n      No se cambia ni el tamaño ni el contenido del anuncio: solo el hueco que lo envuelve. */\n.spot_under[data-r34gv-under] {\n  width: -moz-fit-content !important;\n  width: fit-content !important;\n  min-height: 0 !important;\n  margin: 18px auto 6px !important;\n  padding: 0 !important;\n}\n\n/* 7) El aviso de «sigues en …», que pone player.js al reanudar un vídeo a medias. Va dentro de\n      `.kt-player` (igual que el indicador de ±10 s de kt_seek.js, que usa z-index 50), en la esquina\n      inferior izquierda del vídeo, y se va solo. Nada de esto existe si nunca se reanuda nada. */\n.r34gv-resume {\n  position: absolute !important;\n  left: 14px !important;\n  bottom: 64px !important;\n  z-index: 51 !important;\n  max-width: 78% !important;\n  padding: 8px 14px !important;\n  border: 1px solid rgba(255, 255, 255, 0.22) !important;\n  border-radius: 999px !important;\n  background: rgba(16, 16, 16, 0.82) !important;\n  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45) !important;\n  color: #fff !important;\n  font-family: Roboto, Arial, Helvetica, sans-serif !important;\n  font-size: 12.5px !important;\n  font-weight: 600 !important;\n  line-height: 1.2 !important;\n  letter-spacing: 0.2px !important;\n  pointer-events: none !important;\n  opacity: 1 !important;\n  transition: opacity 0.5s ease !important;\n}\n\n.r34gv-resume--out {\n  opacity: 0 !important;\n}\n";
+  var css = "/* ---------------------------------------------------------------------------------------------\n   rule34video.com — limpieza de la página.\n   El CSS del sitio se carga después que este, así que todo va con !important: estas reglas tienen\n   que ganar sí o sí.\n   --------------------------------------------------------------------------------------------- */\n\n/* 1) Botones de promoción del header: «AI Jerk Off» (enlace de afiliado) y «ThePornDude».\n      Se ocultan aquí para que no parpadeen, y core.js además los quita del DOM y vigila que no\n      vuelvan (la web repinta el header con su propio JS). */\n.panel_header.panel_header--promo,\na.button_fav.ai,\na.button_fav.theporndude {\n  display: none !important;\n}\n\n/* 2) La banda de aviso de rule34gen, la que sale pegada debajo del header («Due to the massive\n      influx of AI generated video's…»). Se esconde el enlace y sus dos contenedores, y también el\n      `.headline` que solo la envuelve a ella: si no, se quedaría su margen inferior como hueco. */\na.emger,\n#top-header,\n#emergency-response-opt,\n.headline:has(> a.emger) {\n  display: none !important;\n}\n\n/* 3) El hueco entre la paginación («Jump to … OK») y el logo del pie.\n      Entre esas dos cosas no hay más que la banda de anuncios del pie (.footer_spots), y esa banda\n      reserva 250 px de alto por cada hueco de anuncio aunque no haya anuncio que cargar\n      (.columns_spots .spots { min-height:250px } en el CSS de la web): eso es el vacío que se ve.\n      Se le quitan el alto mínimo y los márgenes, así mide exactamente lo que mida el anuncio que\n      cargue — y cero si no hay ninguno. Además el pie arranca un poco más arriba. */\n.footer_spots {\n  margin-top: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_spots .columns_spots,\n.footer_spots .spots {\n  min-height: 0 !important;\n  margin: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_holder {\n  padding-top: 16px !important;\n}\n\n/* 4) Los botones de afiliado de la columna lateral (los de happyleafmotion) traen su animación en el\n      propio `style=\"\"` del enlace: un gradiente de fondo que se mueve en bucle (`gradientShift 8s` y\n      `r34flow 10s`). Un `background-position` animado no se puede componer en la GPU: el navegador\n      **repinta ese botón en cada frame, para siempre** mientras la pestaña esté abierta. Aquí solo se\n      le para la animación al botón (el `!important` gana al `style=\"\"` del propio enlace): se sigue\n      viendo y se puede pinchar igual —no se toca nada de lo que paga la web— pero deja de gastar CPU.\n      Medido con la pestaña quieta: eran las dos únicas animaciones infinitas que quedaban en la\n      página además del spinner de «cargando» del reproductor. */\na.button_fav.sidebar_ad {\n  animation: none !important;\n}\n\n/* 5) La ficha de anuncio de la rejilla, ya en el pie. La traslada core.js (ver `localStorage\n      [\"r34gv.ads\"]`): en vez de ir entre los vídeos haciéndose pasar por uno, va a la fila de anuncios\n      del propio pie (`.footer_spots .columns_spots`, donde la web tiene sus zonas y el hueco de\n      JuicyAds), al lado de ellos —o, si la página no trae esa fila, al hueco entre la paginación\n      («Jump to … OK») y el pie—. Aquí solo se le da sitio —centrada y del ancho de una ficha— y se le\n      quitan los adornos de vídeo: la duración («23:40»), el icono HD, el de play y la fila de\n      nota/vistas, que son relleno de la plantilla. El cartel «AD» se queda: el anuncio tiene que\n      poder distinguirse de lo demás. */\n.r34gv-footer-ad {\n  clear: both !important;\n  width: 336px !important;\n  max-width: 92% !important;\n  margin: 22px auto 4px !important;\n}\n\n.r34gv-footer-ad .item.thumb {\n  float: none !important;\n  width: 100% !important;\n  height: auto !important;\n  margin: 0 !important;\n}\n\n.r34gv-footer-ad .time,\n.r34gv-footer-ad .quality,\n.r34gv-footer-ad .custom-play,\n.r34gv-footer-ad .thumb_info {\n  display: none !important;\n}\n\n/* 6) La banda de anuncio que estaba debajo del reproductor, ya al final del contenido (la traslada\n      core.js). La web la hace de todo el ancho (1250 px) con el anuncio de 300×250 centrado dentro:\n      al final de la página esa banda ancha y casi vacía se ve mal, así que aquí se encoge a lo que\n      mide el anuncio y se centra — deja de parecer una fila vacía y es un hueco de anuncio, y punto.\n      No se cambia ni el tamaño ni el contenido del anuncio: solo el hueco que lo envuelve. */\n.spot_under[data-r34gv-under] {\n  width: -moz-fit-content !important;\n  width: fit-content !important;\n  min-height: 0 !important;\n  margin: 18px auto 6px !important;\n  padding: 0 !important;\n}\n\n/* 7) El aviso de «sigues en …», que pone player.js al reanudar un vídeo a medias. Va dentro de\n      `.kt-player` (igual que el indicador de ±10 s de kt_seek.js, que usa z-index 50), en la esquina\n      inferior izquierda del vídeo, y se va solo. Nada de esto existe si nunca se reanuda nada. */\n.r34gv-resume {\n  position: absolute !important;\n  left: 14px !important;\n  bottom: 64px !important;\n  z-index: 51 !important;\n  max-width: 78% !important;\n  padding: 8px 14px !important;\n  border: 1px solid rgba(255, 255, 255, 0.22) !important;\n  border-radius: 999px !important;\n  background: rgba(16, 16, 16, 0.82) !important;\n  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45) !important;\n  color: #fff !important;\n  font-family: Roboto, Arial, Helvetica, sans-serif !important;\n  font-size: 12.5px !important;\n  font-weight: 600 !important;\n  line-height: 1.2 !important;\n  letter-spacing: 0.2px !important;\n  pointer-events: none !important;\n  opacity: 1 !important;\n  transition: opacity 0.5s ease !important;\n}\n\n.r34gv-resume--out {\n  opacity: 0 !important;\n}\n\n/* ---------------------------------------------------------------------------------------------\n   8) La FICHA DEL PERFIL (profile.js le pone `r34gv-profile` a <html> solo en una página de perfil).\n      La web la deja en una caja de 220 px con el nombre, un 89% y el botón apilados y en columna, y\n      debajo el título del listado repitiendo el nombre otra vez en 21 px. Aquí pasa a ser una ficha\n      de una sola fila: avatar, nombre con su valoración, y la acción a la derecha; el título del\n      listado se queda en subtítulo y los filtros, en una barra compacta.\n      Nada de esto toca la maquetación de los vídeos: son cuatro cajas de la cabecera.\n   --------------------------------------------------------------------------------------------- */\nhtml.r34gv-profile .content_general {\n  padding-top: 4px !important;\n}\n\nhtml.r34gv-profile .panel_sup {\n  display: flex !important;\n  flex-direction: row !important;\n  align-items: center !important;\n  justify-content: flex-start !important;\n  flex-wrap: wrap !important;\n  gap: 16px !important;\n  padding: 14px 18px !important;\n  margin: 6px 0 14px !important;\n  border: 1px solid rgba(255, 255, 255, 0.08) !important;\n  border-radius: 14px !important;\n  background: linear-gradient(135deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02)) !important;\n  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.22) !important;\n  text-align: left !important;\n}\n\n/* El avatar: la web no manda foto de un modelo, manda un icono genérico. Cuando es así, profile.js\n   marca `data-r34gv-initial` y aquí se cambia por la inicial en un cuadrado redondeado. Si algún día\n   la web pone un avatar de verdad (una imagen de fondo), no se marca nada y se respeta tal cual. */\nhtml.r34gv-profile .panel_sup .brand_image {\n  flex: none !important;\n  width: 72px !important;\n  height: 72px !important;\n  margin: 0 !important;\n  border-radius: 16px !important;\n  overflow: hidden !important;\n  background: linear-gradient(140deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04)) !important;\n  border: 1px solid rgba(255, 255, 255, 0.1) !important;\n}\n\nhtml.r34gv-profile .panel_sup .brand_image_wrapper {\n  position: relative !important;\n  display: flex !important;\n  align-items: center !important;\n  justify-content: center !important;\n  width: 100% !important;\n  height: 100% !important;\n  background-size: cover !important;\n  background-position: center !important;\n}\n\nhtml.r34gv-profile[data-r34gv-initial] .brand_image_wrapper .custom-brand {\n  display: none !important;\n}\n\nhtml.r34gv-profile[data-r34gv-initial] .brand_image_wrapper::after {\n  content: var(--r34gv-initial, \"?\");\n  color: #fff !important;\n  font-family: Roboto, Arial, Helvetica, sans-serif !important;\n  font-size: 30px !important;\n  font-weight: 700 !important;\n  line-height: 1 !important;\n  letter-spacing: 0.5px !important;\n}\n\nhtml.r34gv-profile .panel_sup .brand_inform {\n  display: flex !important;\n  flex: 1 1 auto !important;\n  flex-direction: row !important;\n  align-items: center !important;\n  flex-wrap: wrap !important;\n  gap: 10px 14px !important;\n  min-width: 0 !important;\n  text-align: left !important;\n}\n\nhtml.r34gv-profile .panel_sup .brand_inform .title {\n  color: #fff !important;\n  font-family: Roboto, Arial, Helvetica, sans-serif !important;\n  font-size: 22px !important;\n  font-weight: 700 !important;\n  line-height: 1.1 !important;\n  letter-spacing: 0.2px !important;\n  margin: 0 !important;\n  max-width: 100% !important;\n  overflow: hidden !important;\n  text-overflow: ellipsis !important;\n}\n\n/* El 89% pasa a ser una pastilla de valoración, no una línea suelta con un pulgar. */\nhtml.r34gv-profile .panel_sup .brand_inform .count {\n  display: inline-flex !important;\n  align-items: center !important;\n  gap: 5px !important;\n  padding: 3px 10px !important;\n  border-radius: 999px !important;\n  background: rgba(255, 255, 255, 0.08) !important;\n  border: 1px solid rgba(255, 255, 255, 0.1) !important;\n  color: #e8eef2 !important;\n  font-size: 12.5px !important;\n  font-weight: 700 !important;\n  line-height: 1.6 !important;\n}\n\nhtml.r34gv-profile .panel_sup .brand_inform .count .custom-svg {\n  width: 13px !important;\n  height: 13px !important;\n  opacity: 0.8 !important;\n}\n\n/* La acción, a la derecha y con su sitio propio. */\nhtml.r34gv-profile .panel_sup .brand_inform .btn-wrapper {\n  margin-left: auto !important;\n  margin-top: 0 !important;\n}\n\nhtml.r34gv-profile .panel_sup .brand_inform .btn {\n  display: inline-flex !important;\n  align-items: center !important;\n  gap: 7px !important;\n  padding: 9px 16px !important;\n  border-radius: 10px !important;\n  font-size: 13px !important;\n  font-weight: 700 !important;\n  line-height: 1 !important;\n  letter-spacing: 0.2px !important;\n}\n\n/* El título del listado, en su sitio: es un subtítulo, ya dijo el nombre la ficha de arriba. */\nhtml.r34gv-profile .headline--filters {\n  display: block !important;\n  margin: 0 0 10px !important;\n}\n\nhtml.r34gv-profile .headline--filters h1 {\n  display: flex !important;\n  align-items: center !important;\n  gap: 9px !important;\n  color: rgba(255, 255, 255, 0.72) !important;\n  font-family: Roboto, Arial, Helvetica, sans-serif !important;\n  font-size: 14.5px !important;\n  font-weight: 600 !important;\n  line-height: 1.2 !important;\n  letter-spacing: 0.2px !important;\n  margin: 0 0 10px !important;\n}\n\nhtml.r34gv-profile .headline--filters h1 .total_results {\n  padding: 2px 9px !important;\n  border-radius: 999px !important;\n  background: rgba(255, 255, 255, 0.08) !important;\n  border: 1px solid rgba(255, 255, 255, 0.1) !important;\n  color: #fff !important;\n  font-size: 12px !important;\n  font-weight: 700 !important;\n}\n\nhtml.r34gv-profile .headline_panel {\n  margin: 0 !important;\n}\n\nhtml.r34gv-profile .filters-panel {\n  margin: 0 !important;\n  padding: 8px 12px !important;\n  border-radius: 12px !important;\n  background: rgba(255, 255, 255, 0.04) !important;\n  border: 1px solid rgba(255, 255, 255, 0.07) !important;\n}\n\nhtml.r34gv-profile .filters-panel__toggle {\n  background: none !important;\n  border: 0 !important;\n}\n\n/* ---------------------------------------------------------------------------------------------\n   9) La BARRA del orden por personaje (profile.js). Va entre el título del listado y la rejilla: a\n      la izquierda el conmutador «Por personaje / Más recientes», en medio una pastilla por personaje\n      (pincharla lleva a su grupo) y a la derecha la nota de lo que se está haciendo. Y los carteles\n      de grupo dentro de la rejilla, que son bloques de ancho completo (la rejilla es de fichas\n      `inline-block`, así que un bloque corta la fila, que es justo lo que se quiere).\n   --------------------------------------------------------------------------------------------- */\n.r34gv-bar {\n  display: flex !important;\n  align-items: center !important;\n  flex-wrap: wrap !important;\n  gap: 8px 12px !important;\n  padding: 9px 12px !important;\n  margin: 0 0 14px !important;\n  border-radius: 12px !important;\n  border: 1px solid rgba(255, 255, 255, 0.07) !important;\n  background: rgba(255, 255, 255, 0.035) !important;\n  font-family: Roboto, Arial, Helvetica, sans-serif !important;\n  font-size: 12.5px !important;\n  text-align: left !important;\n}\n\n.r34gv-seg {\n  display: inline-flex !important;\n  gap: 2px !important;\n  padding: 3px !important;\n  border-radius: 10px !important;\n  background: rgba(0, 0, 0, 0.3) !important;\n  flex: none !important;\n}\n\n.r34gv-seg__btn {\n  appearance: none !important;\n  -webkit-appearance: none !important;\n  margin: 0 !important;\n  padding: 7px 12px !important;\n  border: 0 !important;\n  border-radius: 8px !important;\n  background: transparent !important;\n  color: rgba(255, 255, 255, 0.66) !important;\n  font-family: inherit !important;\n  font-size: 12.5px !important;\n  font-weight: 600 !important;\n  line-height: 1 !important;\n  letter-spacing: 0.2px !important;\n  cursor: pointer !important;\n  white-space: nowrap !important;\n}\n\n.r34gv-seg__btn:hover {\n  color: #fff !important;\n}\n\n.r34gv-seg__btn.is-on {\n  background: rgba(255, 255, 255, 0.15) !important;\n  color: #fff !important;\n}\n\n.r34gv-chips {\n  display: flex !important;\n  flex-wrap: wrap !important;\n  gap: 6px !important;\n  min-width: 0 !important;\n}\n\n.r34gv-chip {\n  appearance: none !important;\n  -webkit-appearance: none !important;\n  margin: 0 !important;\n  padding: 4px 10px !important;\n  border-radius: 999px !important;\n  border: 1px solid rgba(255, 255, 255, 0.1) !important;\n  background: rgba(255, 255, 255, 0.055) !important;\n  color: #dfe7ec !important;\n  font-family: inherit !important;\n  font-size: 11.5px !important;\n  font-weight: 600 !important;\n  line-height: 1.5 !important;\n  cursor: pointer !important;\n  white-space: nowrap !important;\n}\n\n.r34gv-chip:hover {\n  background: rgba(255, 255, 255, 0.12) !important;\n  border-color: rgba(255, 255, 255, 0.2) !important;\n  color: #fff !important;\n}\n\n.r34gv-bar__note {\n  margin-left: auto !important;\n  color: rgba(255, 255, 255, 0.5) !important;\n  font-size: 11.5px !important;\n  font-weight: 400 !important;\n  text-align: right !important;\n}\n\n.r34gv-group {\n  display: block !important;\n  clear: both !important;\n  width: 100% !important;\n  height: auto !important;\n  margin: 20px 0 10px !important;\n  padding: 0 0 8px !important;\n  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;\n  font-family: Roboto, Arial, Helvetica, sans-serif !important;\n  font-size: 13.5px !important;\n  font-weight: 700 !important;\n  line-height: 1.2 !important;\n  letter-spacing: 0.3px !important;\n  color: #fff !important;\n  text-align: left !important;\n}\n\n.r34gv-group:first-child {\n  margin-top: 2px !important;\n}\n\n.r34gv-group__name {\n  color: #fff !important;\n}\n\n.r34gv-group__n {\n  margin-left: 8px !important;\n  color: rgba(255, 255, 255, 0.5) !important;\n  font-size: 12px !important;\n  font-weight: 500 !important;\n}\n";
   if (!css) return;
   var style = document.createElement("style");
   style.id = "r34g-styles";
@@ -1791,5 +1791,521 @@
   } else {
     sweep();
   }
+})();
+
+// ---------------------------------------------------------------------------------------------
+// rule34video.com — el perfil de un creador (vale para cualquier perfil: modelo, canal, usuario).
+//
+// La web deja la cabecera del perfil sin ficha —el nombre, un 89% y el botón «Subscribe», todo
+// apilado en una caja de 220 px con un icono genérico— y debajo el listado por fecha. Aquí se hacen
+// dos cosas:
+//
+// 1) CABECERA DE PERFIL (como una ficha de verdad): avatar (su inicial, o el que ponga la web si
+//    algún día lo pone), nombre, valoración y la acción a la derecha; el título del listado se rebaja
+//    a subtítulo y los filtros quedan como una barra compacta. Eso es CSS (styles.css, bajo
+//    `html.r34gv-profile`); aquí solo se marca la página y se le pasa la inicial.
+//
+// 2) REORDENAR LOS VÍDEOS POR PERSONAJE, si el usuario quiere. La web los pone por fecha, y así un
+//    vídeo de Lisa queda entre uno de Wednesday y uno de Sabrina. El orden por defecto pasa a ser
+//    **por personaje, del que más vídeos tiene al que menos**, y cada grupo lleva su cartel.
+//
+//    ¿De dónde sale el personaje, si la web no lo dice en la ficha? Del propio título, y sin saber
+//    nada de nadie: se cuentan las palabras de los títulos y **una que sale en dos o más vídeos del
+//    perfil es un nombre** (un personaje); una que sale en uno solo es una postura, un adjetivo o lo
+//    que sea. Así funciona con cualquier perfil, se llame su gente como se llame; y si los títulos no
+//    repiten ningún nombre (un canal de escenas sueltas, p. ej.) se queda el orden de la web y se
+//    avisa en la barra. Se guarda en `localStorage["r34gv.profile.sort"]` ("character" por defecto,
+//    "date" para dejarlo como la web), y `r34gv.profile.head` = "off" para no tocar la cabecera.
+//
+// SIN LAG, que era la condición: nada de escuchar el scroll ni de medir al desplazarse. Es un
+// análisis de texto (una lectura por ficha) y **una sola reordenación** del DOM hecha con un
+// `DocumentFragment` (un reflow), y luego quieto. El único vigilante es un MutationObserver sobre la
+// rejilla, que solo se despierta si la web cambia el listado por AJAX (paginación o filtros).
+// ---------------------------------------------------------------------------------------------
+(function () {
+  "use strict";
+  if (window.__r34gvProfile) return;
+  window.__r34gvProfile = true;
+
+  var CORE = window.r34gvCore; // lo deja core.js: la página siguiente de un listado y meter sus fichas
+  var SORT_KEY = "r34gv.profile.sort"; // "character" (por defecto) | "date"
+  var HEAD_KEY = "r34gv.profile.head"; // "off" no toca la cabecera
+  var GROUP = "r34gv-group";
+  var MULTI = "data-r34gv-multi";
+  var MAX_PAGES = 4; // páginas de más que se traen para contar bien (esta + hasta 4)
+  var MAX_CARDS = 180; // tope de fichas analizadas: un perfil no es un archivo infinito
+  var WAIT = 260; // ms de calma antes de rehacer el orden (la web mete fichas por AJAX)
+  var OTHERS = "Otros";
+
+  // --- palabras que no son un personaje ---------------------------------------------------------
+  // Todo lo que aparece en los títulos de estos sitios y no es un nombre: actos, posturas, calidad,
+  // muletillas. Lo que filtra de verdad es tener que salir en **dos o más vídeos** para contar como
+  // nombre; esta lista solo evita que un «cowgirl» repetido en cinco títulos parezca un personaje.
+  var STOP = (
+    "a an the and or of in on at to for with without my your his her its our their she he they you me it is are was were be been " +
+    "this that these those from by as into over under again more most less least very much many all any some no not only own same than too " +
+    "can will just should now then there here when where who what why how while during before after " +
+    "video videos clip clips part parts full length hd hq uhd 4k 8k 60fps 30fps fps " +
+    "sex porn porno xxx anal vaginal oral blow blowjob bj handjob hj tit titjob titfuck titty tits boobs breast ass pussy cock dick dildo " +
+    "cum cumshot cumshots creampie facial facials swallow load loads squirt squirting pee piss golden " +
+    "fuck fucks fucked fucking fuckslut fucktoy slut sluts sloppy hardcore hard fast slow rough gentle deep deeper deepthroat throat " +
+    "cowgirl doggy doggystyle missionary spoon standing sitting lying riding ride rides prone lotus piledriver amazon reverse " +
+    "pov solo duo threesome foursome gangbang orgy multi multiple " +
+    "animation animated anime hentai manga cartoon toon blender sfm source filmmaker unreal unity " +
+    "ai generated generation making create created character characters model models " +
+    "edit edited remake remaster remastered version extended uncensored censored subtitled sub subs dub dubbed english spanish japanese " +
+    "new newest old best top rated viewed longest random popular hot sexy good bad great nice " +
+    "compilation teaser trailer preview sample short first second third last next " +
+    "girl girls boy boys man men woman women lady ladies milf gilf teen teens young ebony asian latina " +
+    "white black redhead blonde brunette futa futanari dickgirl shemale tranny trans " +
+    "inside outside up down top bottom back front side left right " +
+    "love loves loving like likes lick licking licks suck sucks sucked sucking kiss kissing " +
+    "camera cam close closeup shot shots scene scenes angle angles view " +
+    "let lets get gets got give gives take takes make makes made do does did " +
+    "vs feat featuring ft watch watching free download stream online tube site " +
+    "time times hour hours minute minutes second seconds day days week weeks month months year years ago " +
+    "size sizes big huge giant small tiny little mega ultra super mmf ffm fff mfm"
+  ).split(/\s+/);
+  var stop = {};
+  for (var i = 0; i < STOP.length; i++) stop[STOP[i]] = 1;
+
+  // Un «nombre» es una palabra suelta o una con guión o apóstrofo (y vale cualquier alfabeto: los
+  // nombres japoneses o rusos cuentan igual). Si el navegador no entiende `\p{L}`, se cae a ASCII.
+  var WORD = (function () {
+    try {
+      return new RegExp("[\\p{L}\\p{N}][\\p{L}\\p{N}'’_-]*", "gu");
+    } catch (e) {
+      return /[A-Za-z0-9][A-Za-z0-9'’_-]*/g;
+    }
+  })();
+
+  var grid = null;
+  var bar = null;
+  var chipsEl = null;
+  var noteEl = null;
+  var mode = pref(SORT_KEY) === "date" ? "date" : "character";
+  var snapshot = null; // el orden de la web, para poder volver a él
+  var loaded = false; // ¿se han traído ya las páginas que faltaban?
+  var loading = false;
+  var started = false;
+  var observer = null;
+  var timer = 0;
+
+  function pref(key) {
+    try {
+      return localStorage.getItem(key) || "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function setPref(key, value) {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {}
+  }
+
+  function say(text) {
+    if (!noteEl) return;
+    noteEl.textContent = text || "";
+    noteEl.hidden = !text;
+  }
+
+  // Todas las fichas de la rejilla que son vídeos (el anuncio nativo de la rejilla no: no es un vídeo
+  // ni tiene título que analizar).
+  function cards() {
+    if (!grid) return [];
+    return [].slice.call(grid.querySelectorAll(":scope > .item.thumb")).filter(function (el) {
+      return !(CORE && CORE.isAdCard && CORE.isAdCard(el));
+    });
+  }
+
+  // Lo demás que vive en la rejilla (el hueco de anuncio nativo, p. ej.): no se analiza, pero no se
+  // puede perder por el camino —se pondría el primero de la lista al reordenar— ni quedar sin sitio.
+  function extras() {
+    if (!grid) return [];
+    return [].slice.call(grid.children).filter(function (el) {
+      if (!el.classList || el.classList.contains(GROUP)) return false;
+      if (el.classList.contains("item") && el.classList.contains("thumb")) {
+        return !!(CORE && CORE.isAdCard && CORE.isAdCard(el)); // la ficha de anuncio no es un vídeo
+      }
+      return true; // cualquier otra cosa que la web tenga dentro de la rejilla
+    });
+  }
+
+  function titleOf(card) {
+    var a = card.querySelector("a.th[title]");
+    var t = a ? a.getAttribute("title") : "";
+    if (!t) {
+      var el = card.querySelector(".thumb_title");
+      t = el ? el.textContent : "";
+    }
+    return String(t || "").replace(/\s+/g, " ").trim();
+  }
+
+  function words(text) {
+    var out = [], m;
+    WORD.lastIndex = 0;
+    while ((m = WORD.exec(text))) out.push(m[0]);
+    return out;
+  }
+
+  // El nombre del propio perfil («Wkysto») no es un personaje de sus vídeos: se aparta.
+  function profileWords() {
+    var el = document.querySelector(".panel_sup .title");
+    var out = {};
+    if (!el) return out;
+    var ws = words(el.textContent || "");
+    for (var i = 0; i < ws.length; i++) out[ws[i].toLowerCase()] = 1;
+    return out;
+  }
+
+  // --- el análisis ------------------------------------------------------------------------------
+  // Devuelve {groups: [{key, name, count, cards}], others: [ficha]}. Cada grupo es un personaje y
+  // `count` son sus vídeos (los que lo llevan en el título), que es por lo que se ordena.
+  function analyze(list) {
+    var mine = profileWords();
+    var info = {}, k, j;
+
+    for (k = 0; k < list.length; k++) {
+      var ws = words(titleOf(list[k]));
+      list[k].r34gvWords = ws;
+      var once = {};
+      for (j = 0; j < ws.length; j++) {
+        var w = ws[j], key = w.toLowerCase();
+        if (w.length < 2 || stop[key] || mine[key] || /^\d+$/.test(w)) continue;
+        if (w.charAt(0) !== w.charAt(0).toUpperCase()) continue; // los nombres van en mayúscula
+        if (once[key]) continue; // una vez por vídeo: lo que se cuenta son vídeos, no veces
+        once[key] = 1;
+        var rec = info[key] || (info[key] = { key: key, name: w, count: 0, pos: 0, at: k });
+        rec.count++;
+        rec.pos += j;
+      }
+    }
+
+    // Nombres = los que salen en dos o más vídeos. Orden: los que más vídeos tienen y, a igualdad, el
+    // que aparece antes en los títulos (y antes en la rejilla).
+    var names = [];
+    for (var key2 in info) {
+      if (!Object.prototype.hasOwnProperty.call(info, key2)) continue;
+      if (info[key2].count >= 2) names.push(info[key2]);
+    }
+    names.sort(function (a, b) {
+      if (a.count !== b.count) return b.count - a.count;
+      var pa = a.pos / a.count, pb = b.pos / b.count;
+      if (pa !== pb) return pa - pb;
+      if (a.at !== b.at) return a.at - b.at;
+      return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1;
+    });
+    var rank = {};
+    for (k = 0; k < names.length; k++) rank[names[k].key] = k;
+
+    // Cada vídeo va con el nombre mejor colocado de su título; si lleva dos o más (esos que no son
+    // «de un solo personaje») se apunta y van al final de su grupo.
+    var groups = [];
+    for (k = 0; k < names.length; k++) groups.push({ key: names[k].key, name: names[k].name, count: 0, cards: [], shared: [] });
+    var others = [];
+    for (k = 0; k < list.length; k++) {
+      var found = [];
+      for (j = 0; j < list[k].r34gvWords.length; j++) {
+        var kk = list[k].r34gvWords[j].toLowerCase();
+        if (rank[kk] != null && found.indexOf(rank[kk]) === -1) found.push(rank[kk]);
+      }
+      if (!found.length) {
+        list[k].removeAttribute(MULTI);
+        others.push(list[k]);
+        continue;
+      }
+      found.sort(function (a, b) {
+        return a - b;
+      });
+      var g = groups[found[0]];
+      if (found.length > 1) {
+        list[k].setAttribute(MULTI, "1");
+        g.shared.push(list[k]);
+      } else {
+        list[k].removeAttribute(MULTI);
+        g.cards.push(list[k]);
+      }
+      g.count++;
+    }
+    for (k = 0; k < groups.length; k++) groups[k].cards = groups[k].cards.concat(groups[k].shared);
+    return { groups: groups, others: others };
+  }
+
+  // --- pintar -----------------------------------------------------------------------------------
+  function labelFor(name, count, shared) {
+    var el = document.createElement("div");
+    el.className = GROUP;
+    el.setAttribute("data-r34gv-group", name.toLowerCase());
+    var n = document.createElement("span");
+    n.className = "r34gv-group__name";
+    n.textContent = name;
+    var c = document.createElement("span");
+    c.className = "r34gv-group__n";
+    c.textContent = (count === 1 ? "1 vídeo" : count + " vídeos") + (shared ? " · " + shared + " compartido" + (shared > 1 ? "s" : "") : "");
+    el.appendChild(n);
+    el.appendChild(c);
+    return el;
+  }
+
+  function strip() {
+    if (!grid) return;
+    var labels = grid.querySelectorAll(":scope > ." + GROUP);
+    for (var i = 0; i < labels.length; i++) labels[i].parentNode.removeChild(labels[i]);
+  }
+
+  function write(nodes) {
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < nodes.length; i++) frag.appendChild(nodes[i]);
+    grid.appendChild(frag); // de una vez: un solo reflow
+  }
+
+  function restore() {
+    strip();
+    var all = cards(), have = [], order = [];
+    for (var i = 0; i < all.length; i++) have.push(all[i]);
+    if (snapshot) {
+      for (i = 0; i < snapshot.length; i++) {
+        var at = have.indexOf(snapshot[i]);
+        if (at > -1 && document.documentElement.contains(snapshot[i])) {
+          order.push(snapshot[i]);
+          have.splice(at, 1);
+        }
+      }
+    }
+    for (i = 0; i < have.length; i++) order.push(have[i]);
+    write(order.concat(extras()));
+  }
+
+  function render(sorted) {
+    strip();
+    if (!sorted.groups.length) {
+      restore();
+      say("Ningún nombre se repite en los títulos: se queda el orden de la web.");
+      chipsFor(sorted);
+      return;
+    }
+    var nodes = [];
+    for (var g = 0; g < sorted.groups.length; g++) {
+      var grp = sorted.groups[g];
+      nodes.push(labelFor(grp.name, grp.cards.length, grp.shared.length));
+      for (var i = 0; i < grp.cards.length; i++) nodes.push(grp.cards[i]);
+    }
+    if (sorted.others.length) {
+      nodes.push(labelFor(OTHERS, sorted.others.length, 0));
+      for (i = 0; i < sorted.others.length; i++) nodes.push(sorted.others[i]);
+    }
+    write(nodes.concat(extras()));
+    say("Ordenado por personaje · " + sorted.groups.length + (sorted.groups.length === 1 ? " personaje" : " personajes") + " · " + cards().length + " vídeos.");
+    chipsFor(sorted);
+  }
+
+  function chipsFor(sorted) {
+    if (!chipsEl) return;
+    while (chipsEl.firstChild) chipsEl.removeChild(chipsEl.firstChild);
+    var top = sorted.groups.slice(0, 8);
+    for (var i = 0; i < top.length; i++) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "r34gv-chip";
+      b.textContent = top[i].name + " · " + top[i].count;
+      b.onclick = (function (key) {
+        return function () {
+          var el = grid.querySelector(':scope > .' + GROUP + '[data-r34gv-group="' + key.replace(/"/g, '\\"') + '"]');
+          if (el && el.scrollIntoView) el.scrollIntoView({ block: "start" });
+        };
+      })(top[i].key);
+      chipsEl.appendChild(b);
+    }
+    chipsEl.hidden = !top.length;
+  }
+  // --- /pintar ----------------------------------------------------------------------------------
+
+  function regroup() {
+    if (!grid || !document.documentElement.contains(grid)) return;
+    if (observer) observer.disconnect(); // lo que hace el userscript no es un cambio de la web
+    var list = cards();
+    if (!snapshot) snapshot = list.slice();
+    var sorted = analyze(list);
+    if (mode === "date") {
+      restore();
+      chipsFor(sorted);
+    } else {
+      render(sorted);
+    }
+    if (observer) observer.observe(grid, { childList: true });
+  }
+
+  function schedule() {
+    if (loading || timer) return; // mientras se leen las páginas que faltan, un solo repaso al final
+    timer = setTimeout(function () {
+      timer = 0;
+      regroup();
+    }, WAIT);
+  }
+
+  // Trae las páginas que faltan del perfil para contar sobre el listado entero (con tope: un perfil de
+  // 3.000 vídeos no se descarga entero solo por reordenar). Es lo mismo que hace el relleno del hueco
+  // (core.js), encadenando la paginación de cada página traída.
+  function loadRest() {
+    if (loaded || loading || !CORE || !grid) return;
+    loading = true;
+    var pages = 0, doc = null;
+
+    function stop() {
+      loading = false;
+      loaded = true;
+      if (mode === "character") regroup();
+      else say("");
+    }
+
+    function step() {
+      if (!document.documentElement.contains(grid) || pages >= MAX_PAGES || cards().length >= MAX_CARDS) return stop();
+      var info = CORE.nextPageOf(grid, doc);
+      if (!info) return stop();
+      pages++;
+      fetch(info.url, { credentials: "same-origin" })
+        .then(function (r) {
+          return r && r.ok ? r.text() : "";
+        })
+        .then(function (html) {
+          if (!html) return stop();
+          var parsed = new DOMParser().parseFromString(html, "text/html");
+          CORE.importCards(grid, parsed, info.base, MAX_CARDS);
+          doc = parsed; // la paginación de la página traída es la que dice cuál viene después
+          say("Leyendo el resto del perfil para contar bien… (" + cards().length + " vídeos)");
+          step();
+        })
+        .catch(function () {
+          stop();
+        });
+    }
+    say("Leyendo el resto del perfil para contar bien…");
+    step();
+  }
+
+  // --- la barra y la cabecera -------------------------------------------------------------------
+  function buildBar() {
+    if (bar) return;
+    bar = document.createElement("div");
+    bar.className = "r34gv-bar";
+
+    var seg = document.createElement("div");
+    seg.className = "r34gv-seg";
+    var opts = [
+      ["character", "Por personaje"],
+      ["date", "Más recientes"]
+    ];
+    for (var i = 0; i < opts.length; i++) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "r34gv-seg__btn" + (mode === opts[i][0] ? " is-on" : "");
+      b.setAttribute("data-mode", opts[i][0]);
+      b.textContent = opts[i][1];
+      b.onclick = choose;
+      seg.appendChild(b);
+    }
+    chipsEl = document.createElement("div");
+    chipsEl.className = "r34gv-chips";
+    chipsEl.hidden = true;
+    noteEl = document.createElement("span");
+    noteEl.className = "r34gv-bar__note";
+    noteEl.hidden = true;
+    bar.appendChild(seg);
+    bar.appendChild(chipsEl);
+    bar.appendChild(noteEl);
+    grid.parentNode.insertBefore(bar, grid);
+  }
+
+  function choose(e) {
+    var want = e.currentTarget.getAttribute("data-mode");
+    if (want === mode) return;
+    mode = want;
+    setPref(SORT_KEY, want);
+    var btns = bar.querySelectorAll(".r34gv-seg__btn");
+    for (var i = 0; i < btns.length; i++) btns[i].classList.toggle("is-on", btns[i] === e.currentTarget);
+    say("");
+    regroup();
+    if (mode === "character") loadRest();
+  }
+
+  function head() {
+    if (pref(HEAD_KEY) === "off") return;
+    var panel = document.querySelector(".panel_sup");
+    if (!panel) return;
+    document.documentElement.classList.add("r34gv-profile");
+    var wrap = panel.querySelector(".brand_image_wrapper");
+    if (!wrap) return;
+    // Si la web pone un avatar de verdad (una imagen de fondo), se respeta. Si lo que hay es su icono
+    // genérico, se pone la inicial del perfil, que la pinta el CSS con esta variable.
+    var bg = "";
+    try {
+      bg = getComputedStyle(wrap).backgroundImage || "";
+    } catch (e) {}
+    var name = (panel.querySelector(".title") || {}).textContent || "";
+    var initial = String(name).replace(/[^0-9A-Za-z\u00C0-\u024F\u0400-\u04FF]/g, "").charAt(0);
+    if (!initial || (bg && bg !== "none")) return;
+    document.documentElement.setAttribute("data-r34gv-initial", "1");
+    document.documentElement.style.setProperty("--r34gv-initial", '"' + initial.toUpperCase() + '"');
+  }
+
+  function start() {
+    if (started) return true;
+    if (!document.querySelector(".panel_sup")) return false; // un listado cualquiera no es un perfil
+    grid = document.querySelector(".thumbs");
+    if (!grid) return false;
+    started = true;
+    head();
+    buildBar();
+    snapshot = cards().slice();
+    regroup();
+    if (mode === "character") loadRest();
+
+    // Solo miran las fichas que AÑADE la web (AJAX: paginación, filtros). Mientras el userscript
+    // reordena el observador está desconectado, así que lo suyo no se cuenta y no hay idas y venidas.
+    observer = new MutationObserver(function (records) {
+      for (var i = 0; i < records.length; i++) {
+        var added = records[i].addedNodes;
+        for (var j = 0; j < added.length; j++) {
+          var n = added[j];
+          if (n.nodeType === 1 && n.classList && (n.classList.contains("item") || n.classList.contains("thumb"))) {
+            schedule();
+            return;
+          }
+        }
+      }
+    });
+    observer.observe(grid, { childList: true });
+    return true;
+  }
+
+  // El userscript entra en document-start (lo pide player.js), así que cuando se ejecuta esto la
+  // página del perfil **todavía no está**: se espera a que aparezca (el propio documento la trae, o
+  // la mete su JS). Igual que hace core.js: a la primera no, y luego se reintenta.
+  if (!start()) {
+    document.addEventListener("DOMContentLoaded", start);
+    var tries = 0;
+    var retry = setInterval(function () {
+      if (start() || ++tries > 750) clearInterval(retry); // ~30 s y no se insiste más
+    }, 40);
+  }
+
+  // Para probarlo desde la consola: r34gvProfile.mode("date") / r34gvProfile.mode("character")
+  window.r34gvProfile = {
+    mode: function (m) {
+      if (m === "character" || m === "date") {
+        setPref(SORT_KEY, m);
+        mode = m;
+        regroup();
+        if (m === "character") loadRest();
+      }
+      return mode;
+    },
+    regroup: regroup,
+    analyze: function () {
+      return analyze(cards());
+    }
+  };
 })();
 
