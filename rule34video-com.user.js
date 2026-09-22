@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.38
+// @version      0.1.39
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -18,7 +18,7 @@
 
 (function () {
   "use strict";
-  var css = "/* ---------------------------------------------------------------------------------------------\n   rule34video.com — limpieza de la página.\n   El CSS del sitio se carga después que este, así que todo va con !important: estas reglas tienen\n   que ganar sí o sí.\n   --------------------------------------------------------------------------------------------- */\n\n/* 1) Botones de promoción del header: «AI Jerk Off» (enlace de afiliado) y «ThePornDude».\n      Se ocultan aquí para que no parpadeen, y core.js además los quita del DOM y vigila que no\n      vuelvan (la web repinta el header con su propio JS). */\n.panel_header.panel_header--promo,\na.button_fav.ai,\na.button_fav.theporndude {\n  display: none !important;\n}\n\n/* 2) La banda de aviso de rule34gen, la que sale pegada debajo del header («Due to the massive\n      influx of AI generated video's…»). Se esconde el enlace y sus dos contenedores, y también el\n      `.headline` que solo la envuelve a ella: si no, se quedaría su margen inferior como hueco. */\na.emger,\n#top-header,\n#emergency-response-opt,\n.headline:has(> a.emger) {\n  display: none !important;\n}\n\n/* 3) El hueco entre la paginación («Jump to … OK») y el logo del pie.\n      Entre esas dos cosas no hay más que la banda de anuncios del pie (.footer_spots), y esa banda\n      reserva 250 px de alto por cada hueco de anuncio aunque no haya anuncio que cargar\n      (.columns_spots .spots { min-height:250px } en el CSS de la web): eso es el vacío que se ve.\n      Se le quitan el alto mínimo y los márgenes, así mide exactamente lo que mida el anuncio que\n      cargue — y cero si no hay ninguno. Además el pie arranca un poco más arriba. */\n.footer_spots {\n  margin-top: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_spots .columns_spots,\n.footer_spots .spots {\n  min-height: 0 !important;\n  margin: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_holder {\n  padding-top: 16px !important;\n}\n\n/* 4) Los botones de afiliado de la columna lateral (los de happyleafmotion) traen su animación en el\n      propio `style=\"\"` del enlace: un gradiente de fondo que se mueve en bucle (`gradientShift 8s` y\n      `r34flow 10s`). Un `background-position` animado no se puede componer en la GPU: el navegador\n      **repinta ese botón en cada frame, para siempre** mientras la pestaña esté abierta. Aquí solo se\n      le para la animación al botón (el `!important` gana al `style=\"\"` del propio enlace): se sigue\n      viendo y se puede pinchar igual —no se toca nada de lo que paga la web— pero deja de gastar CPU.\n      Medido con la pestaña quieta: eran las dos únicas animaciones infinitas que quedaban en la\n      página además del spinner de «cargando» del reproductor. */\na.button_fav.sidebar_ad {\n  animation: none !important;\n}\n\n/* 5) La ficha de anuncio de la rejilla, ya en el pie. La traslada core.js (ver `localStorage\n      [\"r34gv.ads\"]`): en vez de ir entre los vídeos haciéndose pasar por uno, va al hueco que queda\n      entre la paginación («Jump to … OK», donde acaba el listado) y el pie del sitio, donde está el\n      logo. Aquí solo se le da sitio —centrada y del ancho de una ficha— y se le quitan los adornos de\n      vídeo: la duración («23:40»), el icono HD, el de play y la fila de nota/vistas, que son relleno\n      de la plantilla. El cartel «AD» se queda: el anuncio tiene que poder distinguirse de lo demás. */\n.r34gv-footer-ad {\n  clear: both !important;\n  width: 336px !important;\n  max-width: 92% !important;\n  margin: 22px auto 4px !important;\n}\n\n.r34gv-footer-ad .item.thumb {\n  float: none !important;\n  width: 100% !important;\n  height: auto !important;\n  margin: 0 !important;\n}\n\n.r34gv-footer-ad .time,\n.r34gv-footer-ad .quality,\n.r34gv-footer-ad .custom-play,\n.r34gv-footer-ad .thumb_info {\n  display: none !important;\n}\n\n/* 6) El aviso de «sigues en …», que pone player.js al reanudar un vídeo a medias. Va dentro de\n      `.kt-player` (igual que el indicador de ±10 s de kt_seek.js, que usa z-index 50), en la esquina\n      inferior izquierda del vídeo, y se va solo. Nada de esto existe si nunca se reanuda nada. */\n.r34gv-resume {\n  position: absolute !important;\n  left: 14px !important;\n  bottom: 64px !important;\n  z-index: 51 !important;\n  max-width: 78% !important;\n  padding: 8px 13px !important;\n  border-radius: 999px !important;\n  background: rgba(0, 0, 0, 0.72) !important;\n  color: #fff !important;\n  font-family: Roboto, Arial, Helvetica, sans-serif !important;\n  font-size: 12.5px !important;\n  font-weight: 600 !important;\n  line-height: 1.2 !important;\n  letter-spacing: 0.2px !important;\n  pointer-events: none !important;\n  opacity: 1 !important;\n  transition: opacity 0.5s ease !important;\n}\n\n.r34gv-resume--out {\n  opacity: 0 !important;\n}\n";
+  var css = "/* ---------------------------------------------------------------------------------------------\n   rule34video.com — limpieza de la página.\n   El CSS del sitio se carga después que este, así que todo va con !important: estas reglas tienen\n   que ganar sí o sí.\n   --------------------------------------------------------------------------------------------- */\n\n/* 1) Botones de promoción del header: «AI Jerk Off» (enlace de afiliado) y «ThePornDude».\n      Se ocultan aquí para que no parpadeen, y core.js además los quita del DOM y vigila que no\n      vuelvan (la web repinta el header con su propio JS). */\n.panel_header.panel_header--promo,\na.button_fav.ai,\na.button_fav.theporndude {\n  display: none !important;\n}\n\n/* 2) La banda de aviso de rule34gen, la que sale pegada debajo del header («Due to the massive\n      influx of AI generated video's…»). Se esconde el enlace y sus dos contenedores, y también el\n      `.headline` que solo la envuelve a ella: si no, se quedaría su margen inferior como hueco. */\na.emger,\n#top-header,\n#emergency-response-opt,\n.headline:has(> a.emger) {\n  display: none !important;\n}\n\n/* 3) El hueco entre la paginación («Jump to … OK») y el logo del pie.\n      Entre esas dos cosas no hay más que la banda de anuncios del pie (.footer_spots), y esa banda\n      reserva 250 px de alto por cada hueco de anuncio aunque no haya anuncio que cargar\n      (.columns_spots .spots { min-height:250px } en el CSS de la web): eso es el vacío que se ve.\n      Se le quitan el alto mínimo y los márgenes, así mide exactamente lo que mida el anuncio que\n      cargue — y cero si no hay ninguno. Además el pie arranca un poco más arriba. */\n.footer_spots {\n  margin-top: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_spots .columns_spots,\n.footer_spots .spots {\n  min-height: 0 !important;\n  margin: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_holder {\n  padding-top: 16px !important;\n}\n\n/* 4) Los botones de afiliado de la columna lateral (los de happyleafmotion) traen su animación en el\n      propio `style=\"\"` del enlace: un gradiente de fondo que se mueve en bucle (`gradientShift 8s` y\n      `r34flow 10s`). Un `background-position` animado no se puede componer en la GPU: el navegador\n      **repinta ese botón en cada frame, para siempre** mientras la pestaña esté abierta. Aquí solo se\n      le para la animación al botón (el `!important` gana al `style=\"\"` del propio enlace): se sigue\n      viendo y se puede pinchar igual —no se toca nada de lo que paga la web— pero deja de gastar CPU.\n      Medido con la pestaña quieta: eran las dos únicas animaciones infinitas que quedaban en la\n      página además del spinner de «cargando» del reproductor. */\na.button_fav.sidebar_ad {\n  animation: none !important;\n}\n\n/* 5) La ficha de anuncio de la rejilla, ya en el pie. La traslada core.js (ver `localStorage\n      [\"r34gv.ads\"]`): en vez de ir entre los vídeos haciéndose pasar por uno, va al hueco que queda\n      entre la paginación («Jump to … OK», donde acaba el listado) y el pie del sitio, donde está el\n      logo. Aquí solo se le da sitio —centrada y del ancho de una ficha— y se le quitan los adornos de\n      vídeo: la duración («23:40»), el icono HD, el de play y la fila de nota/vistas, que son relleno\n      de la plantilla. El cartel «AD» se queda: el anuncio tiene que poder distinguirse de lo demás. */\n.r34gv-footer-ad {\n  clear: both !important;\n  width: 336px !important;\n  max-width: 92% !important;\n  margin: 22px auto 4px !important;\n}\n\n.r34gv-footer-ad .item.thumb {\n  float: none !important;\n  width: 100% !important;\n  height: auto !important;\n  margin: 0 !important;\n}\n\n.r34gv-footer-ad .time,\n.r34gv-footer-ad .quality,\n.r34gv-footer-ad .custom-play,\n.r34gv-footer-ad .thumb_info {\n  display: none !important;\n}\n\n/* 6) El aviso de «sigues en …», que pone player.js al reanudar un vídeo a medias. Va dentro de\n      `.kt-player` (igual que el indicador de ±10 s de kt_seek.js, que usa z-index 50), en la esquina\n      inferior izquierda del vídeo, y se va solo. Nada de esto existe si nunca se reanuda nada. */\n.r34gv-resume {\n  position: absolute !important;\n  left: 14px !important;\n  bottom: 64px !important;\n  z-index: 51 !important;\n  max-width: 78% !important;\n  padding: 8px 14px !important;\n  border: 1px solid rgba(255, 255, 255, 0.22) !important;\n  border-radius: 999px !important;\n  background: rgba(16, 16, 16, 0.82) !important;\n  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45) !important;\n  color: #fff !important;\n  font-family: Roboto, Arial, Helvetica, sans-serif !important;\n  font-size: 12.5px !important;\n  font-weight: 600 !important;\n  line-height: 1.2 !important;\n  letter-spacing: 0.2px !important;\n  pointer-events: none !important;\n  opacity: 1 !important;\n  transition: opacity 0.5s ease !important;\n}\n\n.r34gv-resume--out {\n  opacity: 0 !important;\n}\n";
   if (!css) return;
   var style = document.createElement("style");
   style.id = "r34g-styles";
@@ -305,6 +305,39 @@
   var userTouched = false; // el usuario ya cambió volumen o velocidad: a partir de ahí solo se graba
   var busyUntil = 0; // hasta cuándo lo que llegue con los valores de fábrica es cosa de la web
   var hasPlayed = false; // antes de la primera reproducción, «lo de fábrica» siempre es la web
+
+  // Un gesto sobre los controles de volumen/velocidad del propio reproductor (o sus teclas) es el
+  // usuario cambiándolo: desde ese momento lo suyo manda, aunque ponga justo el valor de fábrica. Se
+  // mira en captura, o sea antes de que el reproductor aplique su cambio.
+  function isVolumeSpeedUi(t) {
+    return !!(t && t.closest && t.closest("a.fp-speed, .fp-speed-list, .fp-volumeslider, .fp-volumelevel, .fp-mute"));
+  }
+
+  document.addEventListener(
+    "pointerdown",
+    function (e) {
+      if (isVolumeSpeedUi(e.target)) userTouched = true;
+    },
+    true
+  );
+
+  document.addEventListener(
+    "click",
+    function (e) {
+      if (isVolumeSpeedUi(e.target)) userTouched = true;
+    },
+    true
+  );
+
+  document.addEventListener(
+    "keydown",
+    function (e) {
+      var c = e.keyCode || e.which;
+      // M, ↑, ↓, K, J (volumen/silencio) y Shift+←/→ (velocidad): las teclas del reproductor.
+      if (c === 77 || c === 38 || c === 40 || c === 75 || c === 74 || (e.shiftKey && (c === 37 || c === 39))) userTouched = true;
+    },
+    true
+  );
   var lastSaved = -1;
   var resumedFor = ""; // dirección del contenido para el que ya se reanudó (el pre-roll no cuenta)
 
@@ -366,11 +399,33 @@
 
   function applySpeed(v) {
     var sp = wantRate();
-    if (sp != null && Math.abs(v.playbackRate - sp) > 0.001) {
+    if (sp == null) return;
+    if (Math.abs(v.playbackRate - sp) > 0.001) {
       try {
         v.playbackRate = sp;
       } catch (e) {}
     }
+    // A la velocidad le pasa lo que al volumen no: el menú de la web tiene su propio estado y, si no
+    // se toca, el botón seguiría diciendo «x1.0» mientras el vídeo va a 1.5. Se pulsa su propia
+    // entrada del menú (es el mismo código que corre cuando la pulsa el usuario): así el vídeo, el
+    // botón y la marca de seleccionado quedan de acuerdo.
+    syncSpeedUI(sp);
+  }
+
+  function syncSpeedUI(sp) {
+    var btn = document.querySelector("a.fp-speed");
+    if (!btn) return;
+    var item = null;
+    try {
+      item = btn.querySelector('.fp-speed-list-item a[data-speed="' + sp + '"]');
+    } catch (e) {
+      return;
+    }
+    var box = item && item.parentNode;
+    if (!box || box.classList.contains("is-selected")) return;
+    try {
+      item.click();
+    } catch (e) {}
   }
 
   // ¿El estado actual del motor es ya el nuestro? (Sirve para no grabar nuestros propios ajustes ni
@@ -403,7 +458,7 @@
   }
 
   function saveSpeed(v) {
-    memSet(SPEED_KEY, v.playbackRate);
+    memSet(SPEED_KEY, Math.round(v.playbackRate * 100) / 100);
   }
 
   function fmtTime(secs) {
