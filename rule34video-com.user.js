@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.71
+// @version      0.1.72
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -2338,7 +2338,9 @@
     document.addEventListener("DOMContentLoaded", start);
     var tries = 0;
     var retry = setInterval(function () {
-      if (start() || ++tries > 750) clearInterval(retry); // ~30 s y no se insiste más
+      // ~8 s y no se insiste más: un listado que no es de un perfil (la home, una búsqueda) no se
+      // queda mirando para siempre.
+      if (start() || ++tries > 200) clearInterval(retry);
     }, 40);
   }
 
