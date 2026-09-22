@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.30
+// @version      0.1.31
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -79,7 +79,19 @@
 //
 // Preferencia de calidad: se puede cambiar desde la consola con
 //   localStorage.setItem("r34gv.quality", "1080p")   // o 480p, 360p…
-// Si no hay ninguna guardada se usa 720p (480p si la conexión es lenta o hay ahorro de datos).
+// Si no hay ninguna guardada se usa 720p (480p si la conexión es lenta o hay ahorro de datos). Y si
+// el usuario cambia de calidad en el menú del reproductor, se guarda sola (la que de verdad usa).
+//
+// Memoria del reproductor (todo en localStorage, todo aplicado al motor `video.fp-engine`):
+//   r34gv.volume  0..1     -> la web arranca cada vídeo con `volume: '1'` (al 100%, de golpe)
+//   r34gv.mute    1/0      -> silencio recordado
+//   r34gv.speed   0.25..4  -> la velocidad del menú del reproductor se reinicia en cada vídeo
+//   r34gv.pos.<id> segundos -> por dónde ibas en ESE vídeo (se reanuda al volver a abrirlo)
+//   r34gv.quality texto    -> la última calidad usada (ver arriba)
+//
+// Espacio = play/pausa (el reproductor de la web no lo tiene: sus teclas son las de Flowplayer y solo
+// funcionan con el ratón encima; los cursores ±5 s los pone el propio `kt_seek.js` de la web, y el
+// `0` nativo salta al principio — que es también lo que borra la posición guardada).
 // ---------------------------------------------------------------------------------------------
 (function () {
   "use strict";
