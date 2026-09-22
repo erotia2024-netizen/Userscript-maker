@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.34
+// @version      0.1.35
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -301,8 +301,8 @@
   // ese mismo nodo), así que todo lo de aquí es igual de válido con su reproductor.
   var ENGINE = ".kt-player video.fp-engine, #kt_player video, .player-holder video";
   var seen = new WeakSet();
-  var armed = false; // se graban los cambios del usuario; mientras esté desarmado manda lo guardado
-  var armTimer = 0;
+  var userTouched = false; // el usuario ya cambió volumen o velocidad: a partir de ahí solo se graba
+  var busyUntil = 0; // hasta cuándo lo que llegue con los valores de fábrica es cosa de la web
   var lastSaved = -1;
   var resumedFor = ""; // dirección del contenido para el que ya se reanudó (el pre-roll no cuenta)
 
@@ -325,38 +325,74 @@
     return contentSet[key] ? key : ""; // vacío = no es una de las direcciones del vídeo (¿pre-roll?)
   }
 
-  function armLater() {
-    armed = false;
-    if (armTimer) clearTimeout(armTimer);
-    // Media ventana corta tras cada ajuste nuestro: en ese rato, lo que llegue con el valor de fábrica
-    // de la web (volumen 1, velocidad 1) es su propia inicialización y se deshace sin grabarlo.
-    armTimer = setTimeout(function () {
-      armed = true;
-    }, 1200);
+  // Los valores con los que la web arranca cada vídeo (su `volume: '1'` y la velocidad a 1×).
+  function factoryVol(v) {
+    return Math.abs(v.volume - 1) < 0.001 && !v.muted;
+  }
+
+  function factoryRate(v) {
+    return Math.abs(v.playbackRate - 1) < 0.001;
+  }
+
+  function wantVol() {
+    return numOf(memGet(VOLUME_KEY), 0, 1);
+  }
+
+  function wantMute() {
+    var m = memGet(MUTE_KEY);
+    return m == null ? null : m === "1";
+  }
+
+  function wantRate() {
+    return numOf(memGet(SPEED_KEY), 0.25, 4);
   }
 
   function applyVolume(v) {
-    var vol = numOf(memGet(VOLUME_KEY), 0, 1);
+    var vol = wantVol();
     if (vol != null && Math.abs(v.volume - vol) > 0.001) {
       try {
         v.volume = vol;
       } catch (e) {}
     }
-    var mute = memGet(MUTE_KEY);
-    if (mute != null && v.muted !== (mute === "1")) {
+    var mute = wantMute();
+    if (mute != null && v.muted !== mute) {
       try {
-        v.muted = mute === "1";
+        v.muted = mute;
       } catch (e) {}
     }
   }
 
   function applySpeed(v) {
-    var sp = numOf(memGet(SPEED_KEY), 0.25, 4);
+    var sp = wantRate();
     if (sp != null && Math.abs(v.playbackRate - sp) > 0.001) {
       try {
         v.playbackRate = sp;
       } catch (e) {}
     }
+  }
+
+  // ¿El estado actual del motor es ya el nuestro? (Sirve para no grabar nuestros propios ajustes ni
+  // para pelearse con ellos.)
+  function isOursVolume(v) {
+    var vol = wantVol();
+    var mute = wantMute();
+    if (vol != null && Math.abs(v.volume - vol) > 0.001) return false;
+    if (mute != null && v.muted !== mute) return false;
+    return vol != null || mute != null;
+  }
+
+  function isOursRate(v) {
+    var sp = wantRate();
+    return sp != null && Math.abs(v.playbackRate - sp) < 0.001;
+  }
+
+  // Poner lo guardado y abrir otra vez la ventana en la que «lo de fábrica» es la web arrancando. Es
+  // lo que se llama en cada hito de la carga (metadatos, canplay, al empezar a sonar…): el envoltorio
+  // de KVS reparte sus ajustes entre esos hitos, así que hay que insistir en más de uno.
+  function reapply(v) {
+    busyUntil = Date.now() + 1800;
+    applyVolume(v);
+    applySpeed(v);
   }
 
   function saveVolume(v) {
@@ -435,10 +471,8 @@
     } catch (e) {}
     var key = contentKey(v);
     if (key && contentSet[key]) memSet(QUALITY_KEY, contentSet[key]); // la calidad que de verdad suena
-    applyVolume(v);
-    applySpeed(v);
+    reapply(v);
     resumeIn(v);
-    armLater();
   }
 
   function attach(v) {
@@ -447,32 +481,38 @@
     v.addEventListener("loadedmetadata", function () {
       onMeta(v);
     });
-    // El reproductor vuelve a llamar a load() al cambiar de calidad: se le recuerda el ajuste.
+    // El envoltorio de KVS reparte sus ajustes (volumen, velocidad…) entre varios hitos, y al cambiar
+    // de calidad vuelve a llamar a load(): en cada hito se vuelve a poner lo guardado.
     v.addEventListener("loadeddata", function () {
       try {
         if (v.preload !== "auto") v.preload = "auto";
       } catch (e) {}
+      reapply(v);
+    });
+    v.addEventListener("canplay", function () {
+      reapply(v);
+    });
+    v.addEventListener("playing", function () {
+      reapply(v);
     });
     v.addEventListener("volumechange", function () {
-      // El valor de fábrica de la web (100% con sonido) llegando nada más cargar es SU inicialización:
-      // se deshace con lo guardado. Cualquier otro cambio (o uno tardío) es del usuario: se guarda.
-      var factory = Math.abs(v.volume - 1) < 0.001 && !v.muted;
-      if (!armed && factory && memGet(VOLUME_KEY) != null) {
-        applyVolume(v);
-        armLater();
+      if (isOursVolume(v)) return; // es nuestro propio ajuste: no hay nada que grabar
+      // El valor de fábrica justo al cargar es la web arrancando: se deshace con lo guardado, sin
+      // grabarlo. Cualquier otro cambio (o uno más tarde) es del usuario, y a partir de ahí manda él.
+      if (!userTouched && Date.now() < busyUntil && factoryVol(v) && wantVol() != null) {
+        reapply(v);
         return;
       }
-      armed = true;
+      userTouched = true;
       saveVolume(v);
     });
     v.addEventListener("ratechange", function () {
-      var factory = Math.abs(v.playbackRate - 1) < 0.001;
-      if (!armed && factory && memGet(SPEED_KEY) != null) {
-        applySpeed(v);
-        armLater();
+      if (isOursRate(v)) return;
+      if (!userTouched && Date.now() < busyUntil && factoryRate(v) && wantRate() != null) {
+        reapply(v);
         return;
       }
-      armed = true;
+      userTouched = true;
       saveSpeed(v);
     });
     v.addEventListener("timeupdate", function () {
