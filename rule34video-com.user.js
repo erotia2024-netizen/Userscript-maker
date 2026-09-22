@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.58
+// @version      0.1.59
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1140,7 +1140,10 @@
     if (!el || !el.classList || !el.classList.contains("spot_under")) return null;
     var row = el.parentNode;
     if (!row || !row.classList || !row.classList.contains("row_container")) return null;
-    return row.querySelector(".video_container") ? el : null;
+    if (!row.querySelector(".video_container")) return null;
+    // Y que la página tenga reproductor: es la ficha de vídeo. En un listado puede haber otros huecos
+    // y ahí no se toca nada.
+    return document.querySelector(".kt-player, #kt_player") ? el : null;
   }
 
   // A dónde va: justo detrás del bloque de «Related Videos» (que está en la misma columna), o al
