@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.46
+// @version      0.1.47
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -617,10 +617,12 @@
     // Un error de red o de fuente (p. ej. la firma caducada) deja el reproductor parado: se intenta
     // reabrir el flujo, que es lo único que se puede hacer desde el userscript.
     v.addEventListener("error", function () {
-      if (replenishing || document.hidden) return;
+      if (document.hidden) return;
       if (!contentKey(v)) return; // el pre-roll (u otra fuente) no se toca
       var code = v.error ? v.error.code : 0;
-      if (code === 2 || code === 4) recover(v);
+      if (code !== 2 && code !== 4) return;
+      replenishing = false; // si era un reintento nuestro, ha fallado: se sigue con el plan
+      recover(v);
     });
     v.addEventListener("pause", function () {
       savePos(v, true);
@@ -681,6 +683,7 @@
   var lastSeenTime = -1;
   var lastSeenBuffered = -1;
   var lastMovedAt = 0;
+  var lastRecoverAt = 0; // para no encadenar reintentos a lo loco
   var freshUrls = null; // direcciones nuevas (firma fresca) de esta misma página
 
   function bufferedEnd(v) {
@@ -789,10 +792,12 @@
 
   function recover(v) {
     if (replenishing) return;
+    if (Date.now() - lastRecoverAt < 3000) return; // ni dos reintentos pegados
     var src = absUrl(v.currentSrc || v.src);
     if (!src) return;
     stallTries++;
     if (stallTries > STALL_TRIES) return; // ya se ha intentado bastante: manda el reproductor
+    lastRecoverAt = Date.now();
     var text = contentSet[stripQuery(src)] || "";
     if (stallTries === 1 || !text) {
       if (window.console) console.log("[r34gv] parón del vídeo: se reabre el flujo");
