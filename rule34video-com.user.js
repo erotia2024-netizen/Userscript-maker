@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.17
+// @version      0.1.18
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -366,6 +366,7 @@
   //                         por eso no es lo que viene puesto: ver POLÍTICA DE ANUNCIOS)
   var AD_MARK = "data-r34gv-ad";
   var AD_LINK = 'a.th[title="Advertisement"]';
+  var AD_MARGIN = 400; // px de margen: se carga un poco antes de entrar en pantalla
   var adMode = (function () {
     try {
       var v = localStorage.getItem("r34gv.ads");
@@ -375,7 +376,8 @@
     }
   })();
   var parkedAds = [];
-  var adWatcher = null;
+  var adTimers = [];
+  var adListening = false;
 
   function parkAd(frame) {
     if (!frame || frame.tagName !== "IFRAME" || frame.hasAttribute(AD_MARK)) return;
@@ -397,9 +399,11 @@
       doc = null;
     }
     if (doc === null) return;
+    frame.setAttribute("loading", "lazy"); // por si acaso: el navegador también sabe aplazarlo
     frame.setAttribute(AD_MARK, src);
     frame.setAttribute("src", "about:blank"); // corta la descarga que hubiera empezado
     parkedAds.push(frame);
+    watchAds();
   }
 
   function unparkAd(frame) {
@@ -413,25 +417,56 @@
     if (!now || now === "about:blank") frame.setAttribute("src", src);
   }
 
-  function watchAds() {
-    if (parkedAds.length === 0) return;
-    if (typeof IntersectionObserver !== "function") {
-      while (parkedAds.length) unparkAd(parkedAds[0]); // sin observador, se cargan y ya está
+  // ¿Está ya a tiro de vista (o a punto de estarlo)? Se mide el iframe, no la ficha: si el anuncio se
+  // cargó y quedó en un contenedor sin tamaño, la ficha seguiría teniéndolo. Sin tamaño todavía no se
+  // puede decidir nada (la maquetación no ha terminado): se espera al siguiente repaso.
+  function adInRange(frame) {
+    var r;
+    try {
+      r = frame.getBoundingClientRect();
+    } catch (e) {
+      return true;
+    }
+    if (!r.width && !r.height) return false;
+    var h = window.innerHeight || 0;
+    return r.top < h + AD_MARGIN && r.bottom > -AD_MARGIN;
+  }
+
+  function checkAds() {
+    for (var i = parkedAds.length - 1; i >= 0; i--) {
+      if (adInRange(parkedAds[i])) unparkAd(parkedAds[i]);
+    }
+    if (parkedAds.length === 0) watchAds(false); // ya no queda nada que vigilar
+  }
+
+  // El repaso va por eventos de scroll/resize (barato: solo mira los anuncios apartados, que son uno o
+  // dos, no las 24 fichas como hacía jquery.lazyload) y por unos cuantos tiempos por si la maquetación
+  // termina tarde o la página se abre ya desplazada. Nada de IntersectionObserver: en un documento sin
+  // pintar (p. ej. una pestaña en segundo plano) no entrega ni una entrada.
+  function watchAds(on) {
+    if (on === false) {
+      for (var t = 0; t < adTimers.length; t++) clearTimeout(adTimers[t]);
+      adTimers.length = 0;
+      if (adListening) {
+        adListening = false;
+        removeEventListener("scroll", checkAds, { capture: true });
+        removeEventListener("resize", checkAds);
+        removeEventListener("load", checkAds);
+        document.removeEventListener("visibilitychange", checkAds);
+      }
       return;
     }
-    if (!adWatcher) {
-      adWatcher = new IntersectionObserver(
-        function (entries) {
-          for (var i = 0; i < entries.length; i++) {
-            if (!entries[i].isIntersecting) continue;
-            adWatcher.unobserve(entries[i].target);
-            unparkAd(entries[i].target);
-          }
-        },
-        { rootMargin: "400px 0px" } // se carga un poco antes de entrar en pantalla
-      );
+    if (!adListening) {
+      adListening = true;
+      addEventListener("scroll", checkAds, { passive: true, capture: true });
+      addEventListener("resize", checkAds, { passive: true });
+      addEventListener("load", checkAds);
+      document.addEventListener("visibilitychange", checkAds);
     }
-    for (var j = 0; j < parkedAds.length; j++) adWatcher.observe(parkedAds[j]);
+    if (adTimers.length === 0) {
+      var delays = [0, 250, 800, 2000, 5000];
+      for (var i = 0; i < delays.length; i++) adTimers.push(setTimeout(checkAds, delays[i]));
+    }
   }
 
   function scanAds(node) {
@@ -457,7 +492,6 @@
       for (var f = 0; f < hits.length; f++) frames.push(hits[f]);
     }
     for (var g = 0; g < frames.length; g++) parkAd(frames[g]);
-    watchAds();
   }
   // --- aligerado de imágenes ---------------------------------------------------------------------
   // La web aplaza sus miniaturas con `jquery.lazyload`: en **cada evento de scroll** recorre las
