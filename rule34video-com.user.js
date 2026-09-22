@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.35
+// @version      0.1.36
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -162,6 +162,7 @@
   var POS_PREFIX = "r34gv.pos."; // + video_id
   var RESUME_MIN = 20; // por debajo de 20 s (o del 10% del vídeo) no se reanuda: no hay nada que reanudar
   var RESUME_TAIL = 10; // y a menos de 10 s (o del 5%) del final, la próxima vez desde el principio
+  var POS_HEAD = 5; // los primeros segundos no se guardan: no es «donde te quedaste»
 
   function pref(key) {
     try {
@@ -303,6 +304,7 @@
   var seen = new WeakSet();
   var userTouched = false; // el usuario ya cambió volumen o velocidad: a partir de ahí solo se graba
   var busyUntil = 0; // hasta cuándo lo que llegue con los valores de fábrica es cosa de la web
+  var hasPlayed = false; // antes de la primera reproducción, «lo de fábrica» siempre es la web
   var lastSaved = -1;
   var resumedFor = ""; // dirección del contenido para el que ya se reanudó (el pre-roll no cuenta)
 
@@ -455,7 +457,7 @@
     var t = v.currentTime;
     var d = v.duration;
     if (!isFinite(t) || !isFinite(d) || d <= 0) return;
-    if (t < 3 || t > d - Math.min(RESUME_TAIL, d * 0.05)) {
+    if (t < Math.min(POS_HEAD, d * 0.05) || t > d - Math.min(RESUME_TAIL, d * 0.05)) {
       memDel(POS_PREFIX + videoId);
       lastSaved = -1;
       return;
@@ -497,9 +499,10 @@
     });
     v.addEventListener("volumechange", function () {
       if (isOursVolume(v)) return; // es nuestro propio ajuste: no hay nada que grabar
-      // El valor de fábrica justo al cargar es la web arrancando: se deshace con lo guardado, sin
-      // grabarlo. Cualquier otro cambio (o uno más tarde) es del usuario, y a partir de ahí manda él.
-      if (!userTouched && Date.now() < busyUntil && factoryVol(v) && wantVol() != null) {
+      // El valor de fábrica justo al cargar (o en un hito) es la web arrancando: se deshace con lo
+      // guardado, sin grabarlo. Cualquier otro cambio (o uno más tarde) es del usuario, y a partir de
+      // ahí manda él y solo se graba.
+      if (!userTouched && factoryVol(v) && wantVol() != null && (Date.now() < busyUntil || !hasPlayed)) {
         reapply(v);
         return;
       }
@@ -508,7 +511,7 @@
     });
     v.addEventListener("ratechange", function () {
       if (isOursRate(v)) return;
-      if (!userTouched && Date.now() < busyUntil && factoryRate(v) && wantRate() != null) {
+      if (!userTouched && factoryRate(v) && wantRate() != null && (Date.now() < busyUntil || !hasPlayed)) {
         reapply(v);
         return;
       }
