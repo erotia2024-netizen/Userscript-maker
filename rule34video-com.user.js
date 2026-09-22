@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.53
+// @version      0.1.54
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -571,7 +571,7 @@
     var it = e.target.closest(".fp-settings-list-item");
     if (!it) return;
     var t = String(it.textContent || "").trim().toLowerCase();
-    if (!/^\d{3,4}p$/.test(t)) return;
+    if (!/^\d{3,4}p(\s|$)/.test(t)) return;
     memSet(QUALITY_KEY, t);
     memSet(SITE_QUALITY_KEY, t); // en la clave del reproductor también: en el siguiente vídeo, suya
   }
