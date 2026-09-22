@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.45
+// @version      0.1.46
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -599,6 +599,28 @@
     });
     v.addEventListener("timeupdate", function () {
       savePos(v, false);
+      if (v.currentTime !== lastSeenTime) {
+        lastSeenTime = v.currentTime;
+        lastMovedAt = Date.now();
+      }
+    });
+    v.addEventListener("progress", function () {
+      var b = bufferedEnd(v);
+      if (b > lastSeenBuffered + 0.01) {
+        lastSeenBuffered = b;
+        lastMovedAt = Date.now();
+      }
+    });
+    v.addEventListener("playing", function () {
+      markMoving(v);
+    });
+    // Un error de red o de fuente (p. ej. la firma caducada) deja el reproductor parado: se intenta
+    // reabrir el flujo, que es lo único que se puede hacer desde el userscript.
+    v.addEventListener("error", function () {
+      if (replenishing || document.hidden) return;
+      if (!contentKey(v)) return; // el pre-roll (u otra fuente) no se toca
+      var code = v.error ? v.error.code : 0;
+      if (code === 2 || code === 4) recover(v);
     });
     v.addEventListener("pause", function () {
       savePos(v, true);
@@ -644,6 +666,164 @@
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "hidden") saveNow();
   });
+
+  // --- el vigilante de parones ---------------------------------------------------------------------
+  // La web sirve el vídeo con una firma por sesión, y el botón de descarga usa ESA MISMA dirección (y
+  // el mismo token): si se cruzan dos peticiones —una descarga, o un gestor de descargas que olfatea
+  // la dirección— el CDN puede cortar la del reproductor, y el vídeo se queda parado sin decir nada.
+  // Aquí se vigila que el motor siga avanzando (segundos o búfer) y, si se atasca, se reabre el flujo
+  // solo: primero con la misma dirección y un `rnd` nuevo, y si vuelve a pasar, pidiéndole a la página
+  // una firma fresca. Solo se actúa cuando la fuente es una de las del vídeo; el pre-roll no se toca.
+  var STALL_MS = 9000; // tanto tiempo sin avanzar ni bufferear = atascado
+  var STALL_TRIES = 4; // reintentos por carga de página
+  var stallTries = 0;
+  var replenishing = false; // mientras se reabre el flujo, que no se dispare otra vez
+  var lastSeenTime = -1;
+  var lastSeenBuffered = -1;
+  var lastMovedAt = 0;
+  var freshUrls = null; // direcciones nuevas (firma fresca) de esta misma página
+
+  function bufferedEnd(v) {
+    try {
+      return v.buffered.length ? v.buffered.end(v.buffered.length - 1) : 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  function markMoving(v) {
+    lastSeenTime = v.currentTime;
+    lastSeenBuffered = bufferedEnd(v);
+    lastMovedAt = Date.now();
+  }
+
+  // Pone al día el `rnd` (la marca de tiempo que el reproductor cuelga de la dirección) sin tocar el
+  // token: es la forma de pedir el MISMO archivo como una petición nueva.
+  function freshRnd(url) {
+    var s = String(url || "");
+    var now = Date.now();
+    var out = s.replace(/([?&])rnd=[^&#]*/i, "$1rnd=" + now);
+    if (out === s) out = s + (s.indexOf("?") === -1 ? "?" : "&") + "rnd=" + now;
+    return out;
+  }
+
+  function fieldOf(html, key) {
+    var m = new RegExp(key + "\\s*:\\s*'([^']+)'").exec(html || "");
+    return m ? m[1] : "";
+  }
+
+  // Firma fresca: se vuelve a pedir la propia página (mismo origen, con la sesión) y se leen las
+  // direcciones nuevas de sus `flashvars`. Solo si el primer reintento no ha bastado.
+  function refillUrls() {
+    if (freshUrls) return Promise.resolve(freshUrls);
+    return fetch(location.href, { credentials: "same-origin", cache: "no-store" })
+      .then(function (r) {
+        return r.ok ? r.text() : "";
+      })
+      .then(function (html) {
+        var pairs = [
+          ["video_url", "video_url_text"],
+          ["video_alt_url", "video_alt_url_text"],
+          ["video_alt_url2", "video_alt_url2_text"],
+          ["video_alt_url3", "video_alt_url3_text"]
+        ];
+        var map = {};
+        for (var i = 0; i < pairs.length; i++) {
+          var u = fieldOf(html, pairs[i][0]);
+          if (u) map[fieldOf(html, pairs[i][1]).toLowerCase()] = u;
+        }
+        freshUrls = map;
+        return map;
+      })
+      .catch(function () {
+        freshUrls = {};
+        return freshUrls;
+      });
+  }
+
+  function showNote(text) {
+    var root = playerRoot();
+    if (!root || root.querySelector(".r34gv-resume")) return;
+    var el = document.createElement("div");
+    el.className = "r34gv-resume";
+    el.textContent = text;
+    root.appendChild(el);
+    setTimeout(function () {
+      el.className = "r34gv-resume r34gv-resume--out";
+    }, 5000);
+    setTimeout(function () {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, 6000);
+  }
+
+  // Reabre el flujo conservando el segundo, el volumen y la velocidad.
+  function reopen(v, url) {
+    var t = v.currentTime;
+    var wasPlaying = !v.paused && !v.ended;
+    replenishing = true;
+    try {
+      v.preload = "auto";
+    } catch (e) {}
+    var once = function () {
+      v.removeEventListener("loadedmetadata", once);
+      try {
+        if (t > 1) v.currentTime = t;
+      } catch (e) {}
+      if (wasPlaying) {
+        var p = v.play();
+        if (p && p.catch) p.catch(function () {});
+      }
+      markMoving(v);
+      replenishing = false;
+    };
+    v.addEventListener("loadedmetadata", once);
+    setTimeout(function () {
+      replenishing = false; // red de seguridad: si no llega a cargar, que no se quede bloqueado
+    }, 20000);
+    try {
+      v.src = url;
+    } catch (e) {
+      replenishing = false;
+    }
+  }
+
+  function recover(v) {
+    if (replenishing) return;
+    var src = absUrl(v.currentSrc || v.src);
+    if (!src) return;
+    stallTries++;
+    if (stallTries > STALL_TRIES) return; // ya se ha intentado bastante: manda el reproductor
+    var text = contentSet[stripQuery(src)] || "";
+    if (stallTries === 1 || !text) {
+      if (window.console) console.log("[r34gv] parón del vídeo: se reabre el flujo");
+      showNote("Reconectando el vídeo…");
+      reopen(v, freshRnd(src));
+      return;
+    }
+    refillUrls().then(function (map) {
+      var url = (text && map[text.toLowerCase()]) || "";
+      if (window.console) console.log("[r34gv] parón del vídeo: firma fresca" + (url ? "" : " (no)"));
+      showNote("Reconectando el vídeo…");
+      reopen(v, freshRnd(url || src));
+    });
+  }
+
+  function checkStall() {
+    if (replenishing || document.hidden) return;
+    var v = engine();
+    if (!v) return;
+    if (v.paused || v.ended || v.seeking) return;
+    if (!contentKey(v)) return; // el pre-roll (u otra fuente) no se toca
+    if (v.readyState >= 3) return; // hay datos de sobra: no está atascado
+    if (!lastMovedAt) {
+      lastMovedAt = Date.now();
+      return;
+    }
+    if (Date.now() - lastMovedAt < STALL_MS) return;
+    recover(v);
+  }
+
+  setInterval(checkStall, 2000);
 
   // --- Espacio = play/pausa -----------------------------------------------------------------------
   // Es la tecla que el reproductor de la web no tiene: las de Flowplayer (cursores con Shift, números
