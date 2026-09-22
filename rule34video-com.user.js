@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.8
+// @version      0.1.9
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -19,11 +19,23 @@
 (function () {
   "use strict";
   var css = "/* ---------------------------------------------------------------------------------------------\n   rule34video.com — limpieza de la página.\n   El CSS del sitio se carga después que este, así que todo va con !important: estas reglas tienen\n   que ganar sí o sí.\n   --------------------------------------------------------------------------------------------- */\n\n/* 1) Botones de promoción del header: «AI Jerk Off» (enlace de afiliado) y «ThePornDude».\n      Se ocultan aquí para que no parpadeen, y core.js además los quita del DOM y vigila que no\n      vuelvan (la web repinta el header con su propio JS). */\n.panel_header.panel_header--promo,\na.button_fav.ai,\na.button_fav.theporndude {\n  display: none !important;\n}\n\n/* 2) La banda de aviso de rule34gen, la que sale pegada debajo del header («Due to the massive\n      influx of AI generated video's…»). Se esconde el enlace y sus dos contenedores, y también el\n      `.headline` que solo la envuelve a ella: si no, se quedaría su margen inferior como hueco. */\na.emger,\n#top-header,\n#emergency-response-opt,\n.headline:has(> a.emger) {\n  display: none !important;\n}\n\n/* 3) El hueco entre la paginación («Jump to … OK») y el logo del pie.\n      Entre esas dos cosas no hay más que la banda de anuncios del pie (.footer_spots), y esa banda\n      reserva 250 px de alto por cada hueco de anuncio aunque no haya anuncio que cargar\n      (.columns_spots .spots { min-height:250px } en el CSS de la web): eso es el vacío que se ve.\n      Se le quitan el alto mínimo y los márgenes, así mide exactamente lo que mida el anuncio que\n      cargue — y cero si no hay ninguno. Además el pie arranca un poco más arriba. */\n.footer_spots {\n  margin-top: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_spots .columns_spots,\n.footer_spots .spots {\n  min-height: 0 !important;\n  margin: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_holder {\n  padding-top: 16px !important;\n}\n";
-  if (css) {
-    var style = document.createElement("style");
-    style.id = "r34g-styles";
-    style.textContent = css;
-    (document.head || document.documentElement).appendChild(style);
+  if (!css) return;
+  var style = document.createElement("style");
+  style.id = "r34g-styles";
+  style.textContent = css;
+  // Con @run-at document-start puede que <head> (o incluso <html>) todavía no exista: en
+  // ese caso se reintenta en cuanto el documento tenga dónde ponerlo, en vez de reventar.
+  function add() {
+    var host = document.head || document.documentElement;
+    if (!host) return false;
+    host.appendChild(style);
+    return true;
+  }
+  if (!add()) {
+    document.addEventListener("DOMContentLoaded", add);
+    var t = setInterval(function () {
+      if (add()) clearInterval(t);
+    }, 10);
   }
 })();
 // ---- rule34video-com ----
@@ -326,16 +338,6 @@
     polish(document.documentElement || document.body);
   }
 
-  clean();
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () {
-      clean();
-      sweep();
-    });
-  } else {
-    sweep();
-  }
-
   // La web también mete contenido por AJAX (los listados, el buscador), así que esto puede reaparecer
   // en cualquier momento. Solo se miran los nodos AÑADIDOS, así que nuestras propias eliminaciones no
   // vuelven a dispararlo (nada de bucles).
@@ -348,6 +350,36 @@
       }
     }
   });
-  obs.observe(document.documentElement || document.body, { childList: true, subtree: true });
+
+  // El userscript entra en document-start (lo necesita player.js), así que aquí no se puede dar por
+  // hecho que el documento ya tenga raíz: si todavía no la tiene (raro), se engancha en cuanto la
+  // haya. Observar desde el principio es lo que hace que los botones de promoción no lleguen ni a
+  // pintarse, en vez de quitarlos después con el parpadeo de rigor.
+  var observing = false;
+  function boot() {
+    if (observing) return true;
+    var root = document.documentElement || document.body;
+    if (!root) return false;
+    clean();
+    obs.observe(root, { childList: true, subtree: true });
+    observing = true;
+    return true;
+  }
+
+  if (!boot()) {
+    document.addEventListener("DOMContentLoaded", boot);
+    var retry = setInterval(function () {
+      if (boot()) clearInterval(retry);
+    }, 20);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+      clean();
+      sweep();
+    });
+  } else {
+    sweep();
+  }
 })();
 
