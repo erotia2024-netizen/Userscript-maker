@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.12
+// @version      0.1.13
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -18,7 +18,7 @@
 
 (function () {
   "use strict";
-  var css = "/* ---------------------------------------------------------------------------------------------\n   rule34video.com — limpieza de la página.\n   El CSS del sitio se carga después que este, así que todo va con !important: estas reglas tienen\n   que ganar sí o sí.\n   --------------------------------------------------------------------------------------------- */\n\n/* 1) Botones de promoción del header: «AI Jerk Off» (enlace de afiliado) y «ThePornDude».\n      Se ocultan aquí para que no parpadeen, y core.js además los quita del DOM y vigila que no\n      vuelvan (la web repinta el header con su propio JS). */\n.panel_header.panel_header--promo,\na.button_fav.ai,\na.button_fav.theporndude {\n  display: none !important;\n}\n\n/* 2) La banda de aviso de rule34gen, la que sale pegada debajo del header («Due to the massive\n      influx of AI generated video's…»). Se esconde el enlace y sus dos contenedores, y también el\n      `.headline` que solo la envuelve a ella: si no, se quedaría su margen inferior como hueco. */\na.emger,\n#top-header,\n#emergency-response-opt,\n.headline:has(> a.emger) {\n  display: none !important;\n}\n\n/* 3) El hueco entre la paginación («Jump to … OK») y el logo del pie.\n      Entre esas dos cosas no hay más que la banda de anuncios del pie (.footer_spots), y esa banda\n      reserva 250 px de alto por cada hueco de anuncio aunque no haya anuncio que cargar\n      (.columns_spots .spots { min-height:250px } en el CSS de la web): eso es el vacío que se ve.\n      Se le quitan el alto mínimo y los márgenes, así mide exactamente lo que mida el anuncio que\n      cargue — y cero si no hay ninguno. Además el pie arranca un poco más arriba. */\n.footer_spots {\n  margin-top: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_spots .columns_spots,\n.footer_spots .spots {\n  min-height: 0 !important;\n  margin: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_holder {\n  padding-top: 16px !important;\n}\n";
+  var css = "/* ---------------------------------------------------------------------------------------------\n   rule34video.com — limpieza de la página.\n   El CSS del sitio se carga después que este, así que todo va con !important: estas reglas tienen\n   que ganar sí o sí.\n   --------------------------------------------------------------------------------------------- */\n\n/* 1) Botones de promoción del header: «AI Jerk Off» (enlace de afiliado) y «ThePornDude».\n      Se ocultan aquí para que no parpadeen, y core.js además los quita del DOM y vigila que no\n      vuelvan (la web repinta el header con su propio JS). */\n.panel_header.panel_header--promo,\na.button_fav.ai,\na.button_fav.theporndude {\n  display: none !important;\n}\n\n/* 2) La banda de aviso de rule34gen, la que sale pegada debajo del header («Due to the massive\n      influx of AI generated video's…»). Se esconde el enlace y sus dos contenedores, y también el\n      `.headline` que solo la envuelve a ella: si no, se quedaría su margen inferior como hueco. */\na.emger,\n#top-header,\n#emergency-response-opt,\n.headline:has(> a.emger) {\n  display: none !important;\n}\n\n/* 3) El hueco entre la paginación («Jump to … OK») y el logo del pie.\n      Entre esas dos cosas no hay más que la banda de anuncios del pie (.footer_spots), y esa banda\n      reserva 250 px de alto por cada hueco de anuncio aunque no haya anuncio que cargar\n      (.columns_spots .spots { min-height:250px } en el CSS de la web): eso es el vacío que se ve.\n      Se le quitan el alto mínimo y los márgenes, así mide exactamente lo que mida el anuncio que\n      cargue — y cero si no hay ninguno. Además el pie arranca un poco más arriba. */\n.footer_spots {\n  margin-top: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_spots .columns_spots,\n.footer_spots .spots {\n  min-height: 0 !important;\n  margin: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_holder {\n  padding-top: 16px !important;\n}\n\n/* 4) Los botones de afiliado de la columna lateral (los de happyleafmotion) traen su animación en el\n      propio `style=\"\"` del enlace: un gradiente de fondo que se mueve en bucle (`gradientShift 8s` y\n      `r34flow 10s`). Un `background-position` animado no se puede componer en la GPU: el navegador\n      **repinta ese botón en cada frame, para siempre** mientras la pestaña esté abierta. Aquí solo se\n      le para la animación al botón (el `!important` gana al `style=\"\"` del propio enlace): se sigue\n      viendo y se puede pinchar igual —no se toca nada de lo que paga la web— pero deja de gastar CPU.\n      Medido con la pestaña quieta: eran las dos únicas animaciones infinitas que quedaban en la\n      página además del spinner de «cargando» del reproductor. */\na.button_fav.sidebar_ad {\n  animation: none !important;\n}\n";
   if (!css) return;
   var style = document.createElement("style");
   style.id = "r34g-styles";
@@ -61,6 +61,11 @@
 //                                      Aquí se pone delante la preferida —720p, o 480p si la conexión
 //                                      es lenta o hay ahorro de datos— con su texto y su marca HD, y
 //                                      las demás se quedan como estaban.
+//   loop: false                     -> la web trae `loop: 'true'`, o sea que si dejas la pestaña
+//                                      abierta el vídeo se repite para siempre (y vuelve a
+//                                      descargarse). Con esto se para al terminar, que es cuando una
+//                                      pestaña abierta debería quedarse quieta. Se puede volver a
+//                                      poner con localStorage["r34gv.loop"] = "true".
 //
 // El pre-roll (adv_pre_vast) NO se toca a propósito: es el anuncio que paga esta página, y quitarlo
 // sería dejar al vídeo sin su único ingreso. Tampoco se simulan clics en los anuncios: eso es fraude
@@ -101,11 +106,21 @@
   var HDS = ["", "", "video_alt_url2_hd", "video_alt_url3_hd"];
   var current = undefined;
 
-  function wanted() {
+  function pref(key) {
     try {
-      var v = W.localStorage && W.localStorage.getItem(QUALITY_KEY);
+      var v = W.localStorage && W.localStorage.getItem(key);
       if (v) return String(v).toLowerCase();
     } catch (e) {}
+    return "";
+  }
+
+  function loopPref() {
+    return pref("r34gv.loop");
+  }
+
+  function wanted() {
+    var saved = pref(QUALITY_KEY);
+    if (saved) return saved;
     // Sin preferencia guardada: en una conexión lenta (o con ahorro de datos) empezar en 720p es
     // empezar a bufferear, así que se baja a 480p.
     try {
@@ -135,7 +150,10 @@
       fv.preload = "auto";
       // 2) las 11 miniaturas de la barra de tiempo, solo cuando se pase el ratón.
       if (fv.timeline_screens_url) fv.timeline_screens_preload = "false";
-      // 3) la calidad preferida, delante.
+      // 3) que no se repita solo (una pestaña abierta con el vídeo en bucle no se queda nunca
+      //    quieta). Se puede devolver a como estaba con localStorage["r34gv.loop"] = "true".
+      if (loopPref() !== "true") fv.loop = "false";
+      // 4) la calidad preferida, delante.
       var want = wanted();
       var list = [];
       for (var i = 0; i < URLS.length; i++) {
@@ -260,16 +278,17 @@
 // se quita además su contenedor `.headline` (que solo lo envuelve a él), para no dejar el hueco del
 // margen inferior.
 //
-// Aligerado: la web sirve decenas de miniaturas por página y solo aplaza las de las fichas de vídeo
-// (las que llevan `data-original`, con jquery.lazyload); las de categorías y modelos van con su `src`
-// puesto y se piden todas al abrir. Aquí se le dice al navegador lo mismo —loading="lazy" en lo que
-// queda por debajo de la pantalla— y que descodifique en segundo plano (decoding="async"). Todo esto
-// es aditivo: si la web cambia, lo peor que pasa es que no se aplique.
+// Aligerado: la web sirve decenas de miniaturas por página y las aplaza con jquery.lazyload (que
+// mide cada ficha en cada evento de scroll: lectura de maquetación forzada por evento). Aquí se le
+// adelanta el trabajo al navegador —se resuelve el `src` y se le quita la clase al `img`, y el
+// navegador las trae al acercarse con `loading="lazy"`— y se marca `decoding="async"` para que
+// descodifiquen fuera del hilo principal. Todo esto es aditivo: si la web cambia, lo peor que pasa
+// es que no se aplique.
 //
-// (Se probó también `content-visibility: auto` en las fichas y se descartó: el lazyload de la web es
-// jquery.lazyload, que mide con `.offset()`, y dentro de un subárbol saltado por content-visibility
-// los descendientes no tienen caja, así que mediría 0. Ganancia nula en una rejilla de 24 fichas y
-// riesgo de que la web cargue todo de golpe. Con `loading="lazy"` el navegador lo aplaza igual.)
+// (Se probó también `content-visibility: auto` en las fichas y se descartó: dentro de un subárbol
+// saltado por content-visibility los descendientes no tienen caja, así que jquery.lazyload —que mide
+// con `.offset()`— mediría 0. Ganancia nula en una rejilla de 24 fichas y riesgo de que la web
+// cargue todo de golpe. Con `loading="lazy"` el navegador lo aplaza igual.)
 //
 // El resto (huecos de anuncios del pie, etc.) es cosa de styles.css. Los ajustes del reproductor
 // están en player.js (y por eso sí que importa que el userscript entre en document-start).
@@ -321,11 +340,33 @@
     return purge(document.documentElement || document.body);
   }
   // --- aligerado de imágenes ---------------------------------------------------------------------
-  // Una imagen por debajo de la pantalla no hace falta que se descargue ahora: se marca para que el
-  // navegador la traiga al acercarse. Las que se ven al abrir la página se quedan como están (si se
-  // marcasen, el navegador las pediría igual, pero no tiene sentido mentirle).
+  // La web aplaza sus miniaturas con `jquery.lazyload`: en **cada evento de scroll** recorre las
+  // fichas y mide dónde está cada una (`.offset()`, que es una lectura de maquetación forzada). Eso
+  // es jank puro con la página llena de iframes de anuncios. El navegador sabe hacer exactamente lo
+  // mismo sin gastar un tick de JS (`loading="lazy"`), así que se le adelanta el trabajo al plugin:
+  // se le pone al `img` la dirección de verdad y se le quitan la clase `lazy-load` y los `data-*`,
+  // con lo que `img.lazy-load` no encuentra nada y no hay nada que medir en el scroll. Las imágenes
+  // se siguen cargando al acercarse, pero de eso ya se encarga el navegador.
   var MARK = "data-r34gv-img";
   var READY = false; // hasta DOMContentLoaded no hay maquetación: no se puede saber qué está debajo
+  var WEBP = (function () {
+    try {
+      return document.createElement("canvas").toDataURL("image/webp").indexOf("data:image/webp") === 0;
+    } catch (e) {
+      return false;
+    }
+  })();
+
+  function takeOverLazyload(img) {
+    if (!img || img.nodeType !== 1 || img.tagName !== "IMG") return;
+    if (!img.classList || !img.classList.contains("lazy-load")) return;
+    // `data-original` es la copia JPG y `data-webp` la de WebP: se elige la que el navegador pinte.
+    var src = (WEBP && img.getAttribute("data-webp")) || img.getAttribute("data-original");
+    if (src) img.setAttribute("src", src);
+    img.classList.remove("lazy-load");
+    img.removeAttribute("data-original");
+    img.removeAttribute("data-webp");
+  }
 
   function polishImg(img) {
     if (!img || img.nodeType !== 1 || img.hasAttribute(MARK)) return;
@@ -341,11 +382,15 @@
   function polish(node) {
     if (!node || node.nodeType !== 1) return;
     if (node.tagName === "IMG") {
+      takeOverLazyload(node);
       polishImg(node);
       return;
     }
     var found = node.querySelectorAll ? node.querySelectorAll("img") : [];
-    for (var i = 0; i < found.length; i++) polishImg(found[i]);
+    for (var i = 0; i < found.length; i++) {
+      takeOverLazyload(found[i]);
+      polishImg(found[i]);
+    }
   }
 
   function sweep() {
