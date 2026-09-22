@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.47
+// @version      0.1.48
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -704,6 +704,7 @@
   // token: es la forma de pedir el MISMO archivo como una petición nueva.
   function freshRnd(url) {
     var s = String(url || "");
+    if (/^(blob|data|mediastream):/i.test(s)) return s; // estas no admiten consulta detrás
     var now = Date.now();
     var out = s.replace(/([?&])rnd=[^&#]*/i, "$1rnd=" + now);
     if (out === s) out = s + (s.indexOf("?") === -1 ? "?" : "&") + "rnd=" + now;
