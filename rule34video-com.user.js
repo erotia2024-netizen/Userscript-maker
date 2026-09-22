@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.9
+// @version      0.1.10
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -58,8 +58,9 @@
 //                                      dejan para cuando hagan falta.
 //   calidad por defecto             -> la web arranca en 360p (es la que va en `video_url`, la fuente
 //                                      por defecto) y deja 480p/720p/1080p en los huecos alternativos.
-//                                      Aquí se pone delante la preferida —720p— con su texto y su
-//                                      marca HD, y las demás se quedan como estaban.
+//                                      Aquí se pone delante la preferida —720p, o 480p si la conexión
+//                                      es lenta o hay ahorro de datos— con su texto y su marca HD, y
+//                                      las demás se quedan como estaban.
 //
 // El pre-roll (adv_pre_vast) NO se toca a propósito: es el anuncio que paga esta página, y quitarlo
 // sería dejar al vídeo sin su único ingreso. Tampoco se simulan clics en los anuncios: eso es fraude
@@ -73,6 +74,7 @@
 //
 // Preferencia de calidad: se puede cambiar desde la consola con
 //   localStorage.setItem("r34gv.quality", "1080p")   // o 480p, 360p…
+// Si no hay ninguna guardada se usa 720p (480p si la conexión es lenta o hay ahorro de datos).
 // ---------------------------------------------------------------------------------------------
 (function () {
   "use strict";
@@ -103,6 +105,13 @@
     try {
       var v = W.localStorage && W.localStorage.getItem(QUALITY_KEY);
       if (v) return String(v).toLowerCase();
+    } catch (e) {}
+    // Sin preferencia guardada: en una conexión lenta (o con ahorro de datos) empezar en 720p es
+    // empezar a bufferear, así que se baja a 480p.
+    try {
+      var nav = W.navigator || navigator;
+      var c = nav.connection || nav.mozConnection || nav.webkitConnection;
+      if (c && (c.saveData || /^(slow-)?2g$|^3g$/.test(c.effectiveType || ""))) return "480p";
     } catch (e) {}
     return QUALITY_DEFAULT.toLowerCase();
   }
