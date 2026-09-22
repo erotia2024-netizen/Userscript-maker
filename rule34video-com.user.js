@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.31
+// @version      0.1.32
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -18,7 +18,7 @@
 
 (function () {
   "use strict";
-  var css = "/* ---------------------------------------------------------------------------------------------\n   rule34video.com — limpieza de la página.\n   El CSS del sitio se carga después que este, así que todo va con !important: estas reglas tienen\n   que ganar sí o sí.\n   --------------------------------------------------------------------------------------------- */\n\n/* 1) Botones de promoción del header: «AI Jerk Off» (enlace de afiliado) y «ThePornDude».\n      Se ocultan aquí para que no parpadeen, y core.js además los quita del DOM y vigila que no\n      vuelvan (la web repinta el header con su propio JS). */\n.panel_header.panel_header--promo,\na.button_fav.ai,\na.button_fav.theporndude {\n  display: none !important;\n}\n\n/* 2) La banda de aviso de rule34gen, la que sale pegada debajo del header («Due to the massive\n      influx of AI generated video's…»). Se esconde el enlace y sus dos contenedores, y también el\n      `.headline` que solo la envuelve a ella: si no, se quedaría su margen inferior como hueco. */\na.emger,\n#top-header,\n#emergency-response-opt,\n.headline:has(> a.emger) {\n  display: none !important;\n}\n\n/* 3) El hueco entre la paginación («Jump to … OK») y el logo del pie.\n      Entre esas dos cosas no hay más que la banda de anuncios del pie (.footer_spots), y esa banda\n      reserva 250 px de alto por cada hueco de anuncio aunque no haya anuncio que cargar\n      (.columns_spots .spots { min-height:250px } en el CSS de la web): eso es el vacío que se ve.\n      Se le quitan el alto mínimo y los márgenes, así mide exactamente lo que mida el anuncio que\n      cargue — y cero si no hay ninguno. Además el pie arranca un poco más arriba. */\n.footer_spots {\n  margin-top: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_spots .columns_spots,\n.footer_spots .spots {\n  min-height: 0 !important;\n  margin: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_holder {\n  padding-top: 16px !important;\n}\n\n/* 4) Los botones de afiliado de la columna lateral (los de happyleafmotion) traen su animación en el\n      propio `style=\"\"` del enlace: un gradiente de fondo que se mueve en bucle (`gradientShift 8s` y\n      `r34flow 10s`). Un `background-position` animado no se puede componer en la GPU: el navegador\n      **repinta ese botón en cada frame, para siempre** mientras la pestaña esté abierta. Aquí solo se\n      le para la animación al botón (el `!important` gana al `style=\"\"` del propio enlace): se sigue\n      viendo y se puede pinchar igual —no se toca nada de lo que paga la web— pero deja de gastar CPU.\n      Medido con la pestaña quieta: eran las dos únicas animaciones infinitas que quedaban en la\n      página además del spinner de «cargando» del reproductor. */\na.button_fav.sidebar_ad {\n  animation: none !important;\n}\n\n/* 5) La ficha de anuncio de la rejilla, ya en el pie. La traslada core.js (ver `localStorage\n      [\"r34gv.ads\"]`): en vez de ir entre los vídeos haciéndose pasar por uno, va al hueco que queda\n      entre la paginación («Jump to … OK», donde acaba el listado) y el pie del sitio, donde está el\n      logo. Aquí solo se le da sitio —centrada y del ancho de una ficha— y se le quitan los adornos de\n      vídeo: la duración («23:40»), el icono HD, el de play y la fila de nota/vistas, que son relleno\n      de la plantilla. El cartel «AD» se queda: el anuncio tiene que poder distinguirse de lo demás. */\n.r34gv-footer-ad {\n  clear: both !important;\n  width: 336px !important;\n  max-width: 92% !important;\n  margin: 22px auto 4px !important;\n}\n\n.r34gv-footer-ad .item.thumb {\n  float: none !important;\n  width: 100% !important;\n  height: auto !important;\n  margin: 0 !important;\n}\n\n.r34gv-footer-ad .time,\n.r34gv-footer-ad .quality,\n.r34gv-footer-ad .custom-play,\n.r34gv-footer-ad .thumb_info {\n  display: none !important;\n}\n";
+  var css = "/* ---------------------------------------------------------------------------------------------\n   rule34video.com — limpieza de la página.\n   El CSS del sitio se carga después que este, así que todo va con !important: estas reglas tienen\n   que ganar sí o sí.\n   --------------------------------------------------------------------------------------------- */\n\n/* 1) Botones de promoción del header: «AI Jerk Off» (enlace de afiliado) y «ThePornDude».\n      Se ocultan aquí para que no parpadeen, y core.js además los quita del DOM y vigila que no\n      vuelvan (la web repinta el header con su propio JS). */\n.panel_header.panel_header--promo,\na.button_fav.ai,\na.button_fav.theporndude {\n  display: none !important;\n}\n\n/* 2) La banda de aviso de rule34gen, la que sale pegada debajo del header («Due to the massive\n      influx of AI generated video's…»). Se esconde el enlace y sus dos contenedores, y también el\n      `.headline` que solo la envuelve a ella: si no, se quedaría su margen inferior como hueco. */\na.emger,\n#top-header,\n#emergency-response-opt,\n.headline:has(> a.emger) {\n  display: none !important;\n}\n\n/* 3) El hueco entre la paginación («Jump to … OK») y el logo del pie.\n      Entre esas dos cosas no hay más que la banda de anuncios del pie (.footer_spots), y esa banda\n      reserva 250 px de alto por cada hueco de anuncio aunque no haya anuncio que cargar\n      (.columns_spots .spots { min-height:250px } en el CSS de la web): eso es el vacío que se ve.\n      Se le quitan el alto mínimo y los márgenes, así mide exactamente lo que mida el anuncio que\n      cargue — y cero si no hay ninguno. Además el pie arranca un poco más arriba. */\n.footer_spots {\n  margin-top: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_spots .columns_spots,\n.footer_spots .spots {\n  min-height: 0 !important;\n  margin: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_holder {\n  padding-top: 16px !important;\n}\n\n/* 4) Los botones de afiliado de la columna lateral (los de happyleafmotion) traen su animación en el\n      propio `style=\"\"` del enlace: un gradiente de fondo que se mueve en bucle (`gradientShift 8s` y\n      `r34flow 10s`). Un `background-position` animado no se puede componer en la GPU: el navegador\n      **repinta ese botón en cada frame, para siempre** mientras la pestaña esté abierta. Aquí solo se\n      le para la animación al botón (el `!important` gana al `style=\"\"` del propio enlace): se sigue\n      viendo y se puede pinchar igual —no se toca nada de lo que paga la web— pero deja de gastar CPU.\n      Medido con la pestaña quieta: eran las dos únicas animaciones infinitas que quedaban en la\n      página además del spinner de «cargando» del reproductor. */\na.button_fav.sidebar_ad {\n  animation: none !important;\n}\n\n/* 5) La ficha de anuncio de la rejilla, ya en el pie. La traslada core.js (ver `localStorage\n      [\"r34gv.ads\"]`): en vez de ir entre los vídeos haciéndose pasar por uno, va al hueco que queda\n      entre la paginación («Jump to … OK», donde acaba el listado) y el pie del sitio, donde está el\n      logo. Aquí solo se le da sitio —centrada y del ancho de una ficha— y se le quitan los adornos de\n      vídeo: la duración («23:40»), el icono HD, el de play y la fila de nota/vistas, que son relleno\n      de la plantilla. El cartel «AD» se queda: el anuncio tiene que poder distinguirse de lo demás. */\n.r34gv-footer-ad {\n  clear: both !important;\n  width: 336px !important;\n  max-width: 92% !important;\n  margin: 22px auto 4px !important;\n}\n\n.r34gv-footer-ad .item.thumb {\n  float: none !important;\n  width: 100% !important;\n  height: auto !important;\n  margin: 0 !important;\n}\n\n.r34gv-footer-ad .time,\n.r34gv-footer-ad .quality,\n.r34gv-footer-ad .custom-play,\n.r34gv-footer-ad .thumb_info {\n  display: none !important;\n}\n\n/* 6) El aviso de «sigues en …», que pone player.js al reanudar un vídeo a medias. Va dentro de\n      `.kt-player` (igual que el indicador de ±10 s de kt_seek.js, que usa z-index 50), en la esquina\n      inferior izquierda del vídeo, y se va solo. Nada de esto existe si nunca se reanuda nada. */\n.r34gv-resume {\n  position: absolute !important;\n  left: 14px !important;\n  bottom: 64px !important;\n  z-index: 51 !important;\n  max-width: 78% !important;\n  padding: 8px 13px !important;\n  border-radius: 999px !important;\n  background: rgba(0, 0, 0, 0.72) !important;\n  color: #fff !important;\n  font-family: Roboto, Arial, Helvetica, sans-serif !important;\n  font-size: 12.5px !important;\n  font-weight: 600 !important;\n  line-height: 1.2 !important;\n  letter-spacing: 0.2px !important;\n  pointer-events: none !important;\n  opacity: 1 !important;\n  transition: opacity 0.5s ease !important;\n}\n\n.r34gv-resume--out {\n  opacity: 0 !important;\n}\n";
   if (!css) return;
   var style = document.createElement("style");
   style.id = "r34g-styles";
@@ -117,6 +117,51 @@
   var TEXTS = ["video_url_text", "video_alt_url_text", "video_alt_url2_text", "video_alt_url3_text"];
   var HDS = ["", "", "video_alt_url2_hd", "video_alt_url3_hd"];
   var current = undefined;
+  var videoId = ""; // `video_id` de los flashvars: la posición guardada va por vídeo
+  var contentSet = {}; // dirección del vídeo (sin consulta) -> texto de su calidad
+
+  function stripQuery(url) {
+    var u = String(url || "");
+    var i = u.search(/[?#]/);
+    return i === -1 ? u : u.slice(0, i);
+  }
+
+  // localStorage, siempre a la defensiva: en modo privado (o con el almacén lleno) no hay memoria,
+  // pero la página tiene que seguir funcionando igual.
+  function memGet(key) {
+    try {
+      var v = W.localStorage && W.localStorage.getItem(key);
+      return v == null ? null : String(v);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function memSet(key, value) {
+    try {
+      if (W.localStorage) W.localStorage.setItem(key, String(value));
+    } catch (e) {}
+  }
+
+  function memDel(key) {
+    try {
+      if (W.localStorage) W.localStorage.removeItem(key);
+    } catch (e) {}
+  }
+
+  function numOf(raw, min, max) {
+    if (raw == null || raw === "") return null;
+    var n = parseFloat(raw);
+    if (!isFinite(n) || n < min || n > max) return null;
+    return n;
+  }
+
+  var VOLUME_KEY = "r34gv.volume"; // 0..1
+  var MUTE_KEY = "r34gv.mute"; // "1" silenciado, "0" con sonido
+  var SPEED_KEY = "r34gv.speed"; // 0.25..4
+  var POS_PREFIX = "r34gv.pos."; // + video_id
+  var RESUME_MIN = 20; // por debajo de 20 s (o del 10% del vídeo) no se reanuda: no hay nada que reanudar
+  var RESUME_TAIL = 10; // y a menos de 10 s (o del 5%) del final, la próxima vez desde el principio
 
   function pref(key) {
     try {
@@ -158,6 +203,13 @@
   function tune(fv) {
     if (!fv || typeof fv !== "object") return fv;
     try {
+      // Se apunta el id del vídeo (para la posición) y la calidad de cada una de sus direcciones
+      // (para saber qué calidad está sonando de verdad, y para no confundir el pre-roll con el vídeo).
+      if (fv.video_id != null) videoId = String(fv.video_id);
+      contentSet = {};
+      for (var q = 0; q < URLS.length; q++) {
+        if (fv[URLS[q]]) contentSet[stripQuery(fv[URLS[q]])] = String(fv[TEXTS[q]] || "");
+      }
       // 1) que empiece a bufferear desde el principio.
       fv.preload = "auto";
       // 2) las 11 miniaturas de la barra de tiempo, solo cuando se pase el ratón.
@@ -243,26 +295,208 @@
     } catch (e) {}
   }
 
-  // Red de seguridad: el vídeo del reproductor (y SOLO ese: los previews de la lista son otra cosa y
-  // se cargan al pasar el ratón, no queremos que se descarguen solos).
+  // --- el motor del reproductor: preload, memoria y Espacio ---------------------------------------
+  // Y SOLO ese vídeo: los *previews* de las listas son otra cosa, se cargan al pasar el ratón y no se
+  // tocan. El motor es `video.fp-engine` dentro de `.kt-player` (el propio `kt_seek.js` de la web usa
+  // ese mismo nodo), así que todo lo de aquí es igual de válido con su reproductor.
+  var ENGINE = ".kt-player video.fp-engine, #kt_player video, .player-holder video";
   var seen = new WeakSet();
-  function boostVideo() {
+  var armed = false; // se graban los cambios del usuario; mientras esté desarmado manda lo guardado
+  var armTimer = 0;
+  var lastSaved = -1;
+  var resumedFor = ""; // dirección del contenido para el que ya se reanudó (el pre-roll no cuenta)
+
+  function engine() {
     var v = null;
     try {
-      v = document.querySelector("#kt_player video, .player-holder video, .player-wrap video");
+      v = document.querySelector(ENGINE);
     } catch (e) {}
-    if (!v) return false;
+    return v;
+  }
+
+  function playerRoot() {
+    return document.querySelector(".kt-player") || document.getElementById("kt_player") || null;
+  }
+
+  function contentKey(v) {
+    var src = (v && (v.currentSrc || v.src)) || "";
+    if (!src) return "";
+    var key = stripQuery(src);
+    return contentSet[key] ? key : ""; // vacío = no es una de las direcciones del vídeo (¿pre-roll?)
+  }
+
+  function armLater() {
+    armed = false;
+    if (armTimer) clearTimeout(armTimer);
+    // Media ventana corta tras cada ajuste nuestro: en ese rato, lo que llegue con el valor de fábrica
+    // de la web (volumen 1, velocidad 1) es su propia inicialización y se deshace sin grabarlo.
+    armTimer = setTimeout(function () {
+      armed = true;
+    }, 1200);
+  }
+
+  function applyVolume(v) {
+    var vol = numOf(memGet(VOLUME_KEY), 0, 1);
+    if (vol != null && Math.abs(v.volume - vol) > 0.001) {
+      try {
+        v.volume = vol;
+      } catch (e) {}
+    }
+    var mute = memGet(MUTE_KEY);
+    if (mute != null && v.muted !== (mute === "1")) {
+      try {
+        v.muted = mute === "1";
+      } catch (e) {}
+    }
+  }
+
+  function applySpeed(v) {
+    var sp = numOf(memGet(SPEED_KEY), 0.25, 4);
+    if (sp != null && Math.abs(v.playbackRate - sp) > 0.001) {
+      try {
+        v.playbackRate = sp;
+      } catch (e) {}
+    }
+  }
+
+  function saveVolume(v) {
+    memSet(VOLUME_KEY, Math.round(v.volume * 100) / 100);
+    memSet(MUTE_KEY, v.muted ? "1" : "0");
+  }
+
+  function saveSpeed(v) {
+    memSet(SPEED_KEY, v.playbackRate);
+  }
+
+  function fmtTime(secs) {
+    var s = Math.max(0, Math.round(secs));
+    var m = Math.floor(s / 60);
+    var r = s % 60;
+    return m + ":" + (r < 10 ? "0" : "") + r;
+  }
+
+  // El avisito de «sigues en …», en la esquina del reproductor (el CSS está en styles.css).
+  function showResume(secs) {
+    var root = playerRoot();
+    if (!root || root.querySelector(".r34gv-resume")) return;
+    var el = document.createElement("div");
+    el.className = "r34gv-resume";
+    el.textContent = "Sigues en " + fmtTime(secs) + " · pulsa 0 para empezar de cero";
+    root.appendChild(el);
+    setTimeout(function () {
+      el.className = "r34gv-resume r34gv-resume--out";
+    }, 7000);
+    setTimeout(function () {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, 8000);
+  }
+
+  function resumeIn(v) {
+    if (!videoId) return;
+    var key = contentKey(v);
+    if (!key || key === resumedFor) return; // durante el pre-roll (u otro clip) no se toca nada
+    var t = numOf(memGet(POS_PREFIX + videoId), 0, 24 * 3600);
+    var d = v.duration;
+    if (t == null || !isFinite(d) || d <= 0) return;
+    var min = Math.min(RESUME_MIN, d * 0.1);
+    var max = d - Math.max(RESUME_TAIL, d * 0.05);
+    resumedFor = key;
+    if (t < min) return;
+    if (t > max) {
+      memDel(POS_PREFIX + videoId); // se quedó al final: la próxima vez, desde el principio
+      return;
+    }
+    try {
+      v.currentTime = t;
+    } catch (e) {
+      return;
+    }
+    showResume(t);
+  }
+
+  function savePos(v, force) {
+    if (!videoId || !contentKey(v)) return;
+    var t = v.currentTime;
+    var d = v.duration;
+    if (!isFinite(t) || !isFinite(d) || d <= 0) return;
+    if (t < 3 || t > d - Math.max(RESUME_TAIL, d * 0.05)) {
+      memDel(POS_PREFIX + videoId);
+      lastSaved = -1;
+      return;
+    }
+    if (!force && Math.abs(t - lastSaved) < 3) return;
+    lastSaved = t;
+    memSet(POS_PREFIX + videoId, Math.round(t));
+  }
+
+  function onMeta(v) {
     try {
       if (v.preload !== "auto") v.preload = "auto";
-      if (!seen.has(v)) {
-        seen.add(v);
-        // el reproductor vuelve a llamar a load() al cambiar de calidad: se le recuerda el ajuste.
-        v.addEventListener("loadedmetadata", function () {
-          try {
-            if (v.preload !== "auto") v.preload = "auto";
-          } catch (e) {}
-        });
+    } catch (e) {}
+    var key = contentKey(v);
+    if (key && contentSet[key]) memSet(QUALITY_KEY, contentSet[key]); // la calidad que de verdad suena
+    applyVolume(v);
+    applySpeed(v);
+    resumeIn(v);
+    armLater();
+  }
+
+  function attach(v) {
+    if (!v || seen.has(v)) return;
+    seen.add(v);
+    v.addEventListener("loadedmetadata", function () {
+      onMeta(v);
+    });
+    // El reproductor vuelve a llamar a load() al cambiar de calidad: se le recuerda el ajuste.
+    v.addEventListener("loadeddata", function () {
+      try {
+        if (v.preload !== "auto") v.preload = "auto";
+      } catch (e) {}
+    });
+    v.addEventListener("volumechange", function () {
+      // El valor de fábrica de la web (100% con sonido) llegando nada más cargar es SU inicialización:
+      // se deshace con lo guardado. Cualquier otro cambio (o uno tardío) es del usuario: se guarda.
+      var factory = Math.abs(v.volume - 1) < 0.001 && !v.muted;
+      if (!armed && factory && memGet(VOLUME_KEY) != null) {
+        applyVolume(v);
+        armLater();
+        return;
       }
+      armed = true;
+      saveVolume(v);
+    });
+    v.addEventListener("ratechange", function () {
+      var factory = Math.abs(v.playbackRate - 1) < 0.001;
+      if (!armed && factory && memGet(SPEED_KEY) != null) {
+        applySpeed(v);
+        armLater();
+        return;
+      }
+      armed = true;
+      saveSpeed(v);
+    });
+    v.addEventListener("timeupdate", function () {
+      savePos(v, false);
+    });
+    v.addEventListener("pause", function () {
+      savePos(v, true);
+    });
+    // El `0` del reproductor (y nuestro «empezar de cero») saltan al principio: eso borra la posición.
+    v.addEventListener("seeked", function () {
+      if (v.currentTime < 1) {
+        if (videoId) memDel(POS_PREFIX + videoId);
+        lastSaved = -1;
+      }
+    });
+    if (v.readyState >= 1) onMeta(v); // por si los metadatos llegaron antes de engancharnos
+  }
+
+  function boostVideo() {
+    var v = engine();
+    if (!v) return false;
+    attach(v);
+    try {
+      if (v.preload !== "auto") v.preload = "auto";
     } catch (e) {}
     return true;
   }
@@ -275,6 +509,49 @@
       setTimeout(loop, 250);
     })();
   })();
+
+  // Al guardar la posición, mejor no depender solo de que el vídeo se pare sola: al cerrar la pestaña
+  // o al pasar a otra (que es como se deja un vídeo a medias) se apunta el segundo exacto.
+  function saveNow() {
+    var v = engine();
+    if (v) savePos(v, true);
+  }
+
+  addEventListener("pagehide", saveNow);
+  addEventListener("beforeunload", saveNow);
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") saveNow();
+  });
+
+  // --- Espacio = play/pausa -----------------------------------------------------------------------
+  // Es la tecla que el reproductor de la web no tiene: las de Flowplayer (cursores con Shift, números
+  // para saltar, M, F…) y los ±5 s con los cursores de `kt_seek.js` ya están puestas, así que aquí
+  // solo se añade esta. No se toca nada si el foco está en un campo o en un botón: ahí el espacio es
+  // suyo (y si el botón es el del propio reproductor, su acción ya es la correcta).
+  function isTyping(el) {
+    if (!el) return false;
+    if (el.isContentEditable) return true;
+    return /^(INPUT|TEXTAREA|SELECT|BUTTON|A|SUMMARY)$/.test(el.tagName || "");
+  }
+
+  document.addEventListener(
+    "keydown",
+    function (e) {
+      if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
+      if ((e.keyCode || e.which) !== 32) return;
+      if (isTyping(document.activeElement)) return;
+      var v = engine();
+      if (!v) return;
+      e.preventDefault(); // que no baje la página
+      if (v.paused || v.ended) {
+        var p = v.play();
+        if (p && p.catch) p.catch(function () {});
+      } else {
+        v.pause();
+      }
+    },
+    true
+  );
 })();
 
 // ---------------------------------------------------------------------------------------------
