@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.11
+// @version      0.1.12
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -273,6 +273,12 @@
 //
 // El resto (huecos de anuncios del pie, etc.) es cosa de styles.css. Los ajustes del reproductor
 // están en player.js (y por eso sí que importa que el userscript entre en document-start).
+//
+// POLÍTICA DE ANUNCIOS (decidida con el usuario): aquí solo se quitan promociones propias y enlaces
+// de afiliado (los botones del header) y el aviso de rule34gen. NO se toca nada de red publicitaria
+// (los `.spots` del pie, el iframe de anuncio nativo, el `spot_under`) y no se simulan clics en
+// anuncios: eso es fraude publicitario y acaba con la cuenta de anuncios de la web suspendida. Si
+// algún día se añade un selector aquí, que sea de promoción propia, no de anuncio.
 // ---------------------------------------------------------------------------------------------
 (function () {
   "use strict";
