@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.33
+// @version      0.1.34
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -399,7 +399,7 @@
     var d = v.duration;
     if (t == null || !isFinite(d) || d <= 0) return;
     var min = Math.min(RESUME_MIN, d * 0.1);
-    var max = d - Math.max(RESUME_TAIL, d * 0.05);
+    var max = d - Math.min(RESUME_TAIL, d * 0.05);
     resumedFor = key;
     if (t < min) return;
     if (t > max) {
@@ -419,7 +419,7 @@
     var t = v.currentTime;
     var d = v.duration;
     if (!isFinite(t) || !isFinite(d) || d <= 0) return;
-    if (t < 3 || t > d - Math.max(RESUME_TAIL, d * 0.05)) {
+    if (t < 3 || t > d - Math.min(RESUME_TAIL, d * 0.05)) {
       memDel(POS_PREFIX + videoId);
       lastSaved = -1;
       return;
