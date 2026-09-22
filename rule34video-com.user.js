@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.22
+// @version      0.1.23
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -282,7 +282,9 @@
 // de anuncios que se descarga su creatividad —y arranca sus temporizadores— en cuanto el navegador lo
 // inserta, aunque quede a dos pantallas de distancia. A ese iframe se le aplaza la carga hasta que su
 // ficha se acerca a la ventana (la web ingresa la impresión igual, cuando el anuncio va a verse de
-// verdad, pero mientras nadie lo mira no cuesta red ni CPU).
+// verdad, pero mientras nadie lo mira no cuesta red ni CPU). La ficha, además, se traslada al pie
+// —entre la paginación y el logo— y el hueco que deja en la rejilla se rellena con el primer vídeo de
+// la página siguiente del listado, así la última fila queda completa.
 //
 // Aligerado: la web sirve decenas de miniaturas por página y las aplaza con jquery.lazyload (que
 // mide cada ficha en cada evento de scroll: lectura de maquetación forzada por evento). Aquí se le
@@ -414,6 +416,7 @@
     // Solo los iframes de las fichas, y solo si apuntan fuera (los del propio sitio se dejan en paz).
     var card = frame.closest ? frame.closest(".item.thumb") : null;
     if (!card) return;
+    var grid = card.parentElement; // la rejilla de la que sale la ficha (se mira antes de moverla)
     var src = frame.getAttribute("src");
     if (!src || !/^https?:/i.test(src)) return;
     try {
@@ -437,7 +440,11 @@
     // Con el anuncio aún sin cargar, la ficha se puede mover sin que se recargue nada.
     if (adMode === "footer") {
       var slot = footerSlot();
-      if (slot && !slot.contains(card)) slot.appendChild(card);
+      if (slot && !slot.contains(card)) {
+        while (slot.firstChild) slot.removeChild(slot.firstChild); // si venía otra, era de un listado ya cambiado
+        slot.appendChild(card);
+        needFill(grid, 1); // y su hueco en la rejilla se rellena con un vídeo de la página siguiente
+      }
     }
     watchAds();
   }
@@ -469,10 +476,11 @@
   }
 
   function checkAds() {
+    maybeFill();
     for (var i = parkedAds.length - 1; i >= 0; i--) {
       if (adInRange(parkedAds[i])) unparkAd(parkedAds[i]);
     }
-    if (parkedAds.length === 0) watchAds(false); // ya no queda nada que vigilar
+    if (parkedAds.length === 0 && fillJobs.length === 0) watchAds(false); // ya no queda nada que vigilar
   }
 
   // El repaso va por eventos de scroll/resize (barato: solo mira los anuncios apartados, que son uno o
@@ -517,7 +525,10 @@
       for (var m = 0; m < links.length; m++) {
         // El cartel «AD» a secas no basta: solo se quita si de verdad está dentro de una ficha.
         var card = links[m].closest ? links[m].closest(".item.thumb") : null;
-        if (card) kill(card);
+        if (card) {
+          needFill(card.parentElement, 1); // su hueco se rellena con un vídeo de la página siguiente
+          kill(card);
+        }
       }
       return;
     }
@@ -528,6 +539,114 @@
       for (var f = 0; f < hits.length; f++) frames.push(hits[f]);
     }
     for (var g = 0; g < frames.length; g++) parkAd(frames[g]);
+  }
+
+  // --- rellenar el hueco que deja la ficha de anuncio --------------------------------------------
+  // Al sacar el anuncio de la rejilla, la última fila se queda con una casilla menos (un hueco al
+  // final). Se rellena con fichas de verdad de la **página siguiente del propio listado**: entra el
+  // vídeo que tocaba después (el primero de la página siguiente, saltándose su anuncio si lo trae).
+  // Se pide cuando el final de la rejilla se acerca a la ventana, no al cargar —para ver el hueco hay
+  // que llegar hasta abajo—, y si la web no contesta, el hueco se queda y no pasa nada más.
+  var FILL_MARK = "data-r34gv-fill";
+  var FILL_MARGIN = 1200; // px por delante del final de la rejilla en los que ya se pide
+  var fillJobs = [];
+
+  function isAdCard(el) {
+    if (!el || !el.querySelector) return false;
+    return !!(el.querySelector(AD_LINK) || el.querySelector("header"));
+  }
+
+  // A dónde se pide: el enlace «siguiente» de la paginación de este listado (si no hay, es la última
+  // página y no hay nada que traer).
+  function nextPageOf(grid) {
+    var pages = document.querySelectorAll(".pagination"), link = null;
+    var id = (grid && grid.id) || "";
+    for (var i = 0; i < pages.length; i++) {
+      var l = pages[i].querySelector(".pager.next a[href]");
+      if (!l) continue;
+      var block = l.getAttribute("data-block-id") || "";
+      if (!link) link = l;
+      if (block && id && id.indexOf(block) === 0) { link = l; break; } // la de nuestro bloque, si se sabe
+    }
+    var href = link && link.getAttribute("href");
+    if (!href) return null;
+    try {
+      return { url: new URL(href, location.href).href, base: id.replace(/_items$/, "") };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Las fichas a traer: las de la rejilla del mismo listado en la página siguiente. La web le cambia
+  // el nombre al bloque entre páginas, así que si el id no aparece se coge la rejilla más grande que
+  // no sea la de la columna lateral.
+  function pickCards(doc, base, need) {
+    var grid = (base && (doc.getElementById(base + "_items") || doc.getElementById(base))) || null;
+    var cards = grid ? grid.querySelectorAll(":scope > .item.thumb") : [];
+    if (!cards.length) {
+      var cands = doc.querySelectorAll(".thumbs"), best = null, bestN = 0, k;
+      for (k = 0; k < cands.length; k++) {
+        if (cands[k].closest && cands[k].closest(".playlist_sidebar")) continue;
+        var n = cands[k].querySelectorAll(":scope > .item.thumb").length;
+        if (n > bestN) { bestN = n; best = cands[k]; }
+      }
+      grid = best;
+      cards = grid ? grid.querySelectorAll(":scope > .item.thumb") : [];
+    }
+    var out = [];
+    for (var c = 0; c < cards.length && out.length < need; c++) {
+      if (isAdCard(cards[c])) continue; // el anuncio de la página siguiente no nos sirve
+      out.push(cards[c]);
+    }
+    return out;
+  }
+
+  function askFill(grid, need) {
+    var info = nextPageOf(grid);
+    if (!info) return;
+    fetch(info.url, { credentials: "same-origin" }) // es la propia web: misma sesión y mismas cookies
+      .then(function (r) {
+        return r && r.ok ? r.text() : "";
+      })
+      .then(function (html) {
+        if (!html || !document.documentElement.contains(grid)) return;
+        var cards = pickCards(new DOMParser().parseFromString(html, "text/html"), info.base, need);
+        for (var i = 0; i < cards.length; i++) {
+          var el = document.importNode(cards[i], true);
+          el.setAttribute(FILL_MARK, "1");
+          grid.appendChild(el);
+          takeOver(el); // por si el observador tarda: la miniatura se resuelve ya
+          polish(el);
+        }
+      })
+      .catch(function () {});
+  }
+
+  function needFill(grid, n) {
+    if (!grid || !grid.nodeType) return;
+    for (var i = 0; i < fillJobs.length; i++) {
+      if (fillJobs[i].grid === grid) {
+        fillJobs[i].need += n;
+        return;
+      }
+    }
+    fillJobs.push({ grid: grid, need: n });
+    watchAds(); // el repaso de scroll ya está puesto y sirve para esto también
+  }
+
+  function maybeFill() {
+    for (var i = fillJobs.length - 1; i >= 0; i--) {
+      var job = fillJobs[i];
+      if (!document.documentElement.contains(job.grid)) {
+        fillJobs.splice(i, 1); // la web ya ha cambiado el listado
+        continue;
+      }
+      var r = job.grid.getBoundingClientRect();
+      if (!r.height) continue; // todavía sin maquetación
+      if (r.bottom > (window.innerHeight || 0) + FILL_MARGIN) continue; // queda rejilla por delante
+      fillJobs.splice(i, 1);
+      askFill(job.grid, job.need);
+    }
   }
   // --- aligerado de imágenes ---------------------------------------------------------------------
   // La web aplaza sus miniaturas con `jquery.lazyload`: en **cada evento de scroll** recorre las
