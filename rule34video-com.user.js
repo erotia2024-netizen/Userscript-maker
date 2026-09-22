@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.16
+// @version      0.1.17
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -278,6 +278,12 @@
 // se quita además su contenedor `.headline` (que solo lo envuelve a él), para no dejar el hueco del
 // margen inferior.
 //
+// Aplazado: las fichas de anuncio de la rejilla (el cartel «AD») traen dentro un iframe del servidor
+// de anuncios que se descarga su creatividad —y arranca sus temporizadores— en cuanto el navegador lo
+// inserta, aunque quede a dos pantallas de distancia. A ese iframe se le aplaza la carga hasta que su
+// ficha se acerca a la ventana (la web ingresa la impresión igual, cuando el anuncio va a verse de
+// verdad, pero mientras nadie lo mira no cuesta red ni CPU).
+//
 // Aligerado: la web sirve decenas de miniaturas por página y las aplaza con jquery.lazyload (que
 // mide cada ficha en cada evento de scroll: lectura de maquetación forzada por evento). Aquí se le
 // adelanta el trabajo al navegador —se resuelve el `src` y se le quita la clase al `img`, y el
@@ -293,11 +299,14 @@
 // El resto (huecos de anuncios del pie, etc.) es cosa de styles.css. Los ajustes del reproductor
 // están en player.js (y por eso sí que importa que el userscript entre en document-start).
 //
+// Las fichas de anuncio de la rejilla (la que lleva el cartel «AD») no se quitan, solo se aplaza su
+// carga (ver más abajo, `localStorage["r34gv.ads"]`).
+//
 // POLÍTICA DE ANUNCIOS (decidida con el usuario): aquí solo se quitan promociones propias y enlaces
-// de afiliado (los botones del header) y el aviso de rule34gen. NO se toca nada de red publicitaria
-// (los `.spots` del pie, el iframe de anuncio nativo, el `spot_under`) y no se simulan clics en
-// anuncios: eso es fraude publicitario y acaba con la cuenta de anuncios de la web suspendida. Si
-// algún día se añade un selector aquí, que sea de promoción propia, no de anuncio.
+// de afiliado (los botones del header) y el aviso de rule34gen. NO se quita nada de red publicitaria
+// (los `.spots` del pie, la ficha de anuncio nativo de la rejilla, el `spot_under`) y no se simulan
+// clics en anuncios: eso es fraude publicitario y acaba con la cuenta de anuncios de la web
+// suspendida. Si algún día se añade un selector aquí, que sea de promoción propia, no de anuncio.
 // ---------------------------------------------------------------------------------------------
 (function () {
   "use strict";
@@ -337,7 +346,118 @@
   }
 
   function clean() {
-    return purge(document.documentElement || document.body);
+    var root = document.documentElement || document.body;
+    scanAds(root);
+    return purge(root);
+  }
+
+  // --- fichas de anuncio de la rejilla -----------------------------------------------------------
+  // Cada pocas fichas la rejilla mete una que no es un vídeo: es un anuncio nativo (lleva el cartel
+  // «AD» y dentro un iframe del servidor de anuncios). El iframe se trae su creatividad —y arranca sus
+  // temporizadores— en cuanto el navegador lo inserta, aunque quede a dos o tres pantallas de
+  // distancia: es de lo que más gasta de la página. Al iframe se le aplaza la carga hasta que su ficha
+  // se acerca a la ventana: el anuncio se carga (y la web ingresa su impresión) cuando va a verse de
+  // verdad, pero mientras nadie lo mira no cuesta red ni CPU.
+  //
+  // Ajuste, en `localStorage["r34gv.ads"]`:
+  //   "lazy" (por defecto) → aplazar la carga del anuncio hasta que se acerque a la ventana
+  //   "eager"             → no tocar nada; el anuncio carga como lo sirva la web
+  //   "off"               → quitar la ficha de anuncio de la rejilla (eso SÍ son ingresos de la web,
+  //                         por eso no es lo que viene puesto: ver POLÍTICA DE ANUNCIOS)
+  var AD_MARK = "data-r34gv-ad";
+  var AD_LINK = 'a.th[title="Advertisement"]';
+  var adMode = (function () {
+    try {
+      var v = localStorage.getItem("r34gv.ads");
+      return v === "eager" || v === "off" ? v : "lazy";
+    } catch (e) {
+      return "lazy";
+    }
+  })();
+  var parkedAds = [];
+  var adWatcher = null;
+
+  function parkAd(frame) {
+    if (!frame || frame.tagName !== "IFRAME" || frame.hasAttribute(AD_MARK)) return;
+    // Solo los iframes de las fichas, y solo si apuntan fuera (los del propio sitio se dejan en paz).
+    if (!frame.closest || !frame.closest(".item.thumb")) return;
+    var src = frame.getAttribute("src");
+    if (!src || !/^https?:/i.test(src)) return;
+    try {
+      if (new URL(src, location.href).host === location.host) return;
+    } catch (e) {
+      return;
+    }
+    // Si el iframe ya se fue a otro dominio (su documento ya no es accesible) es que el anuncio ya
+    // está cargando o ya cargó: se deja como está, que volver a cargarlo lo contaría dos veces.
+    var doc = null;
+    try {
+      doc = frame.contentDocument;
+    } catch (e) {
+      doc = null;
+    }
+    if (doc === null) return;
+    frame.setAttribute(AD_MARK, src);
+    frame.setAttribute("src", "about:blank"); // corta la descarga que hubiera empezado
+    parkedAds.push(frame);
+  }
+
+  function unparkAd(frame) {
+    if (!frame || !frame.hasAttribute(AD_MARK)) return;
+    var src = frame.getAttribute(AD_MARK);
+    frame.removeAttribute(AD_MARK);
+    var i = parkedAds.indexOf(frame);
+    if (i !== -1) parkedAds.splice(i, 1);
+    var now = frame.getAttribute("src");
+    // Si la web (o su propio JS) ya le puso otra dirección, se respeta y no se carga la nuestra.
+    if (!now || now === "about:blank") frame.setAttribute("src", src);
+  }
+
+  function watchAds() {
+    if (parkedAds.length === 0) return;
+    if (typeof IntersectionObserver !== "function") {
+      while (parkedAds.length) unparkAd(parkedAds[0]); // sin observador, se cargan y ya está
+      return;
+    }
+    if (!adWatcher) {
+      adWatcher = new IntersectionObserver(
+        function (entries) {
+          for (var i = 0; i < entries.length; i++) {
+            if (!entries[i].isIntersecting) continue;
+            adWatcher.unobserve(entries[i].target);
+            unparkAd(entries[i].target);
+          }
+        },
+        { rootMargin: "400px 0px" } // se carga un poco antes de entrar en pantalla
+      );
+    }
+    for (var j = 0; j < parkedAds.length; j++) adWatcher.observe(parkedAds[j]);
+  }
+
+  function scanAds(node) {
+    if (!node || node.nodeType !== 1 || adMode === "eager") return;
+    if (adMode === "off") {
+      var links = [];
+      if (node.matches && (node.matches(AD_LINK) || node.matches("header"))) links.push(node);
+      if (node.querySelectorAll) {
+        var found = node.querySelectorAll(AD_LINK + ", .item.thumb > header");
+        for (var k = 0; k < found.length; k++) links.push(found[k]);
+      }
+      for (var m = 0; m < links.length; m++) {
+        // El cartel «AD» a secas no basta: solo se quita si de verdad está dentro de una ficha.
+        var card = links[m].closest ? links[m].closest(".item.thumb") : null;
+        if (card) kill(card);
+      }
+      return;
+    }
+    var frames = [];
+    if (node.tagName === "IFRAME") frames.push(node);
+    if (node.querySelectorAll) {
+      var hits = node.querySelectorAll("iframe");
+      for (var f = 0; f < hits.length; f++) frames.push(hits[f]);
+    }
+    for (var g = 0; g < frames.length; g++) parkAd(frames[g]);
+    watchAds();
   }
   // --- aligerado de imágenes ---------------------------------------------------------------------
   // La web aplaza sus miniaturas con `jquery.lazyload`: en **cada evento de scroll** recorre las
@@ -407,6 +527,7 @@
     var root = document.documentElement || document.body;
     takeOver(root); // por si alguna imagen se coló antes de que el observador estuviera puesto
     polish(root);
+    scanAds(root); // y por si la ficha de anuncio ya estaba puesta
   }
 
   // La web también mete contenido por AJAX (los listados, el buscador), así que esto puede reaparecer
@@ -417,6 +538,7 @@
       var added = records[i].addedNodes;
       for (var j = 0; j < added.length; j++) {
         purge(added[j]);
+        scanAds(added[j]);
         takeOver(added[j]);
         if (READY) polish(added[j]);
       }
