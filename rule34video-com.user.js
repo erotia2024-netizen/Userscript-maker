@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.5
+// @version      0.1.6
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -96,9 +96,14 @@
   }
 
   // `_360.mp4` / `_720p.mp4`: el sufijo del archivo, que es lo que lleva el campo `postfix` de la
-  // fuente que suena por defecto (4621435_720p.mp4 -> _720p.mp4).
+  // fuente que suena por defecto (4621435_720p.mp4 -> _720p.mp4). Ojo: las direcciones de la web
+  // acaban en `/` antes de la consulta (`.../4621435_720p.mp4/?v-acctoken=...`).
   function postfixOf(url) {
-    var m = /\/([^\/?#]+)(?:[?#]|$)/.exec(String(url || ""));
+    var path = String(url || "");
+    try {
+      path = new URL(path).pathname;
+    } catch (e) {}
+    var m = /([^\/?#]+)\/*(?:[?#]|$)/.exec(path);
     return m ? m[1].replace(/^\d+/, "") : "";
   }
 
