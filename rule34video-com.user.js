@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.0
+// @version      0.1.1
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -30,37 +30,52 @@
 // ---------------------------------------------------------------------------------------------
 // rule34video.com — lo que no se puede hacer solo con CSS.
 //
-// 1) Botones de promoción del header («AI Jerk Off» y «ThePornDude»). Son enlaces de afiliado y la
-//    web repinta el header con su propio JS, así que no basta con ocultarlos: se quitan del DOM y
-//    un MutationObserver vigila que, si vuelven a pintarse, desaparezcan otra vez.
-// 2) El hueco del pie (entre la paginación «Jump to … OK» y el logo) sí es cosa de styles.css.
+// 1) Botones de promoción del header («AI Jerk Off» y «ThePornDude»).
+// 2) La banda de aviso de rule34gen («Due to the massive influx of AI generated video's…») que sale
+//    pegada debajo del header.
 //
-// Al cargar como userscript, el script va con @run-at document-end y @noframes, y solo se ejecuta
-// en rule34video.com; aquí no hace falta comprobar la URL.
+// Las dos son enlaces que la web pinta con su propio JS, así que no basta con ocultarlas: se quitan
+// del DOM y un MutationObserver vigila que, si vuelven a pintarse, desaparezcan otra vez. Del aviso
+// se quita además su contenedor `.headline` (que solo lo envuelve a él), para no dejar el hueco del
+// margen inferior.
+//
+// El resto (el hueco de anuncios del pie) es cosa de styles.css.
+//
+// Al cargar como userscript, el script va con @run-at document-end y @noframes, y solo se ejecuta en
+// rule34video.com; aquí no hace falta comprobar la URL.
 // ---------------------------------------------------------------------------------------------
 (function () {
   "use strict";
   if (window.__r34gv) return;
   window.__r34gv = true;
 
-  // El bloque de promoción entero, y por si la web los repinta sueltos, cada botón por su cuenta.
+  // El bloque de promoción entero y, por si la web lo repinta suelto, cada botón por su cuenta.
   var PROMO = ".panel_header--promo, a.button_fav.ai, a.button_fav.theporndude";
+  // El aviso de rule34gen, por su enlace y por sus dos contenedores (por si cambia la estructura).
+  var NOTICE = "a.emger, #top-header, #emergency-response-opt";
+  var DROP = PROMO + ", " + NOTICE;
 
   function kill(node) {
     if (node && node.parentNode) node.parentNode.removeChild(node);
   }
 
-  // Quita el nodo si él mismo es de promoción, y si no, los que lleve dentro. Devuelve cuántos.
+  // El nodo, y de paso su contenedor `.headline` si era solo para él (si no, quedaría su margen).
+  function killWithBox(node) {
+    var box = node.closest ? node.closest(".headline") : null;
+    kill(box && box.children.length === 1 ? box : node);
+  }
+
+  // Quita el nodo si él mismo está en la lista, y si no, los que lleve dentro. Devuelve cuántos.
   function purge(node) {
     if (!node || node.nodeType !== 1) return 0;
-    if (node.matches && node.matches(PROMO)) {
-      kill(node);
+    if (node.matches && node.matches(DROP)) {
+      killWithBox(node);
       return 1;
     }
-    var hits = node.querySelectorAll ? node.querySelectorAll(PROMO) : [];
+    var hits = node.querySelectorAll ? node.querySelectorAll(DROP) : [];
     var n = 0;
     for (var i = hits.length - 1; i >= 0; i--) {
-      kill(hits[i]);
+      killWithBox(hits[i]);
       n++;
     }
     return n;
@@ -75,9 +90,9 @@
     document.addEventListener("DOMContentLoaded", clean);
   }
 
-  // La web también mete contenido por AJAX (los listados, el buscador), así que la promoción puede
-  // reaparecer en cualquier momento. Solo se miran los nodos AÑADIDOS, así que nuestras propias
-  // eliminaciones no vuelven a dispararlo (nada de bucles).
+  // La web también mete contenido por AJAX (los listados, el buscador), así que esto puede reaparecer
+  // en cualquier momento. Solo se miran los nodos AÑADIDOS, así que nuestras propias eliminaciones no
+  // vuelven a dispararlo (nada de bucles).
   var obs = new MutationObserver(function (records) {
     for (var i = 0; i < records.length; i++) {
       var added = records[i].addedNodes;
