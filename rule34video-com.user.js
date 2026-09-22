@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.69
+// @version      0.1.70
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1863,6 +1863,9 @@
     "camera cam close closeup shot shots scene scenes angle angles view " +
     "let lets get gets got give gives take takes make makes made do does did " +
     "vs feat featuring ft watch watching free download stream online tube site " +
+    "mouth mouthfuck mouthful titsjob boobjob footjob handjob blacked bbc bwc bdsm " +
+    "sloppy sloopy boddy distracting distracted ahegao orgasm orgasms moaning moans " +
+    "head tongue finger fingers toys toy " +
     "time times hour hours minute minutes second seconds day days week weeks month months year years ago " +
     "size sizes big huge giant small tiny little mega ultra super mmf ffm fff mfm"
   ).split(/\s+/);
@@ -1878,6 +1881,18 @@
       return /[A-Za-z0-9][A-Za-z0-9'’_-]*/g;
     }
   })();
+
+  // Dónde acaba lo que habla del vídeo y empieza la etiqueta. En estos títulos lo de después de una
+  // barra, un paréntesis, dos puntos o un guión suelto suele ser la serie o el juego («… | Fortnite»,
+  // «(WKYSTO)», «… - 69 Blowjob») y no el personaje, así que la parte de delante (la «cabeza») es la
+  // que cuenta para decidir si una palabra es un nombre. El guión de «Chun-Li» no separa: va sin
+  // espacios alrededor.
+  var SEP = /(\s*[|(\u00b7:]\s*|\s+[\u2013\u2014-]\s+)/;
+
+  function headOf(title) {
+    var m = SEP.exec(title);
+    return m ? title.slice(0, m.index) : title;
+  }
 
   var grid = null;
   var bar = null;
@@ -1968,28 +1983,55 @@
     var info = {}, k, j;
 
     for (k = 0; k < list.length; k++) {
-      var ws = words(titleOf(list[k]));
+      var title = titleOf(list[k]);
+      var ws = words(title);
+      var hw = words(headOf(title)), head = {};
+      for (j = 0; j < hw.length; j++) head[hw[j].toLowerCase()] = 1;
       list[k].r34gvWords = ws;
-      var once = {};
+      var once = {}, onceHead = {};
       for (j = 0; j < ws.length; j++) {
         var w = ws[j], key = w.toLowerCase();
         if (w.length < 2 || stop[key] || mine[key] || /^\d+$/.test(w)) continue;
         if (w.charAt(0) !== w.charAt(0).toUpperCase()) continue; // los nombres van en mayúscula
-        if (once[key]) continue; // una vez por vídeo: lo que se cuenta son vídeos, no veces
-        once[key] = 1;
-        var rec = info[key] || (info[key] = { key: key, name: w, count: 0, pos: 0, at: k });
-        rec.count++;
-        rec.pos += j;
+        var rec = info[key] || (info[key] = { key: key, name: w, count: 0, heads: 0, pos: 0, at: k, vids: {} });
+        if (!once[key]) {
+          once[key] = 1; // una vez por vídeo: lo que se cuenta son vídeos, no veces
+          rec.count++;
+          rec.vids[k] = 1;
+          rec.pos += j;
+        }
+        if (head[key] && !onceHead[key]) {
+          onceHead[key] = 1;
+          rec.heads++;
+        }
       }
     }
 
-    // Nombres = los que salen en dos o más vídeos. Orden: los que más vídeos tienen y, a igualdad, el
-    // que aparece antes en los títulos (y antes en la rejilla).
+    // Un nombre es una palabra que **encabeza** el título (antes de la etiqueta) en dos o más vídeos,
+    // y si todos los vídeos de un nombre salen también en los de otro es que es una etiqueta de ese
+    // otro («Blackpink» no sale nunca sin «Lisa»), no un personaje: se cae.
     var names = [];
     for (var key2 in info) {
       if (!Object.prototype.hasOwnProperty.call(info, key2)) continue;
-      if (info[key2].count >= 2) names.push(info[key2]);
+      if (info[key2].heads >= 2) names.push(info[key2]);
     }
+    function subset(a, b, n) {
+      var any = false;
+      for (var v = 0; v < n; v++) {
+        if (!a[v]) continue;
+        any = true;
+        if (!b[v]) return false;
+      }
+      return any;
+    }
+    names = names.filter(function (a) {
+      for (var t = 0; t < names.length; t++) {
+        if (names[t] !== a && subset(a.vids, names[t].vids, list.length)) return false;
+      }
+      return true;
+    });
+    // Orden: los que más vídeos tienen y, a igualdad, el que aparece antes en los títulos (y antes en
+    // la rejilla).
     names.sort(function (a, b) {
       if (a.count !== b.count) return b.count - a.count;
       var pa = a.pos / a.count, pb = b.pos / b.count;
@@ -2030,6 +2072,15 @@
       g.count++;
     }
     for (k = 0; k < groups.length; k++) groups[k].cards = groups[k].cards.concat(groups[k].shared);
+    // Un nombre que se quedó sin ningún vídeo (salía en dos títulos pero siempre acompañado de otro
+    // mejor situado) no pinta nada como grupo: fuera. Y los grupos, del que más vídeos tiene al que
+    // menos, que es el orden que se pidió.
+    groups = groups.filter(function (g) {
+      return !!g.cards.length;
+    });
+    groups.sort(function (a, b) {
+      return b.cards.length - a.cards.length;
+    });
     return { groups: groups, others: others };
   }
 
