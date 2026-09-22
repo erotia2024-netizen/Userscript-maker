@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.28
+// @version      0.1.29
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -818,13 +818,19 @@
       } catch (e) {
         stored = null;
       }
-      if (stored) continue; // el usuario ya eligió: eso manda
-      panel.classList.add("filters-panel--collapsed");
-      panel.classList.remove("filters-panel--expanded");
-      toggle.setAttribute("aria-expanded", "false");
-      try {
-        localStorage.setItem(key, "closed");
-      } catch (e) {}
+      if (stored === "open") continue; // el usuario lo abrió a propósito: eso manda
+      if (!panel.classList.contains("filters-panel--collapsed")) {
+        panel.classList.add("filters-panel--collapsed");
+        panel.classList.remove("filters-panel--expanded");
+        toggle.setAttribute("aria-expanded", "false");
+      }
+      // Si no había preferencia guardada, se deja escrito el «cerrado»: la web lo lee al arrancar y
+      // si no, lo desplegaría otra vez en cuanto llegara a su código.
+      if (stored === null) {
+        try {
+          localStorage.setItem(key, "closed");
+        } catch (e) {}
+      }
     }
   }
 
