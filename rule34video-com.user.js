@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.4
+// @version      0.1.5
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -9,7 +9,7 @@
 // @updateURL    https://raw.githubusercontent.com/erotia2024-netizen/Userscript-maker/main/rule34video-com.user.js
 // @match        *://rule34video.com/*
 // @match        *://*.rule34video.com/*
-// @run-at       document-end
+// @run-at       document-start
 // @noframes
 // @grant        unsafeWindow
 // @grant        GM_xmlhttpRequest
