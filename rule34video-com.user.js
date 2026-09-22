@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.60
+// @version      0.1.61
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -980,15 +980,20 @@
 // de anuncios que se descarga su creatividad —y arranca sus temporizadores— en cuanto el navegador lo
 // inserta, aunque quede a dos pantallas de distancia. A ese iframe se le aplaza la carga hasta que su
 // ficha se acerca a la ventana (la web ingresa la impresión igual, cuando el anuncio va a verse de
-// verdad, pero mientras nadie lo mira no cuesta red ni CPU). La ficha, además, se traslada al pie
-// —entre la paginación y el logo— y el hueco que deja en la rejilla se rellena con el primer vídeo de
-// la página siguiente del listado, así la última fila queda completa.
+// verdad, pero mientras nadie lo mira no cuesta red ni CPU). La ficha, además, se traslada al pie y el
+// hueco que deja en la rejilla se rellena con el primer vídeo de la página siguiente del listado, así
+// la última fila queda completa.
 //
 // Trasladado (2): en una ficha de vídeo, el hueco de anuncio que la web pone **debajo del
-// reproductor** (`.spot_under`, otra banda de 250 px) se traslada al final del contenido —entre los
-// vídeos relacionados y el pie, donde está el logo—: ahí queda grande y vacía y se ve mal. Se mueve
-// con el anuncio aparcado, igual que la ficha de la rejilla (mover un iframe ya cargado lo recargaría
-// y contaría la impresión dos veces).
+// reproductor** (`.spot_under`, otra banda de 250 px) se traslada también al pie: ahí queda grande y
+// vacía y se ve mal. Se mueve con el anuncio aparcado, igual que la ficha de la rejilla (mover un
+// iframe ya cargado lo recargaría y contaría la impresión dos veces).
+//
+// Y todos los que se trasladan van **a la misma zona**: la fila de huecos de anuncio del propio pie
+// de la web (`.footer_spots .columns_spots`, sus 3 zonas + el hueco de JuicyAds), que es donde el
+// sitio tiene sus anuncios de abajo. Así el final de la página se lee como «los anuncios del final» y
+// no como un cuadro suelto, y no se inventa ni se toca ninguno de sus huecos: se ponen al lado. Sigue
+// estando entre los vídeos relacionados y el logo, que es donde el usuario pidió verlo.
 //
 // Aligerado: la web sirve decenas de miniaturas por página y las aplaza con jquery.lazyload (que
 // mide cada ficha en cada evento de scroll: lectura de maquetación forzada por evento). Aquí se le
@@ -1086,8 +1091,8 @@
   // el anuncio ya había cargado cuando lo vimos, la ficha se queda donde estaba.
   //
   // Ajuste, en `localStorage["r34gv.ads"]` (vale para la ficha de la rejilla y para el `spot_under`):
-  //   "footer" (por defecto) → trasladar la ficha al pie y el `spot_under` al final del contenido
-  //                            (y aplazar su carga hasta que se acerquen)
+  //   "footer" (por defecto) → trasladarlos a la zona de anuncios del pie (y aplazar su carga hasta
+  //                            que se acerquen)
   //   "lazy"                 → dejarlos donde están, solo con la carga aplazada
   //   "eager"                → no tocar nada; el anuncio carga como lo sirva la web
   //   "off"                  → quitar la ficha de anuncio (eso SÍ son ingresos de la web, por eso no
@@ -1108,13 +1113,33 @@
   var adTimers = [];
   var adListening = false;
 
-  // El hueco del pie: justo después de la paginación —donde acaba el listado— y por delante del pie,
-  // donde está el logo. Si la página no trae paginación, se cuelga del propio pie.
+  // La zona de anuncios del final: la fila de huecos de anuncio del propio pie de la web
+  // (`.footer_spots .columns_spots`, la que trae sus 3 zonas + el hueco de JuicyAds). Ahí es donde
+  // acaban **todos** los anuncios que se trasladan —el `spot_under` de la ficha y la ficha de anuncio
+  // de las rejillas—, para que al final de la página se lean como «los anuncios del final» y no como
+  // un cuadro suelto. No se inventa ni se toca ningún hueco de los suyos: se meten al lado.
+  // Si la página no trae esa fila, se usa su contenedor; y si tampoco hay pie, se devuelve null y cada
+  // cosa se queda en su sitio de siempre (el anuncio no se pierde nunca).
+  function adZone() {
+    var cols = document.querySelector(".footer_spots .columns_spots");
+    if (cols) return cols;
+    var spots = document.querySelector(".footer_spots");
+    if (spots) return spots.querySelector(".container") || spots;
+    return null;
+  }
+
+  // El hueco de la ficha de la rejilla: en la fila de anuncios del pie. Si no la hay, justo después
+  // de la paginación —donde acaba el listado— y por delante del pie, donde está el logo.
   function footerSlot() {
     var slot = document.querySelector("." + AD_SLOT);
     if (slot && document.documentElement.contains(slot)) return slot;
     slot = document.createElement("div");
     slot.className = AD_SLOT;
+    var zone = adZone();
+    if (zone) {
+      zone.appendChild(slot);
+      return slot;
+    }
     var pag = document.querySelector(".item.jump_to");
     var anchor = pag && pag.closest ? pag.closest(".pagination") || pag.parentNode : null;
     if (anchor && anchor.parentNode) {
@@ -1130,9 +1155,10 @@
 
   // El `spot_under` es el hueco de anuncio que la web pone justo debajo del reproductor: una banda de
   // 250 px de alto para un anuncio de 300×250, que ahí queda grande y vacía y se ve mal. En una ficha
-  // se traslada al final del contenido —entre los vídeos relacionados y el pie, donde está el logo,
-  // que es donde tiene sentido mirarlo— y en un listado no se toca (un hueco de listado no está
-  // debajo de ningún reproductor: se exige que su fila lleve el `.video_container`).
+  // se traslada a la **zona de anuncios del pie** (`adZone`, al lado de los huecos de la web: sigue
+  // estando entre los vídeos relacionados y el logo, que es lo que pidió el usuario) y en un listado
+  // no se toca (un hueco de listado no está debajo de ningún reproductor: se exige que su fila lleve
+  // el `.video_container`).
   var UNDER_MARK = "data-r34gv-under";
   var underSpots = []; // huecos bajo el reproductor pendientes de colocar
 
@@ -1146,10 +1172,22 @@
     return document.querySelector(".kt-player, #kt_player") ? el : null;
   }
 
-  // A dónde va: justo detrás del bloque de «Related Videos» (que está en la misma columna), o al
-  // final de esa columna si la página no trae relacionados. Devuelve false mientras no se pueda
-  // (el bloque todavía no está en el DOM) para volver a intentarlo.
+  // ¿Sigue su anuncio aparcado (sin haber llegado a cargar)? Se mira por el iframe, que es lo que se
+  // aparcó; si sigue aparcado, mover el hueco otra vez no puede contar ninguna impresión dos veces.
+  function underParked(spot) {
+    return !!(spot && spot.querySelector && spot.querySelector("iframe[" + AD_MARK + "]"));
+  }
+
+  // A dónde va el hueco: a la fila de anuncios del pie. Si esa página no tiene fila de anuncios en el
+  // pie, al final del contenido —justo detrás del bloque de «Related Videos», o al final de la
+  // columna—, que sigue siendo justo antes del pie. Devuelve false mientras no se pueda (todavía no
+  // hay zona), para volver a intentarlo.
   function placeUnder(spot) {
+    var zone = adZone();
+    if (zone) {
+      if (spot.parentNode !== zone) zone.appendChild(spot);
+      return true;
+    }
     var rel = document.querySelector(".row_container.js-related-filter");
     var host = (rel && rel.parentNode) || (spot.closest ? spot.closest(".content_general") : null);
     if (!host) return false;
@@ -1162,8 +1200,13 @@
     for (var i = underSpots.length - 1; i >= 0; i--) {
       var spot = underSpots[i];
       if (!document.documentElement.contains(spot)) {
-        underSpots.splice(i, 1); // la web ya ha cambiado la página
-        continue;
+        // Fuera del documento: o la web ha reescrito ese contenedor, o la página ha cambiado. Si su
+        // anuncio sigue aparcado se vuelve a colocar (todavía no ha cargado nada, así que no hay
+        // impresión que contar dos veces); si ya está cargando, se deja estar.
+        if (!underParked(spot)) {
+          underSpots.splice(i, 1);
+          continue;
+        }
       }
       if (placeUnder(spot)) underSpots.splice(i, 1);
     }
