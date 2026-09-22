@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.40
+// @version      0.1.41
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -126,6 +126,22 @@
     return i === -1 ? u : u.slice(0, i);
   }
 
+  // Dirección absoluta: las de los flashvars y la del motor pueden venir con distinta forma (una
+  // relativa, otra absoluta) y lo que se compara es el archivo, no cómo esté escrito. Se resuelve
+  // contra `document.baseURI` y no contra `location.href`: si hay un `<base>` en la página (el motor
+  // de Perchance pone uno), el navegador resuelve con él y hay que resolver igual.
+  function absUrl(url) {
+    var base = location.href;
+    try {
+      if (document.baseURI) base = document.baseURI;
+    } catch (e) {}
+    try {
+      return new URL(String(url), base).href;
+    } catch (e) {
+      return String(url || "");
+    }
+  }
+
   // localStorage, siempre a la defensiva: en modo privado (o con el almacén lleno) no hay memoria,
   // pero la página tiene que seguir funcionando igual.
   function memGet(key) {
@@ -209,7 +225,7 @@
       if (fv.video_id != null) videoId = String(fv.video_id);
       contentSet = {};
       for (var q = 0; q < URLS.length; q++) {
-        if (fv[URLS[q]]) contentSet[stripQuery(fv[URLS[q]])] = String(fv[TEXTS[q]] || "");
+        if (fv[URLS[q]]) contentSet[stripQuery(absUrl(fv[URLS[q]]))] = String(fv[TEXTS[q]] || "");
       }
       // 1) que empiece a bufferear desde el principio.
       fv.preload = "auto";
@@ -253,7 +269,8 @@
         }
       }
       // `postfix` acompaña a la fuente por defecto (es la que ahora está en el primer hueco).
-      if (fv.video_url) fv.postfix = postfixOf(fv.video_url);
+      var pf = postfixOf(fv.video_url);
+      if (pf && pf.length <= 20) fv.postfix = pf;
     } catch (e) {
       // Nunca dejamos la página sin sus flashvars por un error nuestro.
     }
@@ -356,7 +373,7 @@
   function contentKey(v) {
     var src = (v && (v.currentSrc || v.src)) || "";
     if (!src) return "";
-    var key = stripQuery(src);
+    var key = stripQuery(absUrl(src));
     return contentSet[key] ? key : ""; // vacío = no es una de las direcciones del vídeo (¿pre-roll?)
   }
 
