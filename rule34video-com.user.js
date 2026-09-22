@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.67
+// @version      0.1.68
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1493,7 +1493,8 @@
   // leer el listado entero.
   function importCards(grid, html, base, need) {
     if (!html || !grid || !document.documentElement.contains(grid)) return 0;
-    var cards = pickCards(new DOMParser().parseFromString(html, "text/html"), base, need, grid);
+    var doc = typeof html === "string" ? new DOMParser().parseFromString(html, "text/html") : html;
+    var cards = pickCards(doc, base, need, grid);
     for (var i = 0; i < cards.length; i++) {
       var el = document.importNode(cards[i], true);
       el.setAttribute(FILL_MARK, "1");
