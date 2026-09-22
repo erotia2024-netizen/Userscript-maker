@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.19
+// @version      0.1.20
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -18,7 +18,7 @@
 
 (function () {
   "use strict";
-  var css = "/* ---------------------------------------------------------------------------------------------\n   rule34video.com — limpieza de la página.\n   El CSS del sitio se carga después que este, así que todo va con !important: estas reglas tienen\n   que ganar sí o sí.\n   --------------------------------------------------------------------------------------------- */\n\n/* 1) Botones de promoción del header: «AI Jerk Off» (enlace de afiliado) y «ThePornDude».\n      Se ocultan aquí para que no parpadeen, y core.js además los quita del DOM y vigila que no\n      vuelvan (la web repinta el header con su propio JS). */\n.panel_header.panel_header--promo,\na.button_fav.ai,\na.button_fav.theporndude {\n  display: none !important;\n}\n\n/* 2) La banda de aviso de rule34gen, la que sale pegada debajo del header («Due to the massive\n      influx of AI generated video's…»). Se esconde el enlace y sus dos contenedores, y también el\n      `.headline` que solo la envuelve a ella: si no, se quedaría su margen inferior como hueco. */\na.emger,\n#top-header,\n#emergency-response-opt,\n.headline:has(> a.emger) {\n  display: none !important;\n}\n\n/* 3) El hueco entre la paginación («Jump to … OK») y el logo del pie.\n      Entre esas dos cosas no hay más que la banda de anuncios del pie (.footer_spots), y esa banda\n      reserva 250 px de alto por cada hueco de anuncio aunque no haya anuncio que cargar\n      (.columns_spots .spots { min-height:250px } en el CSS de la web): eso es el vacío que se ve.\n      Se le quitan el alto mínimo y los márgenes, así mide exactamente lo que mida el anuncio que\n      cargue — y cero si no hay ninguno. Además el pie arranca un poco más arriba. */\n.footer_spots {\n  margin-top: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_spots .columns_spots,\n.footer_spots .spots {\n  min-height: 0 !important;\n  margin: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_holder {\n  padding-top: 16px !important;\n}\n\n/* 4) Los botones de afiliado de la columna lateral (los de happyleafmotion) traen su animación en el\n      propio `style=\"\"` del enlace: un gradiente de fondo que se mueve en bucle (`gradientShift 8s` y\n      `r34flow 10s`). Un `background-position` animado no se puede componer en la GPU: el navegador\n      **repinta ese botón en cada frame, para siempre** mientras la pestaña esté abierta. Aquí solo se\n      le para la animación al botón (el `!important` gana al `style=\"\"` del propio enlace): se sigue\n      viendo y se puede pinchar igual —no se toca nada de lo que paga la web— pero deja de gastar CPU.\n      Medido con la pestaña quieta: eran las dos únicas animaciones infinitas que quedaban en la\n      página además del spinner de «cargando» del reproductor. */\na.button_fav.sidebar_ad {\n  animation: none !important;\n}\n";
+  var css = "/* ---------------------------------------------------------------------------------------------\n   rule34video.com — limpieza de la página.\n   El CSS del sitio se carga después que este, así que todo va con !important: estas reglas tienen\n   que ganar sí o sí.\n   --------------------------------------------------------------------------------------------- */\n\n/* 1) Botones de promoción del header: «AI Jerk Off» (enlace de afiliado) y «ThePornDude».\n      Se ocultan aquí para que no parpadeen, y core.js además los quita del DOM y vigila que no\n      vuelvan (la web repinta el header con su propio JS). */\n.panel_header.panel_header--promo,\na.button_fav.ai,\na.button_fav.theporndude {\n  display: none !important;\n}\n\n/* 2) La banda de aviso de rule34gen, la que sale pegada debajo del header («Due to the massive\n      influx of AI generated video's…»). Se esconde el enlace y sus dos contenedores, y también el\n      `.headline` que solo la envuelve a ella: si no, se quedaría su margen inferior como hueco. */\na.emger,\n#top-header,\n#emergency-response-opt,\n.headline:has(> a.emger) {\n  display: none !important;\n}\n\n/* 3) El hueco entre la paginación («Jump to … OK») y el logo del pie.\n      Entre esas dos cosas no hay más que la banda de anuncios del pie (.footer_spots), y esa banda\n      reserva 250 px de alto por cada hueco de anuncio aunque no haya anuncio que cargar\n      (.columns_spots .spots { min-height:250px } en el CSS de la web): eso es el vacío que se ve.\n      Se le quitan el alto mínimo y los márgenes, así mide exactamente lo que mida el anuncio que\n      cargue — y cero si no hay ninguno. Además el pie arranca un poco más arriba. */\n.footer_spots {\n  margin-top: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_spots .columns_spots,\n.footer_spots .spots {\n  min-height: 0 !important;\n  margin: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_holder {\n  padding-top: 16px !important;\n}\n\n/* 4) Los botones de afiliado de la columna lateral (los de happyleafmotion) traen su animación en el\n      propio `style=\"\"` del enlace: un gradiente de fondo que se mueve en bucle (`gradientShift 8s` y\n      `r34flow 10s`). Un `background-position` animado no se puede componer en la GPU: el navegador\n      **repinta ese botón en cada frame, para siempre** mientras la pestaña esté abierta. Aquí solo se\n      le para la animación al botón (el `!important` gana al `style=\"\"` del propio enlace): se sigue\n      viendo y se puede pinchar igual —no se toca nada de lo que paga la web— pero deja de gastar CPU.\n      Medido con la pestaña quieta: eran las dos únicas animaciones infinitas que quedaban en la\n      página además del spinner de «cargando» del reproductor. */\na.button_fav.sidebar_ad {\n  animation: none !important;\n}\n\n/* 5) La ficha de anuncio de la rejilla, ya en el pie. La traslada core.js (ver `localStorage\n      [\"r34gv.ads\"]`): en vez de ir entre los vídeos haciéndose pasar por uno, va al hueco que queda\n      entre la paginación («Jump to … OK», donde acaba el listado) y el pie del sitio, donde está el\n      logo. Aquí solo se le da sitio —centrada y del ancho de una ficha— y se le quitan los adornos de\n      vídeo: la duración («23:40»), el icono HD, el de play y la fila de nota/vistas, que son relleno\n      de la plantilla. El cartel «AD» se queda: el anuncio tiene que poder distinguirse de lo demás. */\n.r34gv-footer-ad {\n  clear: both !important;\n  width: 336px !important;\n  max-width: 92% !important;\n  margin: 22px auto 4px !important;\n}\n\n.r34gv-footer-ad .item.thumb {\n  float: none !important;\n  width: 100% !important;\n  height: auto !important;\n  margin: 0 !important;\n}\n\n.r34gv-footer-ad .time,\n.r34gv-footer-ad .quality,\n.r34gv-footer-ad .custom-play,\n.r34gv-footer-ad .thumb_info {\n  display: none !important;\n}\n";
   if (!css) return;
   var style = document.createElement("style");
   style.id = "r34g-styles";
@@ -355,34 +355,65 @@
   // Cada pocas fichas la rejilla mete una que no es un vídeo: es un anuncio nativo (lleva el cartel
   // «AD» y dentro un iframe del servidor de anuncios). El iframe se trae su creatividad —y arranca sus
   // temporizadores— en cuanto el navegador lo inserta, aunque quede a dos o tres pantallas de
-  // distancia: es de lo que más gasta de la página. Al iframe se le aplaza la carga hasta que su ficha
-  // se acerca a la ventana: el anuncio se carga (y la web ingresa su impresión) cuando va a verse de
-  // verdad, pero mientras nadie lo mira no cuesta red ni CPU.
+  // distancia: es de lo que más gasta de la página.
+  //
+  // Por defecto esa ficha **se traslada al pie** (entre el «Jump to … OK» de la paginación y el pie,
+  // donde está el logo): fuera del listado, deja de hacerse pasar por un vídeo entre los vídeos, y al
+  // pie el anuncio se ve cuando de verdad se mira el final de la página —que es cuando paga—. En
+  // cualquier caso la carga se **aplaza** hasta que la ficha entra en el margen de la ventana, así que
+  // mientras nadie la mira no cuesta red ni CPU. No se quita: es dinero de la web.
+  //
+  // El traslado se hace **con el anuncio todavía aparcado** (su `src` original guardado y el iframe en
+  // `about:blank`): mover un iframe que ya cargó lo recarga, y eso contaría la impresión dos veces. Si
+  // el anuncio ya había cargado cuando lo vimos, la ficha se queda donde estaba.
   //
   // Ajuste, en `localStorage["r34gv.ads"]`:
-  //   "lazy" (por defecto) → aplazar la carga del anuncio hasta que se acerque a la ventana
-  //   "eager"             → no tocar nada; el anuncio carga como lo sirva la web
-  //   "off"               → quitar la ficha de anuncio de la rejilla (eso SÍ son ingresos de la web,
-  //                         por eso no es lo que viene puesto: ver POLÍTICA DE ANUNCIOS)
+  //   "footer" (por defecto) → trasladar la ficha al pie (y aplazar su carga hasta que se acerque)
+  //   "lazy"                 → dejarla en la rejilla, solo con la carga aplazada
+  //   "eager"                → no tocar nada; el anuncio carga como lo sirva la web
+  //   "off"                  → quitar la ficha de anuncio (eso SÍ son ingresos de la web, por eso no
+  //                            es lo que viene puesto: ver POLÍTICA DE ANUNCIOS)
   var AD_MARK = "data-r34gv-ad";
   var AD_LINK = 'a.th[title="Advertisement"]';
+  var AD_SLOT = "r34gv-footer-ad";
   var AD_MARGIN = 400; // px de margen: se carga un poco antes de entrar en pantalla
   var adMode = (function () {
     try {
       var v = localStorage.getItem("r34gv.ads");
-      return v === "eager" || v === "off" ? v : "lazy";
+      return v === "eager" || v === "off" || v === "lazy" ? v : "footer";
     } catch (e) {
-      return "lazy";
+      return "footer";
     }
   })();
   var parkedAds = [];
   var adTimers = [];
   var adListening = false;
 
+  // El hueco del pie: justo después de la paginación —donde acaba el listado— y por delante del pie,
+  // donde está el logo. Si la página no trae paginación, se cuelga del propio pie.
+  function footerSlot() {
+    var slot = document.querySelector("." + AD_SLOT);
+    if (slot && document.documentElement.contains(slot)) return slot;
+    slot = document.createElement("div");
+    slot.className = AD_SLOT;
+    var pag = document.querySelector(".item.jump_to");
+    var anchor = pag && pag.closest ? pag.closest(".pagination") || pag.parentNode : null;
+    if (anchor && anchor.parentNode) {
+      anchor.parentNode.insertBefore(slot, anchor.nextSibling);
+      return slot;
+    }
+    var before = document.querySelector(".footer") || (document.querySelector(".logo_footer") || {}).parentNode;
+    if (before && before.parentNode) before.parentNode.insertBefore(slot, before);
+    else if (document.body) document.body.appendChild(slot);
+    else return null;
+    return slot;
+  }
+
   function parkAd(frame) {
     if (!frame || frame.tagName !== "IFRAME" || frame.hasAttribute(AD_MARK)) return;
     // Solo los iframes de las fichas, y solo si apuntan fuera (los del propio sitio se dejan en paz).
-    if (!frame.closest || !frame.closest(".item.thumb")) return;
+    var card = frame.closest ? frame.closest(".item.thumb") : null;
+    if (!card) return;
     var src = frame.getAttribute("src");
     if (!src || !/^https?:/i.test(src)) return;
     try {
@@ -403,6 +434,11 @@
     frame.setAttribute(AD_MARK, src);
     frame.setAttribute("src", "about:blank"); // corta la descarga que hubiera empezado
     parkedAds.push(frame);
+    // Con el anuncio aún sin cargar, la ficha se puede mover sin que se recargue nada.
+    if (adMode === "footer") {
+      var slot = footerSlot();
+      if (slot && !slot.contains(card)) slot.appendChild(card);
+    }
     watchAds();
   }
 
