@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.52
+// @version      0.1.53
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -58,9 +58,9 @@
 //                                      dejan para cuando hagan falta.
 //   calidad por defecto             -> la web arranca en 360p (es la que va en `video_url`, la fuente
 //                                      por defecto) y deja 480p/720p/1080p en los huecos alternativos.
-//                                      Aquí se pone delante la preferida —720p, o 480p si la conexión
-//                                      es lenta o hay ahorro de datos— con su texto y su marca HD, y
-//                                      las demás se quedan como estaban.
+//                                      La calidad se recuerda entre vídeos (ver «preferencia de
+//                                      calidad», más abajo) y, como respaldo, la preferida se pone
+//                                      delante en esos huecos con su texto y su marca HD.
 //   loop: false                     -> la web trae `loop: 'true'`, o sea que si dejas la pestaña
 //                                      abierta el vídeo se repite para siempre (y vuelve a
 //                                      descargarse). Con esto se para al terminar, que es cuando una
@@ -79,17 +79,19 @@
 //
 // Preferencia de calidad: se recuerda entre vídeos. Se puede cambiar también desde la consola con
 //   localStorage.setItem("r34gv.quality", "1080p")   // o 480p, 360p…
-// Si no hay ninguna guardada se usa 720p (480p si la conexión es lenta o hay ahorro de datos). La
-// calidad elegida en el menú del reproductor se apunta en el momento de elegirla, y si un vídeo
-// arranca en otra distinta se cambia sola usando ese mismo menú (la web pone 360p por defecto, y esa
-// no es una elección del usuario: no se guarda nunca).
+// Si no hay ninguna guardada se usa 720p (480p si la conexión es lenta o hay ahorro de datos), y la
+// primera vez se hereda la que ya tuviera elegida el reproductor de la web. La elección se apunta en
+// el momento de elegirla, y además se escribe en la clave del propio reproductor
+// (`kvsplayer_selected_format`), que es la que de verdad decide con cuál arranca cada vídeo —los
+// cuatro huecos de `flashvars` solo se reordenan como respaldo—. Si un vídeo arranca en otra calidad
+// distinta de la preferida, se cambia sola usando ese mismo menú.
 //
 // Memoria del reproductor (todo en localStorage, todo aplicado al motor `video.fp-engine`):
 //   r34gv.volume  0..1     -> la web arranca cada vídeo con `volume: '1'` (al 100%, de golpe)
 //   r34gv.mute    1/0      -> silencio recordado
 //   r34gv.speed   0.25..4  -> la velocidad del menú del reproductor se reinicia en cada vídeo
 //   r34gv.pos.<id> segundos -> por dónde ibas en ESE vídeo (se reanuda al volver a abrirlo)
-//   r34gv.quality texto    -> la última calidad usada (ver arriba)
+//   r34gv.quality texto    -> la calidad elegida (ver arriba)
 //
 // Espacio = play/pausa (el reproductor de la web no lo tiene: sus teclas son las de Flowplayer y solo
 // funcionan con el ratón encima; los cursores ±5 s los pone el propio `kt_seek.js` de la web, y el
@@ -113,7 +115,7 @@
 
   var QUALITY_KEY = "r34gv.quality";
   var QUALITY_DEFAULT = "720p";
-  var siteDefaultText = ""; // la calidad con la que arranca la web (el primer hueco original)
+  var SITE_QUALITY_KEY = "kvsplayer_selected_format"; // la clave con la que el reproductor de la web recuerda su calidad
 
   // Los cuatro huecos de calidad del reproductor, en orden: el primero es el que suena por defecto.
   var URLS = ["video_url", "video_alt_url", "video_alt_url2", "video_alt_url3"];
@@ -195,8 +197,24 @@
     return pref("r34gv.loop");
   }
 
+  // La web guarda su propia calidad elegida en `kvsplayer_selected_format` (por nombre: «720p»), y al
+  // arrancar manda eso: los cuatro huecos de `flashvars` se reordenan, pero el reproductor termina
+  // eligiendo la que tenga apuntada en su clave. Así que la preferencia se escribe donde manda él (y
+  // así la pone sin cambiar de flujo a mitad del arranque). Si todavía no hay preferencia nuestra se
+  // hereda la que ya tuviera elegida la web, que es la misma elección vista desde el otro lado.
+  function pushQuality() {
+    var mine = pref(QUALITY_KEY);
+    if (mine) {
+      memSet(SITE_QUALITY_KEY, mine);
+      return mine;
+    }
+    var site = pref(SITE_QUALITY_KEY);
+    if (site) memSet(QUALITY_KEY, site);
+    return site;
+  }
+
   function wanted() {
-    var saved = pref(QUALITY_KEY);
+    var saved = pushQuality();
     if (saved) return saved;
     // Sin preferencia guardada: en una conexión lenta (o con ahorro de datos) empezar en 720p es
     // empezar a bufferear, así que se baja. Además del tipo de conexión se miran la velocidad estimada
@@ -235,9 +253,6 @@
       for (var q = 0; q < URLS.length; q++) {
         if (fv[URLS[q]]) contentSet[stripQuery(absUrl(fv[URLS[q]]))] = String(fv[TEXTS[q]] || "");
       }
-      // La calidad del primer hueco ANTES de reordenar: es la que la web pone sola, y sirve para no
-      // confundirla con una elección del usuario (si no, un arranque en 360p borraría su preferencia).
-      if (!siteDefaultText && fv.video_url) siteDefaultText = String(fv.video_url_text || "").toLowerCase();
       // 1) que empiece a bufferear desde el principio.
       fv.preload = "auto";
       // 2) las 11 miniaturas de la barra de tiempo, solo cuando se pase el ratón.
@@ -497,13 +512,13 @@
   }
 
   // --- la calidad: memoria de verdad -------------------------------------------------------------
-  // Arrancar en la calidad guardada lo hace el setter (reordena los huecos de `flashvars`). Pero eso
-  // depende de llegar a tiempo al `var flashvars = {...}` de la web, así que aquí van las dos cosas
-  // que hacen que la preferencia se note pase lo que pase:
+  // La preferencia se escribe en la clave del propio reproductor (eso es lo que hace que arranque en
+  // ella, ver `pushQuality`). Pero por si esta página no ofrece esa calidad, o el reproductor decide
+  // otra cosa, quedan dos redes:
   //   1) se apunta en el momento de elegirla en el menú del reproductor, sin esperar a que el flujo
-  //      cargue (y sin confundirla con la calidad con la que arranca la web, que no es una elección);
-  //   2) si el vídeo arranca en otra calidad distinta de la preferida, se cambia sola usando el menú
-  //      del propio reproductor, que es el que manda.
+  //      cargue;
+  //   2) si el vídeo arranca en otra calidad distinta de la preferida y esa sí está en el menú, se
+  //      cambia sola usando el propio menú del reproductor.
   var selfQuality = false; // mientras el clic del menú lo damos nosotros
   var enforceTried = {}; // dirección del vídeo -> veces que se ha corregido la calidad
   var ENFORCE_MAX = 3;
@@ -556,7 +571,9 @@
     var it = e.target.closest(".fp-settings-list-item");
     if (!it) return;
     var t = String(it.textContent || "").trim().toLowerCase();
-    if (/^\d{3,4}p$/.test(t)) memSet(QUALITY_KEY, t);
+    if (!/^\d{3,4}p$/.test(t)) return;
+    memSet(QUALITY_KEY, t);
+    memSet(SITE_QUALITY_KEY, t); // en la clave del reproductor también: en el siguiente vídeo, suya
   }
 
   document.addEventListener("pointerdown", noteQualityPick, true);
@@ -630,11 +647,9 @@
     try {
       if (v.preload !== "auto") v.preload = "auto";
     } catch (e) {}
-    var key = contentKey(v);
-    var q = key ? String(contentSet[key] || "").toLowerCase() : "";
-    // Se guarda la calidad que suena, salvo cuando es la que la web pone sola: eso no es una elección
-    // del usuario, y guardarla borraría la suya cada vez que se abriera un vídeo nuevo.
-    if (q && q !== siteDefaultText) memSet(QUALITY_KEY, q);
+    // Aquí NO se apunta la calidad: la que suena puede ser un apaño del reproductor (una calidad que
+    // ese vídeo no tiene, un arranque suyo…), y grabarla pisaría la elección del usuario. La elección
+    // se apunta al elegirla en el menú, que es cuando es una elección de verdad.
     reapply(v);
     resumeIn(v);
     setTimeout(enforceQuality, 1500);
