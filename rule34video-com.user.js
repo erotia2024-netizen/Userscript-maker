@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.63
+// @version      0.1.64
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1370,7 +1370,40 @@
 
   function isAdCard(el) {
     if (!el || !el.querySelector) return false;
-    return !!(el.querySelector(AD_LINK) || el.querySelector("header"));
+    return !!(el.querySelector(AD_LINK) || el.querySelector("header") || el.querySelector(".spot-thumb, [data-cl-spot]"));
+  }
+
+  // La url que la propia página declara como suya (canonical / og:url). Es la única que sabe de qué
+  // listado se trata cuando el enlace de paginación no lleva dirección.
+  function declaredUrl() {
+    var el = document.querySelector('link[rel="canonical"][href], meta[property="og:url"][content]');
+    var raw = el ? el.getAttribute("href") || el.getAttribute("content") || "" : "";
+    if (!raw) return null;
+    try {
+      return new URL(raw, location.href);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Unas páginas llevan la dirección de la siguiente en el enlace, y otras pagan por ajax: el enlace
+  // es `#videos` y el número de página va en `data-parameters` (`from:2`). Ahí la dirección se arma
+  // con ese número sobre la url declarada (`/models/wkysto/` -> `/models/wkysto/2/`).
+  function ajaxPageUrl(link) {
+    var m = /(?:^|;)from:(\d+)/.exec(link.getAttribute("data-parameters") || "");
+    var n = m ? parseInt(m[1], 10) : 0;
+    if (!n || n < 2) return null;
+    var u = declaredUrl();
+    if (!u) {
+      try {
+        u = new URL(location.href);
+      } catch (e) {
+        return null;
+      }
+    }
+    u.hash = "";
+    u.pathname = u.pathname.replace(/\/\d+\/?$/, "/") + n + "/";
+    return u.href;
   }
 
   // A dónde se pide: el enlace «siguiente» de la paginación de este listado (si no hay, es la última
@@ -1385,19 +1418,26 @@
       if (!link) link = l;
       if (block && id && id.indexOf(block) === 0) { link = l; break; } // la de nuestro bloque, si se sabe
     }
-    var href = link && link.getAttribute("href");
-    if (!href) return null;
-    try {
-      return { url: new URL(href, location.href).href, base: id.replace(/_items$/, "") };
-    } catch (e) {
-      return null;
+    if (!link) return null;
+    var href = link.getAttribute("href") || "", url = null;
+    if (href && href.charAt(0) !== "#") {
+      try {
+        url = new URL(href, location.href).href;
+      } catch (e) {
+        url = null;
+      }
+    } else {
+      url = ajaxPageUrl(link);
     }
+    // sin dirección —o la de esta misma página— no hay nada que traer: se rellenaría con lo que ya hay
+    if (!url || url === location.href) return null;
+    return { url: url, base: id.replace(/_items$/, "") };
   }
 
   // Las fichas a traer: las de la rejilla del mismo listado en la página siguiente. La web le cambia
   // el nombre al bloque entre páginas, así que si el id no aparece se coge la rejilla más grande que
   // no sea la de la columna lateral.
-  function pickCards(doc, base, need) {
+  function pickCards(doc, base, need, inGrid) {
     var grid = (base && (doc.getElementById(base + "_items") || doc.getElementById(base))) || null;
     var cards = grid ? grid.querySelectorAll(":scope > .item.thumb") : [];
     if (!cards.length) {
@@ -1410,9 +1450,16 @@
       grid = best;
       cards = grid ? grid.querySelectorAll(":scope > .item.thumb") : [];
     }
+    var have = {};
+    if (inGrid && inGrid.querySelectorAll) {
+      var seen = inGrid.querySelectorAll("[data-video-card-id]");
+      for (var h = 0; h < seen.length; h++) have[seen[h].getAttribute("data-video-card-id")] = 1;
+    }
     var out = [];
     for (var c = 0; c < cards.length && out.length < need; c++) {
       if (isAdCard(cards[c])) continue; // el anuncio de la página siguiente no nos sirve
+      var vid = cards[c].getAttribute("data-video-card-id") || "";
+      if (vid && have[vid]) continue; // ya está en la rejilla: esto no es la página siguiente
       out.push(cards[c]);
     }
     return out;
@@ -1427,7 +1474,7 @@
       })
       .then(function (html) {
         if (!html || !document.documentElement.contains(grid)) return;
-        var cards = pickCards(new DOMParser().parseFromString(html, "text/html"), info.base, need);
+        var cards = pickCards(new DOMParser().parseFromString(html, "text/html"), info.base, need, grid);
         for (var i = 0; i < cards.length; i++) {
           var el = document.importNode(cards[i], true);
           el.setAttribute(FILL_MARK, "1");
