@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.27
+// @version      0.1.28
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -293,6 +293,15 @@
 // descodifiquen fuera del hilo principal. Todo esto es aditivo: si la web cambia, lo peor que pasa
 // es que no se aplique.
 //
+// Aligerado (2): el panel lateral de la web («Trending searches», «Top Categories», «Top Artists»)
+// vive fuera de pantalla y se abre con el botón «burger», pero sus 20 imágenes se descargan igual al
+// cargar la página: ~0,5 MB que nadie mira (algunos avatares pesan más de 100 KB). Se les guarda la
+// dirección y se quedan sin `src` hasta que el panel se abre de verdad.
+//
+// Página principal (2): el panel «Filters & Sorting» de los listados viene desplegado de fábrica en
+// escritorio y ocupa ~290 px de scroll por delante de los vídeos. Se pliega solo si el usuario no ha
+// elegido nada (la web guarda su propia preferencia); ver `localStorage["r34gv.filters"]`.
+//
 // (Se probó también `content-visibility: auto` en las fichas y se descartó: dentro de un subárbol
 // saltado por content-visibility los descendientes no tienen caja, así que jquery.lazyload —que mide
 // con `.offset()`— mediría 0. Ganancia nula en una rejilla de 24 fichas y riesgo de que la web
@@ -476,6 +485,7 @@
   }
 
   function checkAds() {
+    railCheck();
     maybeFill();
     for (var i = parkedAds.length - 1; i >= 0; i--) {
       if (adInRange(parkedAds[i])) unparkAd(parkedAds[i]);
@@ -715,8 +725,119 @@
     READY = true;
     var root = document.documentElement || document.body;
     takeOver(root); // por si alguna imagen se coló antes de que el observador estuviera puesto
+    railStash(root);
+    filtersCollapse();
     polish(root);
     scanAds(root); // y por si la ficha de anuncio ya estaba puesta
+  }
+
+  // --- el panel lateral de fuera de pantalla ------------------------------------------------------
+  // `.sidebar-aside` es el panel que sale por la izquierda al pulsar el «burger»: «Trending
+  // searches», «Top Categories» y «Top Artists». La web lo esconde con `visibility`/`transform`
+  // —sigue en el documento y con tamaño—, así que sus 20 imágenes se descargan en cada carga aunque
+  // el usuario no abra el panel nunca: ~0,5 MB y 20 peticiones (tres avatares de modelo pasan de
+  // 100 KB cada uno). Aquí se les guarda la dirección en un atributo propio y se dejan apuntando a un
+  // GIF de 1×1; en cuanto el panel se abre de verdad se les devuelve la dirección y se ven igual.
+  // Es aditivo: si el panel no está, no pasa nada.
+  var RAIL = ".sidebar-aside";
+  var RAIL_ATTR = "data-r34gv-rail";
+  var RAIL_BLANK = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+  var railOpen = false; // en cuanto se abre una vez ya no se toca nada más del panel
+
+  function railStashImg(img) {
+    if (railOpen || !img || img.nodeType !== 1 || img.tagName !== "IMG") return;
+    if (img.hasAttribute(RAIL_ATTR) || !img.closest || !img.closest(RAIL)) return;
+    takeOverLazyload(img); // resuelve `data-original`/`data-webp` y le quita la clase `lazy-load`
+    var src = img.getAttribute("src");
+    if (!src || /^data:/i.test(src)) return;
+    img.setAttribute(RAIL_ATTR, src);
+    img.setAttribute("src", RAIL_BLANK); // esto aborta la descarga si ya había empezado
+  }
+
+  function railStash(node) {
+    if (railOpen || !node || node.nodeType !== 1) return;
+    railStashImg(node);
+    var found = node.querySelectorAll ? node.querySelectorAll("img") : [];
+    for (var i = 0; i < found.length; i++) railStashImg(found[i]);
+  }
+
+  function railRestore() {
+    railOpen = true;
+    var imgs = document.querySelectorAll("img[" + RAIL_ATTR + "]");
+    for (var i = 0; i < imgs.length; i++) {
+      imgs[i].setAttribute("src", imgs[i].getAttribute(RAIL_ATTR));
+      imgs[i].removeAttribute(RAIL_ATTR);
+    }
+  }
+
+  function railCheck() {
+    if (railOpen) return;
+    var wrap = document.querySelector(".wrapper");
+    if (wrap && wrap.classList && wrap.classList.contains("active")) railRestore(); // así lo abre la web
+  }
+
+  // El clic del «burger» es la otra señal (y la de verdad): se restablece en el mismo clic, así que
+  // las imágenes van llegando mientras el panel se desliza.
+  document.addEventListener("click", function (e) {
+    if (railOpen) return;
+    var t = e.target;
+    if (t && t.closest && t.closest(".burger")) railRestore();
+  }, true);
+
+  // --- «Filters & Sorting»: plegado de entrada ----------------------------------------------------
+  // En escritorio la web pinta el panel desplegado (su JS: `isMobile ? false : true`) y son ~380 px
+  // de botones de orden, fecha, duración y «verified uploaders» por delante de la rejilla: en una
+  // pantalla de 900 px no se llega a ver ni media fila de vídeos al entrar. Plegado, la rejilla sube
+  // 290 px y el botón «Filters & Sorting» sigue ahí, a un clic, para abrirlo.
+  //
+  // Se pliega **solo si el usuario no ha elegido nada**: la web guarda su preferencia en
+  // `filtersPanelState:<id>` en cuanto él lo abre o lo cierra, y a partir de ahí no se toca. Como la
+  // web aplica la suya al arrancar, se escribe también esa clave: si no, su JS lo desplegaría otra
+  // vez en cuanto llegara a su código.
+  //   localStorage["r34gv.filters"]: "closed" (por defecto) → plegar; "open" → no tocar nada.
+  var filtersMode = (function () {
+    try {
+      return localStorage.getItem("r34gv.filters") === "open" ? "open" : "closed";
+    } catch (e) {
+      return "closed";
+    }
+  })();
+
+  function filtersCollapse() {
+    if (filtersMode === "open") return;
+    var panels = document.querySelectorAll(".filters-panel[data-filters-panel]");
+    for (var i = 0; i < panels.length; i++) {
+      var panel = panels[i];
+      var toggle = panel.querySelector(".filters-panel__toggle");
+      var body = panel.querySelector(".filters-panel__body");
+      if (!toggle || !body) continue; // aún a medio construir: ya volverá a pasar por aquí
+      var key = "filtersPanelState:" + (panel.getAttribute("data-filters-panel") || "default");
+      var stored = null;
+      try {
+        stored = localStorage.getItem(key);
+      } catch (e) {
+        stored = null;
+      }
+      if (stored) continue; // el usuario ya eligió: eso manda
+      panel.classList.add("filters-panel--collapsed");
+      panel.classList.remove("filters-panel--expanded");
+      toggle.setAttribute("aria-expanded", "false");
+      try {
+        localStorage.setItem(key, "closed");
+      } catch (e) {}
+    }
+  }
+
+  // El panel (y sus trozos) llegan durante el parseo y también por AJAX al filtrar o buscar: solo se
+  // mira cuando el nodo tiene que ver con él. Ojo: lo normal es que llegue dentro de un subárbol
+  // grande (una respuesta de AJAX entera), así que hay que mirar también hacia abajo.
+  function filtersMaybe(node) {
+    if (!node || node.nodeType !== 1 || !node.closest) return;
+    if ((node.matches && node.matches(".filters-panel")) || node.closest(".filters-panel")) {
+      filtersCollapse();
+      return;
+    }
+    if (node.querySelector && node.querySelector(".filters-panel")) filtersCollapse();
   }
 
   // La web también mete contenido por AJAX (los listados, el buscador), así que esto puede reaparecer
@@ -728,7 +849,9 @@
       for (var j = 0; j < added.length; j++) {
         purge(added[j]);
         scanAds(added[j]);
+        railStash(added[j]);
         takeOver(added[j]);
+        filtersMaybe(added[j]);
         if (READY) polish(added[j]);
       }
     }
