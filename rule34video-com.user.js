@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.48
+// @version      0.1.49
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -196,11 +196,16 @@
     var saved = pref(QUALITY_KEY);
     if (saved) return saved;
     // Sin preferencia guardada: en una conexión lenta (o con ahorro de datos) empezar en 720p es
-    // empezar a bufferear, así que se baja a 480p.
+    // empezar a bufferear, así que se baja. Además del tipo de conexión se miran la velocidad estimada
+    // y la latencia: una «4g» de 1 Mb/s con 400 ms de ida y vuelta no aguanta 720p sin pararse.
     try {
       var nav = W.navigator || navigator;
       var c = nav.connection || nav.mozConnection || nav.webkitConnection;
-      if (c && (c.saveData || /^(slow-)?2g$|^3g$/.test(c.effectiveType || ""))) return "480p";
+      if (c) {
+        if (c.saveData || /^(slow-)?2g$|^3g$/.test(c.effectiveType || "")) return "480p";
+        if (c.downlink && c.downlink < 2) return "480p";
+        if (c.rtt && c.rtt > 300) return "480p";
+      }
     } catch (e) {}
     return QUALITY_DEFAULT.toLowerCase();
   }
