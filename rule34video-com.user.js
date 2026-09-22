@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.15
+// @version      0.1.16
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -368,6 +368,19 @@
     img.removeAttribute("data-webp");
   }
 
+  // Esto sí se puede hacer en cuanto la imagen existe: no mide nada. Y hay que hacerlo ya, durante
+  // el parseo, porque así la clase `lazy-load` desaparece **antes** de que se ejecute el JS de la web
+  // (va al final del body): su `find("img.lazy-load")` no encuentra nada y no llega ni a engancharse.
+  function takeOver(node) {
+    if (!node || node.nodeType !== 1) return;
+    if (node.tagName === "IMG") {
+      takeOverLazyload(node);
+      return;
+    }
+    var found = node.querySelectorAll ? node.querySelectorAll("img.lazy-load") : [];
+    for (var i = 0; i < found.length; i++) takeOverLazyload(found[i]);
+  }
+
   function polishImg(img) {
     if (!img || img.nodeType !== 1 || img.hasAttribute(MARK)) return;
     img.setAttribute(MARK, "1");
@@ -382,20 +395,18 @@
   function polish(node) {
     if (!node || node.nodeType !== 1) return;
     if (node.tagName === "IMG") {
-      takeOverLazyload(node);
       polishImg(node);
       return;
     }
     var found = node.querySelectorAll ? node.querySelectorAll("img") : [];
-    for (var i = 0; i < found.length; i++) {
-      takeOverLazyload(found[i]);
-      polishImg(found[i]);
-    }
+    for (var i = 0; i < found.length; i++) polishImg(found[i]);
   }
 
   function sweep() {
     READY = true;
-    polish(document.documentElement || document.body);
+    var root = document.documentElement || document.body;
+    takeOver(root); // por si alguna imagen se coló antes de que el observador estuviera puesto
+    polish(root);
   }
 
   // La web también mete contenido por AJAX (los listados, el buscador), así que esto puede reaparecer
@@ -406,6 +417,7 @@
       var added = records[i].addedNodes;
       for (var j = 0; j < added.length; j++) {
         purge(added[j]);
+        takeOver(added[j]);
         if (READY) polish(added[j]);
       }
     }
