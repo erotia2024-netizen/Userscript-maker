@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.42
+// @version      0.1.43
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -330,10 +330,12 @@
     return !!(t && t.closest && t.closest("a.fp-speed, .fp-speed-list, .fp-volumeslider, .fp-volumelevel, .fp-mute"));
   }
 
+  var selfClick = false; // mientras se sincroniza el menú de velocidad: ese clic es nuestro
+
   document.addEventListener(
     "pointerdown",
     function (e) {
-      if (isVolumeSpeedUi(e.target)) userTouched = true;
+      if (!selfClick && isVolumeSpeedUi(e.target)) userTouched = true;
     },
     true
   );
@@ -341,7 +343,7 @@
   document.addEventListener(
     "click",
     function (e) {
-      if (isVolumeSpeedUi(e.target)) userTouched = true;
+      if (!selfClick && isVolumeSpeedUi(e.target)) userTouched = true;
     },
     true
   );
@@ -441,8 +443,12 @@
     var box = item && item.parentNode;
     if (!box || box.classList.contains("is-selected")) return;
     try {
+      selfClick = true; // el clic es nuestro: no cuenta como gesto del usuario
       item.click();
-    } catch (e) {}
+    } catch (e) {
+    } finally {
+      selfClick = false;
+    }
   }
 
   // ¿El estado actual del motor es ya el nuestro? (Sirve para no grabar nuestros propios ajustes ni
