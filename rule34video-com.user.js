@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.6
+// @version      0.1.7
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -18,7 +18,7 @@
 
 (function () {
   "use strict";
-  var css = "/* ---------------------------------------------------------------------------------------------\n   rule34video.com — limpieza de la página.\n   El CSS del sitio se carga después que este, así que todo va con !important: estas reglas tienen\n   que ganar sí o sí.\n   --------------------------------------------------------------------------------------------- */\n\n/* 1) Botones de promoción del header: «AI Jerk Off» (enlace de afiliado) y «ThePornDude».\n      Se ocultan aquí para que no parpadeen, y core.js además los quita del DOM y vigila que no\n      vuelvan (la web repinta el header con su propio JS). */\n.panel_header.panel_header--promo,\na.button_fav.ai,\na.button_fav.theporndude {\n  display: none !important;\n}\n\n/* 2) La banda de aviso de rule34gen, la que sale pegada debajo del header («Due to the massive\n      influx of AI generated video's…»). Se esconde el enlace y sus dos contenedores, y también el\n      `.headline` que solo la envuelve a ella: si no, se quedaría su margen inferior como hueco. */\na.emger,\n#top-header,\n#emergency-response-opt,\n.headline:has(> a.emger) {\n  display: none !important;\n}\n\n/* 3) El hueco entre la paginación («Jump to … OK») y el logo del pie.\n      Entre esas dos cosas no hay más que la banda de anuncios del pie (.footer_spots), y esa banda\n      reserva 250 px de alto por cada hueco de anuncio aunque no haya anuncio que cargar\n      (.columns_spots .spots { min-height:250px } en el CSS de la web): eso es el vacío que se ve.\n      Se le quitan el alto mínimo y los márgenes, así mide exactamente lo que mida el anuncio que\n      cargue — y cero si no hay ninguno. Además el pie arranca un poco más arriba. */\n.footer_spots {\n  margin-top: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_spots .columns_spots,\n.footer_spots .spots {\n  min-height: 0 !important;\n  margin: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_holder {\n  padding-top: 16px !important;\n}\n\n/* 4) Los listados traen decenas de fichas de vídeo y la web las dibuja todas, aunque no se vea\n      ninguna. Con content-visibility el navegador se salta el dibujo de las que están fuera de\n      pantalla y lo hace al llegar a ellas, y con contain-intrinsic-size reserva su alto de antemano\n      para que la barra de scroll no dé saltos — el `auto` hace que, una vez medida una ficha, se\n      use su alto de verdad en vez de los 300 px de estimación. */\n.thumbs .item.thumb {\n  content-visibility: auto;\n  contain-intrinsic-size: auto 300px;\n}\n";
+  var css = "/* ---------------------------------------------------------------------------------------------\n   rule34video.com — limpieza de la página.\n   El CSS del sitio se carga después que este, así que todo va con !important: estas reglas tienen\n   que ganar sí o sí.\n   --------------------------------------------------------------------------------------------- */\n\n/* 1) Botones de promoción del header: «AI Jerk Off» (enlace de afiliado) y «ThePornDude».\n      Se ocultan aquí para que no parpadeen, y core.js además los quita del DOM y vigila que no\n      vuelvan (la web repinta el header con su propio JS). */\n.panel_header.panel_header--promo,\na.button_fav.ai,\na.button_fav.theporndude {\n  display: none !important;\n}\n\n/* 2) La banda de aviso de rule34gen, la que sale pegada debajo del header («Due to the massive\n      influx of AI generated video's…»). Se esconde el enlace y sus dos contenedores, y también el\n      `.headline` que solo la envuelve a ella: si no, se quedaría su margen inferior como hueco. */\na.emger,\n#top-header,\n#emergency-response-opt,\n.headline:has(> a.emger) {\n  display: none !important;\n}\n\n/* 3) El hueco entre la paginación («Jump to … OK») y el logo del pie.\n      Entre esas dos cosas no hay más que la banda de anuncios del pie (.footer_spots), y esa banda\n      reserva 250 px de alto por cada hueco de anuncio aunque no haya anuncio que cargar\n      (.columns_spots .spots { min-height:250px } en el CSS de la web): eso es el vacío que se ve.\n      Se le quitan el alto mínimo y los márgenes, así mide exactamente lo que mida el anuncio que\n      cargue — y cero si no hay ninguno. Además el pie arranca un poco más arriba. */\n.footer_spots {\n  margin-top: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_spots .columns_spots,\n.footer_spots .spots {\n  min-height: 0 !important;\n  margin: 0 !important;\n  padding: 0 !important;\n}\n\n.footer_holder {\n  padding-top: 16px !important;\n}\n";
   if (css) {
     var style = document.createElement("style");
     style.id = "r34g-styles";
@@ -240,11 +240,15 @@
 // margen inferior.
 //
 // Aligerado: la web sirve decenas de miniaturas por página y solo aplaza las de las fichas de vídeo
-// (las que llevan `data-original`); las de categorías y modelos van con su `src` puesto y se piden
-// todas al abrir. Aquí se le dice al navegador lo mismo (loading="lazy" en lo que queda por debajo
-// de la pantalla) y que descodifique en segundo plano (decoding="async"), y las fichas que quedan
-// fuera de pantalla no se dibujan hasta que llegas a ellas (content-visibility, en styles.css).
-// Todo esto es aditivo: si la web cambia, lo peor que pasa es que no se aplique.
+// (las que llevan `data-original`, con jquery.lazyload); las de categorías y modelos van con su `src`
+// puesto y se piden todas al abrir. Aquí se le dice al navegador lo mismo —loading="lazy" en lo que
+// queda por debajo de la pantalla— y que descodifique en segundo plano (decoding="async"). Todo esto
+// es aditivo: si la web cambia, lo peor que pasa es que no se aplique.
+//
+// (Se probó también `content-visibility: auto` en las fichas y se descartó: el lazyload de la web es
+// jquery.lazyload, que mide con `.offset()`, y dentro de un subárbol saltado por content-visibility
+// los descendientes no tienen caja, así que mediría 0. Ganancia nula en una rejilla de 24 fichas y
+// riesgo de que la web cargue todo de golpe. Con `loading="lazy"` el navegador lo aplaza igual.)
 //
 // El resto (huecos de anuncios del pie, etc.) es cosa de styles.css. Los ajustes del reproductor
 // están en player.js (y por eso sí que importa que el userscript entre en document-start).
