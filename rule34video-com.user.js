@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.7
+// @version      0.1.8
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -293,7 +293,6 @@
   function clean() {
     return purge(document.documentElement || document.body);
   }
-
   // --- aligerado de imágenes ---------------------------------------------------------------------
   // Una imagen por debajo de la pantalla no hace falta que se descargue ahora: se marca para que el
   // navegador la traiga al acercarse. Las que se ven al abrir la página se quedan como están (si se
