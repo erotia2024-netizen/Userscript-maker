@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.66
+// @version      0.1.67
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1375,28 +1375,49 @@
 
   // La url que la propia página declara como suya (canonical / og:url). Es la única que sabe de qué
   // listado se trata cuando el enlace de paginación no lleva dirección.
-  function declaredUrl() {
-    var el = document.querySelector('link[rel="canonical"][href], meta[property="og:url"][content]');
+  function declaredUrl(doc) {
+    doc = doc || document;
+    var el = doc.querySelector('link[rel="canonical"][href], meta[property="og:url"][content]');
     var raw = el ? el.getAttribute("href") || el.getAttribute("content") || "" : "";
     if (!raw) return null;
     try {
-      return new URL(raw, location.href);
+      return new URL(raw, baseOf(doc));
     } catch (e) {
       return null;
     }
   }
 
+  // Contra qué se resuelven las direcciones relativas: el `baseURI` del documento manda (la web pone
+  // un `<base>` y hay que resolver como el navegador), pero el de un documento traído para leerlo
+  // (DOMParser) es `about:blank` y ahí no hay nada que resolver, así que se usa el de la página.
+  function baseOf(doc) {
+    try {
+      if (doc && doc.baseURI && doc.baseURI !== "about:blank") return doc.baseURI;
+    } catch (e) {}
+    return location.href;
+  }
+
+  // ¿Es esta misma página? (misma dirección sin la barra final ni el ancla). Sirve para no traer lo
+  // que ya está: en un listado por ajax el enlace «siguiente» a veces apunta a la página en la que
+  // ya estás, y traerla duplicaría las fichas.
+  function samePage(a, b) {
+    var norm = function (u) {
+      return String(u || "").replace(/#.*$/, "").replace(/\/+$/, "");
+    };
+    return !!a && norm(a) === norm(b);
+  }
+
   // Unas páginas llevan la dirección de la siguiente en el enlace, y otras pagan por ajax: el enlace
   // es `#videos` y el número de página va en `data-parameters` (`from:2`). Ahí la dirección se arma
   // con ese número sobre la url declarada (`/models/wkysto/` -> `/models/wkysto/2/`).
-  function ajaxPageUrl(link) {
+  function ajaxPageUrl(link, doc) {
     var m = /(?:^|;)from:(\d+)/.exec(link.getAttribute("data-parameters") || "");
     var n = m ? parseInt(m[1], 10) : 0;
     if (!n || n < 2) return null;
-    var u = declaredUrl();
+    var u = declaredUrl(doc);
     if (!u) {
       try {
-        u = new URL(location.href);
+        u = new URL(baseOf(doc));
       } catch (e) {
         return null;
       }
@@ -1407,9 +1428,11 @@
   }
 
   // A dónde se pide: el enlace «siguiente» de la paginación de este listado (si no hay, es la última
-  // página y no hay nada que traer).
-  function nextPageOf(grid) {
-    var pages = document.querySelectorAll(".pagination"), link = null;
+  // página y no hay nada que traer). `doc` es dónde mirar: la página (por defecto) o un documento
+  // traído con fetch, que es lo que hace falta para encadenar varias páginas seguidas.
+  function nextPageOf(grid, doc) {
+    doc = doc || document;
+    var pages = doc.querySelectorAll(".pagination"), link = null;
     var id = (grid && grid.id) || "";
     for (var i = 0; i < pages.length; i++) {
       var l = pages[i].querySelector(".pager.next a[href]");
@@ -1422,15 +1445,15 @@
     var href = link.getAttribute("href") || "", url = null;
     if (href && href.charAt(0) !== "#") {
       try {
-        url = new URL(href, location.href).href;
+        url = new URL(href, baseOf(doc)).href;
       } catch (e) {
         url = null;
       }
     } else {
-      url = ajaxPageUrl(link);
+      url = ajaxPageUrl(link, doc);
     }
     // sin dirección —o la de esta misma página— no hay nada que traer: se rellenaría con lo que ya hay
-    if (!url || url === location.href) return null;
+    if (!url || samePage(url, location.href) || samePage(url, declaredUrl(doc) && declaredUrl(doc).href)) return null;
     return { url: url, base: id.replace(/_items$/, "") };
   }
 
@@ -1465,6 +1488,22 @@
     return out;
   }
 
+  // Mete en la rejilla las fichas de un HTML ya traído (sin su anuncio y sin repetir ninguna). Es lo
+  // que hace el relleno del hueco, y también el reordenado del perfil (profile.js), que necesita
+  // leer el listado entero.
+  function importCards(grid, html, base, need) {
+    if (!html || !grid || !document.documentElement.contains(grid)) return 0;
+    var cards = pickCards(new DOMParser().parseFromString(html, "text/html"), base, need, grid);
+    for (var i = 0; i < cards.length; i++) {
+      var el = document.importNode(cards[i], true);
+      el.setAttribute(FILL_MARK, "1");
+      grid.appendChild(el);
+      takeOver(el); // por si el observador tarda: la miniatura se resuelve ya
+      polish(el);
+    }
+    return cards.length;
+  }
+
   function askFill(grid, need) {
     var info = nextPageOf(grid);
     if (!info) return;
@@ -1473,15 +1512,7 @@
         return r && r.ok ? r.text() : "";
       })
       .then(function (html) {
-        if (!html || !document.documentElement.contains(grid)) return;
-        var cards = pickCards(new DOMParser().parseFromString(html, "text/html"), info.base, need, grid);
-        for (var i = 0; i < cards.length; i++) {
-          var el = document.importNode(cards[i], true);
-          el.setAttribute(FILL_MARK, "1");
-          grid.appendChild(el);
-          takeOver(el); // por si el observador tarda: la miniatura se resuelve ya
-          polish(el);
-        }
+        importCards(grid, html, info.base, need);
       })
       .catch(function () {});
   }
@@ -1733,6 +1764,16 @@
     observing = true;
     return true;
   }
+
+  // Lo que hay que saber para leer un listado entero (la página siguiente de la paginación y cómo
+  // meter sus fichas) se comparte aquí: lo usa el relleno del hueco y lo usa el perfil (profile.js),
+  // y así el conocimiento de las dos formas de paginar (enlace normal y ajax) vive en un solo sitio.
+  window.r34gvCore = {
+    nextPageOf: nextPageOf,
+    importCards: importCards,
+    isAdCard: isAdCard,
+    samePage: samePage
+  };
 
   if (!boot()) {
     document.addEventListener("DOMContentLoaded", boot);
