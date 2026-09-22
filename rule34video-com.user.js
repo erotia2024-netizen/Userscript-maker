@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.50
+// @version      0.1.51
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -551,17 +551,16 @@
 
   // Elegir calidad en el menú del reproductor es la señal buena: se apunta al momento. Se mira en
   // captura, antes de que el reproductor haga nada, y solo si el texto es una calidad (`1080p`).
-  document.addEventListener(
-    "pointerdown",
-    function (e) {
-      if (selfQuality || !e.target || !e.target.closest) return;
-      var it = e.target.closest(".fp-settings-list-item");
-      if (!it) return;
-      var t = String(it.textContent || "").trim().toLowerCase();
-      if (/^\d{3,4}p$/.test(t)) memSet(QUALITY_KEY, t);
-    },
-    true
-  );
+  function noteQualityPick(e) {
+    if (selfQuality || !e.target || !e.target.closest) return;
+    var it = e.target.closest(".fp-settings-list-item");
+    if (!it) return;
+    var t = String(it.textContent || "").trim().toLowerCase();
+    if (/^\d{3,4}p$/.test(t)) memSet(QUALITY_KEY, t);
+  }
+
+  document.addEventListener("pointerdown", noteQualityPick, true);
+  document.addEventListener("click", noteQualityPick, true);
 
   function fmtTime(secs) {
     var s = Math.max(0, Math.round(secs));
@@ -606,7 +605,10 @@
     } catch (e) {
       return;
     }
-    showResume(t);
+    if (!resumedShown) {
+      resumedShown = true; // al cambiar de calidad se vuelve a llamar: el aviso ya se ha dado
+      showResume(t);
+    }
   }
 
   function savePos(v, force) {
