@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.56
+// @version      0.1.57
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -984,6 +984,12 @@
 // —entre la paginación y el logo— y el hueco que deja en la rejilla se rellena con el primer vídeo de
 // la página siguiente del listado, así la última fila queda completa.
 //
+// Trasladado (2): en una ficha de vídeo, el hueco de anuncio que la web pone **debajo del
+// reproductor** (`.spot_under`, otra banda de 250 px) se traslada al final del contenido —entre los
+// vídeos relacionados y el pie, donde está el logo—: ahí queda grande y vacía y se ve mal. Se mueve
+// con el anuncio aparcado, igual que la ficha de la rejilla (mover un iframe ya cargado lo recargaría
+// y contaría la impresión dos veces).
+//
 // Aligerado: la web sirve decenas de miniaturas por página y las aplaza con jquery.lazyload (que
 // mide cada ficha en cada evento de scroll: lectura de maquetación forzada por evento). Aquí se le
 // adelanta el trabajo al navegador —se resuelve el `src` y se le quita la clase al `img`, y el
@@ -1015,7 +1021,10 @@
 // de afiliado (los botones del header) y el aviso de rule34gen. NO se quita nada de red publicitaria
 // (los `.spots` del pie, la ficha de anuncio nativo de la rejilla, el `spot_under`) y no se simulan
 // clics en anuncios: eso es fraude publicitario y acaba con la cuenta de anuncios de la web
-// suspendida. Si algún día se añade un selector aquí, que sea de promoción propia, no de anuncio.
+// suspendida. De la red publicitaria solo se **traslada** de sitio (con su carga aplazada) la ficha de
+// la rejilla y el `spot_under` de debajo del reproductor, movidos donde el usuario pidió verlos (el
+// hueco del pie y el final del contenido): el anuncio se carga igual, cuando esa parte se mira de
+// verdad. Si algún día se añade un selector aquí, que sea de promoción propia, no de anuncio.
 // ---------------------------------------------------------------------------------------------
 (function () {
   "use strict";
@@ -1076,9 +1085,10 @@
   // `about:blank`): mover un iframe que ya cargó lo recarga, y eso contaría la impresión dos veces. Si
   // el anuncio ya había cargado cuando lo vimos, la ficha se queda donde estaba.
   //
-  // Ajuste, en `localStorage["r34gv.ads"]`:
-  //   "footer" (por defecto) → trasladar la ficha al pie (y aplazar su carga hasta que se acerque)
-  //   "lazy"                 → dejarla en la rejilla, solo con la carga aplazada
+  // Ajuste, en `localStorage["r34gv.ads"]` (vale para la ficha de la rejilla y para el `spot_under`):
+  //   "footer" (por defecto) → trasladar la ficha al pie y el `spot_under` al final del contenido
+  //                            (y aplazar su carga hasta que se acerquen)
+  //   "lazy"                 → dejarlos donde están, solo con la carga aplazada
   //   "eager"                → no tocar nada; el anuncio carga como lo sirva la web
   //   "off"                  → quitar la ficha de anuncio (eso SÍ son ingresos de la web, por eso no
   //                            es lo que viene puesto: ver POLÍTICA DE ANUNCIOS)
@@ -1118,12 +1128,60 @@
     return slot;
   }
 
+  // El `spot_under` es el hueco de anuncio que la web pone justo debajo del reproductor: una banda de
+  // 250 px de alto para un anuncio de 300×250, que ahí queda grande y vacía y se ve mal. En una ficha
+  // se traslada al final del contenido —entre los vídeos relacionados y el pie, donde está el logo,
+  // que es donde tiene sentido mirarlo— y en un listado no se toca (un hueco de listado no está
+  // debajo de ningún reproductor: se exige que su fila lleve el `.video_container`).
+  var UNDER_MARK = "data-r34gv-under";
+  var underSpots = []; // huecos bajo el reproductor pendientes de colocar
+
+  function underSpotOf(el) {
+    if (!el || !el.classList || !el.classList.contains("spot_under")) return null;
+    var row = el.parentNode;
+    if (!row || !row.classList || !row.classList.contains("row_container")) return null;
+    return row.querySelector(".video_container") ? el : null;
+  }
+
+  // A dónde va: justo detrás del bloque de «Related Videos» (que está en la misma columna), o al
+  // final de esa columna si la página no trae relacionados. Devuelve false mientras no se pueda
+  // (el bloque todavía no está en el DOM) para volver a intentarlo.
+  function placeUnder(spot) {
+    var rel = document.querySelector(".row_container.js-related-filter");
+    var host = (rel && rel.parentNode) || (spot.closest ? spot.closest(".content_general") : null);
+    if (!host) return false;
+    if (rel && rel.parentNode === host) host.insertBefore(spot, rel.nextSibling);
+    else host.appendChild(spot);
+    return true;
+  }
+
+  function moveUnder() {
+    for (var i = underSpots.length - 1; i >= 0; i--) {
+      var spot = underSpots[i];
+      if (!document.documentElement.contains(spot)) {
+        underSpots.splice(i, 1); // la web ya ha cambiado la página
+        continue;
+      }
+      if (placeUnder(spot)) underSpots.splice(i, 1);
+    }
+  }
+
+  function parkUnder(spot) {
+    if (!spot || spot.hasAttribute(UNDER_MARK)) return;
+    spot.setAttribute(UNDER_MARK, "1");
+    underSpots.push(spot);
+    moveUnder();
+    watchAds(); // que el repaso siga vivo hasta que se pueda colocar
+  }
+
   function parkAd(frame) {
     if (!frame || frame.tagName !== "IFRAME" || frame.hasAttribute(AD_MARK)) return;
-    // Solo los iframes de las fichas, y solo si apuntan fuera (los del propio sitio se dejan en paz).
+    // Solo los iframes de las fichas y del hueco de debajo del reproductor, y solo si apuntan fuera
+    // (los del propio sitio se dejan en paz).
     var card = frame.closest ? frame.closest(".item.thumb") : null;
-    if (!card) return;
-    var grid = card.parentElement; // la rejilla de la que sale la ficha (se mira antes de moverla)
+    var spot = !card && frame.closest ? underSpotOf(frame.closest(".spot_under")) : null;
+    if (!card && !spot) return;
+    var grid = card ? card.parentElement : null; // la rejilla de la que sale la ficha (se mira antes de moverla)
     var src = frame.getAttribute("src");
     if (!src || !/^https?:/i.test(src)) return;
     try {
@@ -1144,13 +1202,17 @@
     frame.setAttribute(AD_MARK, src);
     frame.setAttribute("src", "about:blank"); // corta la descarga que hubiera empezado
     parkedAds.push(frame);
-    // Con el anuncio aún sin cargar, la ficha se puede mover sin que se recargue nada.
+    // Con el anuncio aún sin cargar, la ficha (o el hueco) se puede mover sin que se recargue nada.
     if (adMode === "footer") {
-      var slot = footerSlot();
-      if (slot && !slot.contains(card)) {
-        while (slot.firstChild) slot.removeChild(slot.firstChild); // si venía otra, era de un listado ya cambiado
-        slot.appendChild(card);
-        needFill(grid, 1); // y su hueco en la rejilla se rellena con un vídeo de la página siguiente
+      if (card) {
+        var slot = footerSlot();
+        if (slot && !slot.contains(card)) {
+          while (slot.firstChild) slot.removeChild(slot.firstChild); // si venía otra, era de un listado ya cambiado
+          slot.appendChild(card);
+          needFill(grid, 1); // y su hueco en la rejilla se rellena con un vídeo de la página siguiente
+        }
+      } else {
+        parkUnder(spot);
       }
     }
     watchAds();
@@ -1185,10 +1247,11 @@
   function checkAds() {
     railCheck();
     maybeFill();
+    moveUnder(); // por si el bloque de relacionados acaba de aparecer
     for (var i = parkedAds.length - 1; i >= 0; i--) {
       if (adInRange(parkedAds[i])) unparkAd(parkedAds[i]);
     }
-    if (parkedAds.length === 0 && fillJobs.length === 0) watchAds(false); // ya no queda nada que vigilar
+    if (parkedAds.length === 0 && fillJobs.length === 0 && underSpots.length === 0) watchAds(false); // ya no queda nada que vigilar
   }
 
   // El repaso va por eventos de scroll/resize (barato: solo mira los anuncios apartados, que son uno o
@@ -1427,6 +1490,7 @@
     filtersCollapse();
     polish(root);
     scanAds(root); // y por si la ficha de anuncio ya estaba puesta
+    moveUnder(); // y por si el hueco de debajo del reproductor ya estaba puesto
   }
 
   // --- el panel lateral de fuera de pantalla ------------------------------------------------------
@@ -1553,6 +1617,7 @@
       for (var j = 0; j < added.length; j++) {
         purge(added[j]);
         scanAds(added[j]);
+        if (underSpots.length) moveUnder(); // el bloque de relacionados llega después del hueco
         railStash(added[j]);
         takeOver(added[j]);
         filtersMaybe(added[j]);
