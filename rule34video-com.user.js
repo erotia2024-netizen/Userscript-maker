@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.49
+// @version      0.1.50
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -77,10 +77,12 @@
 // preload='auto' directamente. Como el mapeo flashvars -> clip del envoltorio de KVS está ofuscado,
 // ese apaño es además la garantía de que el preload se aplica sí o sí.
 //
-// Preferencia de calidad: se puede cambiar desde la consola con
+// Preferencia de calidad: se recuerda entre vídeos. Se puede cambiar también desde la consola con
 //   localStorage.setItem("r34gv.quality", "1080p")   // o 480p, 360p…
-// Si no hay ninguna guardada se usa 720p (480p si la conexión es lenta o hay ahorro de datos). Y si
-// el usuario cambia de calidad en el menú del reproductor, se guarda sola (la que de verdad usa).
+// Si no hay ninguna guardada se usa 720p (480p si la conexión es lenta o hay ahorro de datos). La
+// calidad elegida en el menú del reproductor se apunta en el momento de elegirla, y si un vídeo
+// arranca en otra distinta se cambia sola usando ese mismo menú (la web pone 360p por defecto, y esa
+// no es una elección del usuario: no se guarda nunca).
 //
 // Memoria del reproductor (todo en localStorage, todo aplicado al motor `video.fp-engine`):
 //   r34gv.volume  0..1     -> la web arranca cada vídeo con `volume: '1'` (al 100%, de golpe)
@@ -111,6 +113,7 @@
 
   var QUALITY_KEY = "r34gv.quality";
   var QUALITY_DEFAULT = "720p";
+  var siteDefaultText = ""; // la calidad con la que arranca la web (el primer hueco original)
 
   // Los cuatro huecos de calidad del reproductor, en orden: el primero es el que suena por defecto.
   var URLS = ["video_url", "video_alt_url", "video_alt_url2", "video_alt_url3"];
@@ -232,6 +235,9 @@
       for (var q = 0; q < URLS.length; q++) {
         if (fv[URLS[q]]) contentSet[stripQuery(absUrl(fv[URLS[q]]))] = String(fv[TEXTS[q]] || "");
       }
+      // La calidad del primer hueco ANTES de reordenar: es la que la web pone sola, y sirve para no
+      // confundirla con una elección del usuario (si no, un arranque en 360p borraría su preferencia).
+      if (!siteDefaultText && fv.video_url) siteDefaultText = String(fv.video_url_text || "").toLowerCase();
       // 1) que empiece a bufferear desde el principio.
       fv.preload = "auto";
       // 2) las 11 miniaturas de la barra de tiempo, solo cuando se pase el ratón.
@@ -364,6 +370,7 @@
   );
   var lastSaved = -1;
   var resumedFor = ""; // dirección del contenido para el que ya se reanudó (el pre-roll no cuenta)
+  var resumedShown = false; // el aviso «sigues en…» sale una vez por página, no en cada cambio de calidad
 
   function engine() {
     var v = null;
@@ -489,6 +496,73 @@
     memSet(SPEED_KEY, Math.round(v.playbackRate * 100) / 100);
   }
 
+  // --- la calidad: memoria de verdad -------------------------------------------------------------
+  // Arrancar en la calidad guardada lo hace el setter (reordena los huecos de `flashvars`). Pero eso
+  // depende de llegar a tiempo al `var flashvars = {...}` de la web, así que aquí van las dos cosas
+  // que hacen que la preferencia se note pase lo que pase:
+  //   1) se apunta en el momento de elegirla en el menú del reproductor, sin esperar a que el flujo
+  //      cargue (y sin confundirla con la calidad con la que arranca la web, que no es una elección);
+  //   2) si el vídeo arranca en otra calidad distinta de la preferida, se cambia sola usando el menú
+  //      del propio reproductor, que es el que manda.
+  var selfQuality = false; // mientras el clic del menú lo damos nosotros
+  var enforceTried = {}; // dirección del vídeo -> veces que se ha corregido la calidad
+  var ENFORCE_MAX = 3;
+  var lastEnforceAt = 0;
+
+  function qualityBtn(text) {
+    var want = String(text || "").toLowerCase();
+    if (!want) return null;
+    var found = null;
+    var items = document.querySelectorAll(".fp-settings-list-item");
+    for (var i = 0; i < items.length; i++) {
+      if (String(items[i].textContent || "").trim().toLowerCase() !== want) continue;
+      found = items[i].querySelector("a") || items[i];
+      break;
+    }
+    return found;
+  }
+
+  function enforceQuality() {
+    var want = pref(QUALITY_KEY);
+    if (!want) return; // sin preferencia guardada manda la web (y si no, la de por defecto de arriba)
+    var v = engine();
+    if (!v) return;
+    var key = contentKey(v);
+    if (!key) return; // el pre-roll (u otra fuente) no se toca
+    var cur = String(contentSet[key] || "").toLowerCase();
+    if (!cur || cur === want) return; // ya está en la buena (lo normal: el setter hizo su trabajo)
+    if ((enforceTried[key] || 0) >= ENFORCE_MAX) return;
+    var now = Date.now();
+    if (now - lastEnforceAt < 3000) return;
+    var btn = qualityBtn(want);
+    if (!btn) return; // esta página no ofrece esa calidad: la que hay, se queda
+    enforceTried[key] = (enforceTried[key] || 0) + 1;
+    lastEnforceAt = now;
+    if (window.console) console.log("[r34gv] el vídeo arrancó en " + cur + ": se pone " + want);
+    showNote("Calidad " + want + "…");
+    selfQuality = true; // el clic es nuestro: no cuenta como elección del usuario
+    try {
+      btn.click();
+    } catch (e) {
+    } finally {
+      selfQuality = false;
+    }
+  }
+
+  // Elegir calidad en el menú del reproductor es la señal buena: se apunta al momento. Se mira en
+  // captura, antes de que el reproductor haga nada, y solo si el texto es una calidad (`1080p`).
+  document.addEventListener(
+    "pointerdown",
+    function (e) {
+      if (selfQuality || !e.target || !e.target.closest) return;
+      var it = e.target.closest(".fp-settings-list-item");
+      if (!it) return;
+      var t = String(it.textContent || "").trim().toLowerCase();
+      if (/^\d{3,4}p$/.test(t)) memSet(QUALITY_KEY, t);
+    },
+    true
+  );
+
   function fmtTime(secs) {
     var s = Math.max(0, Math.round(secs));
     var m = Math.floor(s / 60);
@@ -555,9 +629,13 @@
       if (v.preload !== "auto") v.preload = "auto";
     } catch (e) {}
     var key = contentKey(v);
-    if (key && contentSet[key]) memSet(QUALITY_KEY, contentSet[key]); // la calidad que de verdad suena
+    var q = key ? String(contentSet[key] || "").toLowerCase() : "";
+    // Se guarda la calidad que suena, salvo cuando es la que la web pone sola: eso no es una elección
+    // del usuario, y guardarla borraría la suya cada vez que se abriera un vídeo nuevo.
+    if (q && q !== siteDefaultText) memSet(QUALITY_KEY, q);
     reapply(v);
     resumeIn(v);
+    setTimeout(enforceQuality, 1500);
   }
 
   function attach(v) {
@@ -576,6 +654,7 @@
     });
     v.addEventListener("canplay", function () {
       reapply(v);
+      setTimeout(enforceQuality, 800);
     });
     v.addEventListener("playing", function () {
       hasPlayed = true;
