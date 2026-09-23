@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.159
+// @version      0.1.160
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1440,12 +1440,12 @@
     "Sex Games Hentai": "Juegos de sexo Hentai",
     "Hentai XXX": "Hentai XXX",
     "Hentai Games": "Juegos Hentai",
-    "hentai porn": "porno hentai",
-    "hentai sex games": "juegos de sexo hentai",
-    "Porn Games": "juegos porno",
-    "Sex Games": "juegos de sexo",
-    "Free Strip Games": "juegos de strip gratis",
-    "Best Porn Games": "mejores juegos porno",
+    "hentai porn": "Porno hentai",
+    "hentai sex games": "Juegos de sexo hentai",
+    "Porn Games": "Juegos porno",
+    "Sex Games": "Juegos de sexo",
+    "Free Strip Games": "Juegos de strip gratis",
+    "Best Porn Games": "Mejores juegos porno",
 
     // --- Los títulos de sección (los cambia la web según la página) ---
     "OLD HENTAI FLASH GAMES": "JUEGOS FLASH HENTAI ANTIGUOS",
@@ -1553,6 +1553,15 @@
     "Bug Report": 'Informe de <span style="color:red">error</span>'
   };
 
+  // Elementos del menú que la web parte en dos («ALL» + un `<span class="mobhide"> GAMES</span>` que
+  // esconde en el móvil): nodo a nodo saldría «TODOS JUEGOS». Aquí se les da su texto entero, corto
+  // para que el menú siga entrando en una pantalla de teléfono.
+  var IDS = {
+    nav_top: "MEJORES",
+    nav_all: "TODOS",
+    nav_random: "ALEATORIO"
+  };
+
   // Lo que la web escribe con números por medio (los títulos de los iconos de visitas y de nota).
   var PATTERNS = [
     [
@@ -1580,7 +1589,11 @@
     },
     title: {
       close: "cerrar",
-      "Beware, some games may have loud sound": "Cuidado: algunos juegos tienen sonido fuerte"
+      "Beware, some games may have loud sound": "Cuidado: algunos juegos tienen sonido fuerte",
+      "Hentai Flash HomePage": "Portada de Hentai Flash",
+      "all hentai flash games": "Todos los juegos flash hentai",
+      "top 100 highest rated hentai flash games": "Los 100 juegos flash hentai mejor valorados",
+      "random games list": "Lista de juegos aleatorios"
     },
     alt: { loading: "cargando" }
   };
