@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.166
+// @version      0.1.167
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1458,6 +1458,7 @@
     // GAMES</span>`, que en el móvil se queda en «HOT 100»): hay que traducir también los trozos.
     "HENTAI FLASH GAMES": "JUEGOS FLASH HENTAI",
     "HOT 100": "TOP 100",
+    "TOP 1000 HENTAI FLASH GAMES": "LOS 1000 JUEGOS FLASH HENTAI MEJOR VALORADOS",
     "Previous Page": "Anterior",
     "Next Page": "Siguiente",
     "MY FAVORITES": "MIS FAVORITOS",
@@ -1491,6 +1492,16 @@
     "Solution: Browsers that still support Flash": "Solución: navegadores que aún soportan Flash",
     "Alternate archived old version plugin package": "Paquete alternativo del complemento (versión antigua archivada)",
     "Please leave a comment if you need help": "Si necesitas ayuda, deja un comentario",
+
+    // --- Las herramientas (`/tool/…`) y la ayuda (`/help/…`) ---
+    "disable extreme content warning": "desactivar el aviso de contenido extremo",
+    "remove blocked item from list": "quitar de la lista los elementos bloqueados",
+    "Q: How do I download a flash?": "P: ¿Cómo descargo un flash?",
+    "Q: How do I upload my flash?": "P: ¿Cómo subo mi flash?",
+    "ONLINE FLASH SAVE EDITOR": "EDITOR DE PARTIDAS FLASH EN LÍNEA",
+    "HOW TO USE": "CÓMO SE USA",
+    "HOW TO EDIT SAVES NOT IN LIST": "CÓMO EDITAR PARTIDAS QUE NO ESTÁN EN LA LISTA",
+    "HOW TO IDENTIFY SAVE FILE LOCATION": "CÓMO ENCONTRAR EL ARCHIVO DE PARTIDA",
 
     // --- La ficha de juego: la información ---
     "Game Info": "Información del juego",
