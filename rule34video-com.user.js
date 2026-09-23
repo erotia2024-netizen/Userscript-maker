@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.87
+// @version      0.1.88
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -2555,15 +2555,18 @@
   // búsqueda y como `_` en las etiquetas). Si no, se lee el `h1`, que la web escribe igual en los
   // dos casos y es lo que funciona en el laboratorio (allí el fixture no vive en /search/).
   function fromH1() {
-    var el = document.querySelector(".headline h1, .headline h2, h1, h2");
-    var text = el ? String(el.textContent || "").replace(/\s+/g, " ").trim() : "";
-    if (!text) return null;
-    var m = /^videos for:\s*(.+?)\s*\(\s*[\d.,\s]+\s*\)\s*$/i.exec(text);
-    if (m) return { kind: "search", label: "Búsqueda", query: m[1] };
-    m = /^new videos tagged with\s+(.+?)\s*\(\s*[\d.,\s]+\s*\)\s*$/i.exec(text);
-    if (m) return { kind: "tag", label: "Etiqueta", query: m[1] };
-    m = /^videos tagged with\s+(.+?)\s*\(\s*[\d.,\s]+\s*\)\s*$/i.exec(text);
-    if (m) return { kind: "tag", label: "Etiqueta", query: m[1] };
+    // Ojo: la web usa `.headline h2` también para los cajones laterales («Trending searches»), así
+    // que no vale quedarse con el primero que aparezca: se recorren todos y se devuelve el que dice
+    // de verdad lo que se está buscando.
+    var els = document.querySelectorAll("h1, .headline h1, .headline h2, h2");
+    for (var i = 0; i < els.length; i++) {
+      var text = String(els[i].textContent || "").replace(/\s+/g, " ").trim();
+      if (!text || text.length > 200) continue;
+      var m = /^videos for:\s*(.+?)\s*\(\s*[\d.,\s]+\s*\)\s*$/i.exec(text);
+      if (m) return { kind: "search", label: "Búsqueda", query: m[1] };
+      m = /^(?:new )?videos tagged with\s+(.+?)\s*\(\s*[\d.,\s]+\s*\)\s*$/i.exec(text);
+      if (m) return { kind: "tag", label: "Etiqueta", query: m[1] };
+    }
     return null;
   }
 
@@ -2795,9 +2798,24 @@
     paint();
   }
 
+  // La rejilla del listado. En una búsqueda la de resultados lleva su id propio; en una página de
+  // etiqueta la que hay es la de `common_videos`. Se exige que tenga fichas dentro para no quedarse
+  // con una caja vacía (la web trae varias rejillas en la misma página: la de resultados y la de
+  // «vídeos relacionados» del final).
+  function gridEl() {
+    var g = document.querySelector("#custom_list_videos_videos_list_search_items");
+    if (g && g.querySelector(".item.thumb")) return g;
+    g = document.querySelector("#custom_list_videos_common_videos_items");
+    if (g && g.querySelector(".item.thumb")) return g;
+    var all = document.querySelectorAll(".main .thumbs, .thumbs");
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].querySelector(".item.thumb")) return all[i];
+    }
+    return null;
+  }
+
   function pass() {
-    var g = document.querySelector("#custom_list_videos_videos_list_search_items, #custom_list_videos_common_videos_items");
-    if (!g) g = document.querySelector(".main .thumbs, .thumbs");
+    var g = gridEl();
     if (!g) return false;
     if (g !== grid) {
       grid = g;
@@ -2821,7 +2839,7 @@
     if (started) return true;
     ctx = context();
     if (!ctx) return false;
-    var g = document.querySelector("#custom_list_videos_videos_list_search_items, #custom_list_videos_common_videos_items") || document.querySelector(".thumbs");
+    var g = gridEl();
     if (!g || !g.querySelector(".item.thumb")) return false;
     tokens = tokensOf(ctx.query);
     if (!tokens.length) return false;
