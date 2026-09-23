@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.145
+// @version      0.1.146
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -562,7 +562,10 @@
       var extra = Math.max(0, Math.round(h * fit) - h);
       ad.style.setProperty("margin-bottom", extra + 8 + "px", "important");
     }
-    setStyle(ad, "margin-left", Math.round(slack / 2) + "px");
+    // lo que sobra se reparte en dos: la mitad de margen a la izquierda del banner y la otra mitad
+    // a la derecha del cuadrado, así que el conjunto queda centrado y los dos márgenes iguales. Sin
+    // cuadrado al lado (los listados) no hay pareja que centrar: el banner va pegado a su margen.
+    setStyle(ad, "margin-left", Math.round((sit ? slack : 0) / 2) + "px");
     return { fit: fit, slack: slack };
   }
 
