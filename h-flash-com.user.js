@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.173
+// @version      0.1.174
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1836,12 +1836,13 @@
 
   function build() {
     var got = links();
-    if (!got) return false;
+    if (!got || !got.anchors.length) return false;
     var box = got.box;
+    // La lista de idiomas se lee siempre (es barata) y no solo al montar el desplegable: así el panel
+    // la tiene aunque pregunte antes de que el pie esté montado.
+    langs = read(got.anchors);
     var sel = hf.q("#hf-lang", box);
     if (!sel) {
-      if (!got.anchors.length) return false;
-      langs = read(got.anchors);
       sel = document.createElement("select");
       sel.id = "hf-lang";
       sel.setAttribute("aria-label", "Idioma de la web");
@@ -1915,6 +1916,13 @@
     set: function (code) {
       hf.set("lang", code === "es" ? "es" : "auto");
     },
+    // Los idiomas de la web (los que pone en su bloque «LANGUAGE») y el «elegir» del desplegable, que
+    // es lo que usa el panel para tener el mismo mando sin bajar al pie.
+    languages: function () {
+      if (!langs) build();
+      return (langs || []).slice();
+    },
+    pick: pick,
     // Pasar el texto por el diccionario (para lo que se construya fuera del documento).
     tr: tr,
     dict: DICT
@@ -2668,6 +2676,46 @@
     return sel;
   }
 
+  // El idioma de la web: el mismo desplegable que el bloque «LANGUAGE» del pie, aquí a mano (el pie
+  // está al final de la página y en un listado largo eso es un rato de scroll). Los idiomas son los
+  // que la web pone en su pie —inglés y japonés en casi todas las páginas, y también ruso y chino en
+  // el editor de partidas— más el español, que traduce la interfaz de la página abierta.
+  function langChooser() {
+    var sel = hf.el("select", {
+      cls: "hf-select",
+      onchange: function () {
+        if (hf.lang) hf.lang.pick(sel.value);
+      }
+    });
+    function paint() {
+      var list = (hf.lang && hf.lang.languages()) || [];
+      sel.innerHTML = "";
+      list.forEach(function (o) {
+        sel.appendChild(hf.el("option", { value: o.value, text: o.label }));
+      });
+      sel.appendChild(hf.el("option", { value: "es", text: "Español" }));
+      if (hf.settings.lang === "es") {
+        sel.value = "es";
+        return;
+      }
+      var mine = "";
+      list.forEach(function (o) {
+        if (!mine && o.host === location.hostname) mine = o.value;
+      });
+      if (mine) sel.value = mine;
+    }
+    paint();
+    hf.onChange(function (changed) {
+      if (changed.indexOf("lang") >= 0) paint();
+    });
+    // El panel puede construirse antes de que la web haya montado su pie (y es ahí donde están los
+    // idiomas): si todavía no los tiene, se rellena en cuanto aparezcan.
+    hf.onDom(function () {
+      if (sel.options.length <= 1) paint();
+    });
+    return sel;
+  }
+
   function sw(key, label, extraHint) {
     var input = hf.el("input", { type: "checkbox", cls: "hf-sw" });
     var wrap = hf.el("label", { cls: "hf-row" }, [input, hf.el("span", { cls: "hf-row-lab", text: label })]);
@@ -2709,6 +2757,10 @@
       caption("Piel"),
       row("Colores", segmented("skin", [["cueva", "Cueva"], ["claro", "Claro"], ["off", "Como la web"]])),
       hint("Cueva es oscura y con el rosa del sitio como acento. «Como la web» deja los colores del sitio y solo aplica el resto de arreglos."),
+
+      caption("Idioma"),
+      row("Idioma de la web", langChooser()),
+      hint("Los mismos idiomas del bloque «IDIOMA» del pie, más el español: «Español» traduce la interfaz de la página que tienes abierta (los títulos de los juegos, las etiquetas y las descripciones son de la web y se quedan como están); los demás son los de la web y llevan a su dirección."),
 
       caption("Listados"),
       row("Tamaño de las tarjetas", chooser("cards", [["0", "Como la web (152 px)"], ["170", "Pequeñas · 170"], ["190", "Normales · 190"], ["220", "Grandes · 220"], ["250", "Muy grandes · 250"], ["280", "Enormes · 280"]], Number)),
