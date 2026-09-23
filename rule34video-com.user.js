@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.93
+// @version      0.1.94
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -2793,7 +2793,7 @@
       }
     }
     // Si no lo dice ninguno, no se oculta nada: la página se quedaría en blanco.
-    var hiding = resolved() === "only" && yes.length > 0;
+    var hiding = resolved() === "only" && yes.length > 0 && no.length > 0;
     for (i = 0; i < list.length; i++) list[i].classList.toggle(HIDE, hiding && list[i].classList.contains(NOSAY));
     reorder(yes, no);
 
@@ -2803,12 +2803,12 @@
     if (!yes.length) {
       // Ni uno: no se oculta nada (la página se quedaría en blanco) y se explica por qué están ahí.
       text = "Ninguno de los " + total + " " + uno + " lo dice: se muestran todos (la web los trae por la descripción).";
-    } else if (hiding) {
-      text = yes.length + " de " + total + " " + uno + " lo dicen · ocultos los " + no.length + " que no.";
-    } else if (no.length) {
-      text = yes.length + " de " + total + " " + uno + " lo dicen · los otros " + no.length + " al final, marcados.";
-    } else {
+    } else if (!no.length) {
       text = "Los " + total + " " + uno + " lo dicen.";
+    } else if (hiding) {
+      text = yes.length + " de " + total + " " + uno + " lo dicen · " + (no.length === 1 ? "el otro queda oculto." : "ocultos los " + no.length + " que no.");
+    } else {
+      text = yes.length + " de " + total + " " + uno + " lo dicen · " + (no.length === 1 ? "el otro va al final, marcado." : "los otros " + no.length + " van al final, marcados.");
     }
     say(text);
   }
