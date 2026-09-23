@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.105
+// @version      0.1.106
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1283,6 +1283,7 @@
     function pass() {
       layout();
       softerAlerts();
+      if (hf.skin) hf.skin.fitHeaderAd();
       hf.deferAds();
       if (hf.grid) hf.grid.mark();
       if (hf.player) hf.player.init();
@@ -1302,7 +1303,10 @@
     // repaso flojo cada pocos segundos como red de seguridad (hay navegadores que no avisan de un
     // cambio de tamaño, y el laboratorio monta la página después de cargar).
     window.addEventListener("scroll", hf.sweep, { passive: true, capture: true });
-    window.addEventListener("resize", hf.sweep);
+    window.addEventListener("resize", function () {
+      hf.sweep();
+      if (hf.skin) hf.skin.fitHeaderAd();
+    });
     setInterval(hf.sweep, 2500);
   });
 })();
