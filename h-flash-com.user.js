@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.157
+// @version      0.1.158
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -83,7 +83,10 @@
     // marcar en los listados los juegos ya abiertos (historial en este navegador)
     seen: true,
     // atajos de teclado en las fichas de juego (F pantalla completa, R recargar, +/- zoom)
-    keys: true
+    keys: true,
+    // idioma de la web: "auto" (el suyo: inglés, o japonés en `ja.h-flash.com`) o "es" (español,
+    // traducido encima de la página — lo pone `lang.js`)
+    lang: "auto"
   };
 
   var settings = {};
@@ -106,6 +109,7 @@
     if (["web", "nuevo"].indexOf(settings.emulator) < 0) settings.emulator = DEFAULTS.emulator;
     if (typeof settings.sideAds !== "boolean") settings.sideAds = DEFAULTS.sideAds;
     if (typeof settings.shield !== "boolean") settings.shield = DEFAULTS.shield;
+    if (["auto", "es"].indexOf(settings.lang) < 0) settings.lang = DEFAULTS.lang;
   }
 
   function saveSettings() {
@@ -1383,6 +1387,443 @@
 })();
 
 // ---------------------------------------------------------------------------------------------
+// h-flash.com — EL IDIOMA. La web es inglesa y tiene su versión japonesa en otro dominio
+// (`ja.h-flash.com`); el bloque «LANGUAGE» del pie son dos enlaces y ahí se acaba el asunto. Aquí ese
+// bloque pasa a ser un **desplegable** con los dos idiomas de la web y **español**, que el sitio no
+// tiene: el español lo pone este módulo traduciendo la **interfaz** encima de la página (menú de la
+// cabecera, títulos de sección, botones, la ficha del juego, los comentarios, el pie, los avisos…).
+//
+// Sólo se traduce lo que está en el diccionario, palabra por palabra: el contenido de la web (los
+// títulos de los juegos, las etiquetas, los nombres de los autores, las descripciones) es material
+// y se queda como está — traducir eso sería inventarse lo que la web no ha dicho.
+//
+// El ajuste es `hf.settings.lang`: "auto" (el idioma de la web: inglés, o japonés en `ja.*`) o "es".
+// Cambiar de idioma desde el desplegable no recarga nada cuando es «español» (se traduce la página
+// que ya está abierta); los otros dos son navegar al enlace que la propia web pone en el pie.
+// ---------------------------------------------------------------------------------------------
+(function () {
+  "use strict";
+  var hf = window.hf;
+  if (!hf || hf.lang) return;
+
+  // ¿Estamos en la versión japonesa? Es otro dominio (ja.h-flash.com), así que allí el diccionario
+  // inglés no sirve: la web sirve su interfaz en japonés.
+  var JA = /^ja\./i.test(location.hostname);
+  // Cuando se elige español desde la web japonesa hay que irse a la inglesa y traducirla al llegar
+  // (el ajuste vive en `localStorage`, que es por dominio: no cruza a `ja.`). El encargo va en el
+  // hash, que no llega al servidor ni le cambia la URL que la web indexa.
+  var MARK_ES = "#hf-es";
+  var MARK_EN = "#hf-en";
+
+  // =============================================================================================
+  // EL DICCIONARIO
+  // =============================================================================================
+  // Clave: el texto **exacto** que se ve (comparado ya sin espacios de sobra). Valor: el español.
+  var DICT = {
+    // --- La cabecera ---
+    HOME: "INICIO",
+    TAGS: "ETIQUETAS",
+    CATEGORIES: "CATEGORÍAS",
+    LIST: "LISTA",
+    AUTHORS: "AUTORES",
+    HOT: "POPULARES",
+    GAMES: "JUEGOS",
+    TOP: "TOP",
+    ALL: "TODOS",
+    RANDOM: "ALEATORIO",
+    AUTHOR: "AUTOR",
+    "H-FLASH.COM": "H-FLASH.COM",
+
+    // --- Los enlaces de reclamo de la cabecera (y las webs amigas del pie) ---
+    "Hentai Flash Games": "Juegos Flash Hentai",
+    "Hentai Sex Games": "Juegos de sexo Hentai",
+    "Sex Games Hentai": "Juegos de sexo Hentai",
+    "Hentai XXX": "Hentai XXX",
+    "Hentai Games": "Juegos Hentai",
+    "hentai porn": "porno hentai",
+    "hentai sex games": "juegos de sexo hentai",
+    "Porn Games": "juegos porno",
+    "Sex Games": "juegos de sexo",
+    "Free Strip Games": "juegos de strip gratis",
+    "Best Porn Games": "mejores juegos porno",
+
+    // --- Los títulos de sección (los cambia la web según la página) ---
+    "OLD HENTAI FLASH GAMES": "JUEGOS FLASH HENTAI ANTIGUOS",
+    "HOT HENTAI FLASH GAMES": "JUEGOS FLASH HENTAI POPULARES",
+    "TOP HENTAI FLASH GAMES": "MEJORES JUEGOS FLASH HENTAI",
+    "RANDOM HENTAI FLASH GAMES": "JUEGOS FLASH HENTAI ALEATORIOS",
+    "ALL HENTAI FLASH GAMES": "TODOS LOS JUEGOS FLASH HENTAI",
+    "HOT 100 HENTAI FLASH GAMES": "LOS 100 JUEGOS FLASH HENTAI MÁS POPULARES",
+    "MY FAVORITES": "MIS FAVORITOS",
+    "HIGHEST RATED": "MEJOR VALORADOS",
+    "MOST PLAYED": "MÁS JUGADOS",
+    "ADVANCED FILTER": "FILTRO AVANZADO",
+
+    // --- El buscador y el filtro ---
+    SEARCH: "BUSCAR",
+    Search: "Buscar",
+    Filter: "Filtrar",
+    "descending": "descendente",
+    "ascending": "ascendente",
+
+    // --- La ficha de juego: la información ---
+    "Game Info": "Información del juego",
+    "Game Name": "Nombre",
+    "Original Name": "Nombre original",
+    "Statistcs": "Estadísticas",
+    "My Rating:": "Mi nota:",
+    "My Favorites": "Mis favoritos",
+    "Favorite!": "¡Favorito!",
+    Favorited: "En favoritos",
+    Author: "Autor",
+    "Release Date": "Fecha de publicación",
+    "Game Tags": "Etiquetas",
+    Download: "Descargar",
+    "Download Offline Flash Player": "Descargar el reproductor Flash sin conexión",
+    Source: "Fuente",
+    "Alternate Source": "Fuente alternativa",
+    "Original Description": "Descripción original",
+    "SHOW MORE": "VER MÁS",
+    "SHOW LESS": "VER MENOS",
+    "Show more": "Ver más",
+    Description: "Descripción",
+    TRANSLATE: "TRADUCIR",
+
+    // --- La ficha de juego: el reproductor y sus cajas de arranque ---
+    "SOUND WARNING": "AVISO DE SONIDO",
+    "Beware, some games may have loud sound": "Cuidado: algunos juegos tienen sonido fuerte",
+    "CLICK TO PLAY": "CLIC PARA JUGAR",
+    "(for pc)": "(para PC)",
+    "(flash emulator)": "(emulador flash)",
+    "How to use": "Cómo se usa",
+    "More Solutions": "Más soluciones",
+    "PLUGIN": "COMPLEMENTO",
+    "RESIZE": "TAMAÑO",
+    "original size": "tamaño original",
+    "fit width and height": "ajustar ancho y alto",
+    "fit width": "ajustar al ancho",
+    "fill playzone": "llenar el área",
+    "full window": "ventana completa",
+    "Adobe Flash Plugin": "Complemento de Adobe Flash",
+    "Select default": "Elegir por defecto",
+    "loading": "cargando",
+    "loading...": "cargando...",
+    "preparing": "preparando",
+    "download not available": "descarga no disponible",
+    "download not available for adblock user": "descarga no disponible con bloqueador de anuncios",
+    "raw link": "enlace directo",
+
+    // --- Los comentarios ---
+    Comment: "Comentarios",
+    Name: "Nombre",
+    Rules: "Normas",
+    "Submit Comment": "Enviar comentario",
+    "no comment yet": "todavía no hay comentarios",
+    Related: "Relacionados",
+
+    // --- El pie ---
+    "FRIENDSITES:": "WEBS AMIGAS:",
+    "LANGUAGE:": "IDIOMA:",
+    "LAYOUT:": "DISEÑO:",
+    "TOOLS:": "HERRAMIENTAS:",
+    Preferences: "Preferencias",
+    Plugin: "Complemento",
+    SaveEditor: "Editor de partidas",
+    "F.A.Q.": "Preguntas",
+    Disclaimer: "Aviso legal",
+    "Submit Flash": "Enviar Flash",
+    Contact: "Contacto",
+
+    // --- El aviso de contenido (el que tapa el juego en algunos casos) ---
+    "This game contains extreme content (extremely gore, violence, abuse, scat, etc.)":
+      "Este juego tiene contenido extremo (gore, violencia, abuso, scat, etc.)",
+    " was not recommended to everyone.": " no es recomendable para todo el mundo.",
+    "I understand, but i will continue anyway, then complain in comment.":
+      "Lo entiendo y sigo igual; ya me quejaré en los comentarios.",
+    "or [disable this in setting]": "o [desactívalo en los ajustes]",
+    "This game has a very large file size, play it online may take a long loading time or crash your browser, download to play offline is recommended.":
+      "Este juego pesa mucho: jugarlo en línea puede tardar en cargar o colgar el navegador. Mejor descárgalo y juégalo sin conexión.",
+    "I understand, but i want to run it online.": "Lo entiendo, quiero jugarlo en línea.",
+    "This file is not available in your location": "Este archivo no está disponible en tu ubicación"
+  };
+
+  // Textos que la web monta en un elemento con varios trozos dentro (ahí no vale traducir nodo a
+  // nodo: hay que rehacer el elemento entero).
+  var ELEMS = {
+    "Bug Report": 'Informe de <span style="color:red">error</span>'
+  };
+
+  // Lo que la web escribe con números por medio (los títulos de los iconos de visitas y de nota).
+  var PATTERNS = [
+    [
+      /^This game has been played ([\d.,]+) times , today:([\d.,]+) weekly:([\d.,]+)$/,
+      "Este juego se ha jugado $1 veces · hoy: $2 · esta semana: $3"
+    ],
+    [
+      /^([\d.,]+) games has been played ([\d.,]+) times , today:([\d.,]+) weekly:([\d.,]+)$/,
+      "$1 juegos jugados $2 veces · hoy: $3 · esta semana: $4"
+    ],
+    [/^([\d.,]+) ?\/5 rating voted by ([\d.,]+) players$/, "$1/5, votado por $2 jugadores"],
+    [/^Search "(.*)"$/, "Búsqueda: «$1»"],
+    [/^Related tags : (.*)$/, "Etiquetas relacionadas: $1"]
+  ];
+
+  // Los atributos que también se leen (el texto de los botones, el ejemplo de los campos, los
+  // títulos que aparecen al pasar el ratón).
+  var ATTRS = {
+    placeholder: { anonymous: "anónimo" },
+    value: {
+      SEARCH: "BUSCAR",
+      Search: "Buscar",
+      Filter: "Filtrar",
+      "Submit Comment": "ENVIAR COMENTARIO"
+    },
+    title: {
+      close: "cerrar",
+      "Beware, some games may have loud sound": "Cuidado: algunos juegos tienen sonido fuerte"
+    },
+    alt: { loading: "cargando" }
+  };
+
+  var SKIP_TAGS = /^(SCRIPT|STYLE|NOSCRIPT|TEXTAREA|IFRAME|SVG|CODE|PRE)$/;
+
+  // =============================================================================================
+  // TRADUCIR LO QUE YA ESTÁ EN LA PÁGINA
+  // =============================================================================================
+  function tr(s) {
+    if (!s) return s;
+    var v = DICT[s];
+    if (v != null) return v;
+    for (var i = 0; i < PATTERNS.length; i++) {
+      if (PATTERNS[i][0].test(s)) return s.replace(PATTERNS[i][0], PATTERNS[i][1]);
+    }
+    return s;
+  }
+
+  // Nada de lo nuestro se traduce (el panel, los avisos, la barra): ya está en español.
+  function skip(el) {
+    for (var n = el; n && n.nodeType === 1; n = n.parentElement) {
+      if (n.id && n.id.indexOf("hf-") === 0) return true;
+      var c = n.className;
+      if (typeof c === "string" && /(^|\s)hf-/.test(c)) return true;
+      if (SKIP_TAGS.test(n.tagName)) return true;
+    }
+    return false;
+  }
+
+  function textNode(node) {
+    var el = node.parentElement;
+    if (!el || skip(el)) return false;
+    var raw = node.nodeValue;
+    if (!raw) return false;
+    var s = raw.trim();
+    if (!s) return false;
+    var out = tr(s);
+    if (out === s) return false;
+    node.nodeValue = raw.replace(s, out);
+    return true;
+  }
+
+  function attr(el, name) {
+    var map = ATTRS[name];
+    if (!map) return false;
+    if (name === "value" && el.tagName === "OPTION") return false;
+    var v = el.getAttribute && el.getAttribute(name);
+    if (!v) return false;
+    var out = map[v.trim()] || tr(v.trim());
+    if (!out || out === v) return false;
+    if (name === "value" && el.value !== undefined && el.tagName !== "OPTION") {
+      try {
+        el.value = out;
+      } catch (e) {}
+    }
+    el.setAttribute(name, out);
+    return true;
+  }
+
+  function apply(root) {
+    if (hf.settings.lang !== "es") return 0;
+    root = root && root.nodeType === 1 ? root : document.body;
+    if (!root) return 0;
+    var count = 0;
+    // 1. Los elementos que hay que rehacer enteros (el «Bug Report» con su palabra en rojo).
+    hf.qa("a, span, b, strong", root).forEach(function (el) {
+      var t = (el.textContent || "").replace(/\s+/g, " ").trim();
+      if (ELEMS[t] && !el.querySelector("iframe")) {
+        el.innerHTML = ELEMS[t];
+        count++;
+      }
+    });
+    // 2. Los nodos de texto (el grueso de la interfaz).
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    var nodes = [];
+    var n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    nodes.forEach(function (node) {
+      if (textNode(node)) count++;
+    });
+    // 3. Los atributos que se ven.
+    var names = Object.keys(ATTRS);
+    hf.qa(names.map(function (k) { return "[" + k + "]"; }).join(","), root).forEach(function (el) {
+      if (skip(el)) return;
+      names.forEach(function (name) {
+        if (attr(el, name)) count++;
+      });
+    });
+    // 4. El idioma del documento y su título (es lo que leen el navegador y los buscadores).
+    document.documentElement.setAttribute("lang", "es");
+    if (document.title) document.title = document.title.replace(/Hentai Flash Games/gi, "Juegos Flash Hentai");
+    return count;
+  }
+
+  // =============================================================================================
+  // MIRAR LO QUE LA WEB AÑADE DESPUÉS (los comentarios por AJAX, el «ver más», la descarga)
+  // =============================================================================================
+  var obs = null;
+  var applied = false;
+
+  function observe() {
+    if (obs || !document.body || !window.MutationObserver) return;
+    obs = new MutationObserver(function (records) {
+      if (hf.settings.lang !== "es") return;
+      records.forEach(function (r) {
+        if (r.type === "characterData") {
+          textNode(r.target);
+          return;
+        }
+        for (var i = 0; i < r.addedNodes.length; i++) {
+          var node = r.addedNodes[i];
+          if (node.nodeType === 1) apply(node);
+          else if (node.nodeType === 3) textNode(node);
+        }
+      });
+    });
+    obs.observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
+
+  // =============================================================================================
+  // EL DESPLEGABLE DEL PIE
+  // =============================================================================================
+  // La web pone dos enlaces en el bloque «LANGUAGE». Aquí se cogen sus direcciones (inglés y
+  // japonés: las que la propia web pone, así el desplegable sigue funcionando aunque cambien) y se
+  // añade el español. Los dos enlaces se esconden, pero se quedan en el documento.
+  var hrefs = { en: "", ja: "" };
+
+  function links() {
+    var box = hf.q(".pagefoot .language");
+    if (!box) return null;
+    return { box: box, anchors: hf.qa("a[href]", box) };
+  }
+
+  function url(anchors, wantJa) {
+    for (var i = 0; i < anchors.length; i++) {
+      var h = anchors[i].getAttribute("href") || "";
+      var isJa = /(^|\.)ja\./i.test(h) || /^https?:\/\/ja\./i.test(h);
+      if (isJa === !!wantJa) return hf.abs(h);
+    }
+    // Si la web cambiara los enlaces, al menos se navega a lo que toque por dominio.
+    return (wantJa ? "https://ja.h-flash.com" : "https://h-flash.com") + location.pathname;
+  }
+
+  function build() {
+    var got = links();
+    if (!got) return false;
+    var box = got.box;
+    var sel = hf.q("#hf-lang", box);
+    if (!sel) {
+      if (!got.anchors.length) return false;
+      hrefs.en = url(got.anchors, false);
+      hrefs.ja = url(got.anchors, true);
+      sel = document.createElement("select");
+      sel.id = "hf-lang";
+      sel.setAttribute("aria-label", "Idioma de la web");
+      [
+        { value: hrefs.en, label: "English" },
+        { value: hrefs.ja, label: "日本語" },
+        { value: "es", label: "Español" }
+      ].forEach(function (o) {
+        var op = document.createElement("option");
+        op.value = o.value;
+        op.textContent = o.label;
+        sel.appendChild(op);
+      });
+      sel.addEventListener("change", function () {
+        pick(sel.value);
+      });
+      box.appendChild(sel);
+      got.anchors.forEach(function (a) {
+        a.hidden = true;
+      });
+    }
+    // El que está puesto: el español si lo tenemos puesto, si no el del dominio en el que estamos.
+    var want = hf.settings.lang === "es" ? "es" : JA ? hrefs.ja : hrefs.en;
+    if (want && sel.value !== want) sel.value = want;
+    return true;
+  }
+
+  function pick(value) {
+    if (value === "es") {
+      if (JA) {
+        location.href = (hrefs.en || "https://h-flash.com" + location.pathname) + MARK_ES;
+        return;
+      }
+      hf.set("lang", "es");
+      return;
+    }
+    hf.set("lang", "auto");
+    if (value) location.href = value;
+  }
+
+  // El encargo que viaja en el hash (ver `MARK_ES`): se apunta el idioma y se deja la URL limpia.
+  function mark() {
+    var h = location.hash || "";
+    var want = h.indexOf("hf-es") >= 0 ? "es" : h.indexOf("hf-en") >= 0 ? "auto" : null;
+    if (!want) return;
+    hf.set("lang", want);
+    try {
+      history.replaceState(null, "", location.href.replace(/#hf-(es|en)/, ""));
+    } catch (e) {}
+  }
+
+  function init() {
+    mark();
+    observe();
+    build();
+    if (hf.settings.lang === "es" && !applied) {
+      applied = true;
+      apply();
+    }
+  }
+
+  hf.lang = {
+    init: init,
+    apply: apply,
+    get: function () {
+      return hf.settings.lang === "es" ? "es" : JA ? "ja" : "en";
+    },
+    set: function (code) {
+      hf.set("lang", code === "es" ? "es" : "auto");
+    },
+    // Pasar el texto por el diccionario (para lo que se construya fuera del documento).
+    tr: tr,
+    dict: DICT
+  };
+
+  hf.onChange(function (changed) {
+    if (changed.indexOf("lang") < 0) return;
+    build();
+    // Volver a 「auto」 no puede deshacer lo ya traducido (los textos originales no se guardan): eso
+    // lo arregla la recarga del navegador que hace `pick()`. Cambiarlo a mano desde la consola
+    // necesita recargar la página.
+    if (hf.settings.lang === "es") {
+      applied = true;
+      apply();
+      observe();
+    }
+  });
+})();
+
+// ---------------------------------------------------------------------------------------------
 // h-flash.com — EL REPRODUCTOR.
 //
 // El sitio trae DOS formas de jugar y ninguna es cómoda: dos cajas («HFlashPlayer (for pc) CLICK TO
@@ -2327,6 +2768,7 @@
       if (hf.grid) hf.grid.mark();
       if (hf.player) hf.player.init();
       if (hf.panel) hf.panel.init();
+      if (hf.lang) hf.lang.init();
     }
 
     hf.onDom(function () {
