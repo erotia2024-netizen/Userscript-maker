@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.92
+// @version      0.1.93
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -2518,6 +2518,7 @@
 
   var CORE = window.r34gvCore; // lo deja core.js: saber cuál de las fichas es el anuncio nativo
   var MODE_KEY = "r34gv.search.mode"; // "only" | "all" | sin nada = lo que diga la página
+  var HIDE = "r34gv-hide";
   var SAY = "r34gv-say";
   var NOSAY = "r34gv-nosay";
   var WAIT = 180; // ms de calma antes de repasar (la web mete fichas por AJAX)
@@ -2530,7 +2531,11 @@
   var segEl = null;
   var ctx = null;
   var tokens = [];
-  var mode = pref(MODE_KEY) === "all" ? "all" : "only";
+  // Lo que el usuario ha elegido ("" = todavía no ha elegido nada). Sin elección, la página decide:
+  // en una BÚSQUEDA se oculta lo que no lo dice (es lo que pidió el usuario: el buscador trae
+  // fulltext de la descripción), pero en una página de ETIQUETA no, porque ahí la etiqueta es la
+  // palabra de la web —esas fichas sí llevan la etiqueta— y basta con marcarlas.
+  var mode = pref(MODE_KEY) === "all" || pref(MODE_KEY) === "only" ? pref(MODE_KEY) : "";
   var started = false;
   var observer = null;
   var timer = 0;
@@ -2598,6 +2603,13 @@
     if (head && head.query) query = String(head.query).replace(/\s+/g, " ").trim();
     // Un `h1` de búsqueda sin rejilla es la pantalla de «sin resultados»: no hay nada que filtrar.
     return { kind: url.kind, label: url.label, query: query };
+  }
+
+  // El modo que se está aplicando de verdad: lo que el usuario haya elegido o, si no ha elegido
+  // nunca, lo que pida la página (ocultar en una búsqueda, solo marcar en una etiqueta).
+  function resolved() {
+    if (mode) return mode;
+    return ctx && ctx.kind === "tag" ? "all" : "only";
   }
 
   // --- comparar el título con la búsqueda --------------------------------------------------------
@@ -2728,10 +2740,10 @@
       var anchor = block || grid;
       if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(bar, anchor);
     }
-    var on = mode === "only";
+    var on = resolved();
     var btns = bar.querySelectorAll(".r34gv-seg__btn");
     for (var i = 0; i < btns.length; i++) {
-      btns[i].classList.toggle("is-on", btns[i].getAttribute("data-mode") === mode);
+      btns[i].classList.toggle("is-on", btns[i].getAttribute("data-mode") === on);
     }
     segEl.hidden = false;
   }
@@ -2781,7 +2793,7 @@
       }
     }
     // Si no lo dice ninguno, no se oculta nada: la página se quedaría en blanco.
-    var hiding = mode === "only" && yes.length > 0;
+    var hiding = resolved() === "only" && yes.length > 0;
     for (i = 0; i < list.length; i++) list[i].classList.toggle(HIDE, hiding && list[i].classList.contains(NOSAY));
     reorder(yes, no);
 
@@ -2883,22 +2895,25 @@
   }
 
   // Para probarlo desde la consola: r34gvSearch.status() · r34gvSearch.mode("all")
+  //   mode("only") / mode("all") deja la elección guardada; mode("") la borra y vuelve a lo que
+  //   diga la página.
   window.r34gvSearch = {
     mode: function (m) {
-      if (m === "only" || m === "all") {
+      if (m === "only" || m === "all" || m === "") {
         setPref(MODE_KEY, m);
         mode = m;
         if (grid) grid.__r34gvOrder = "";
         if (started) pass();
       }
-      return mode;
+      return resolved();
     },
     status: function () {
       return {
         pagina: ctx ? ctx.kind : null,
         consulta: ctx ? ctx.query : null,
         palabras: tokens,
-        modo: mode,
+        modo: resolved(),
+        elegido: mode || null,
         rejilla: grid ? grid.id || grid.className : null,
         fichas: cards().length,
         coinciden: grid ? cards().filter(function (c) {
