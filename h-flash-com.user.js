@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.158
+// @version      0.1.159
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1602,10 +1602,12 @@
 
   // Nada de lo nuestro se traduce (el panel, los avisos, la barra): ya está en español.
   function skip(el) {
-    for (var n = el; n && n.nodeType === 1; n = n.parentElement) {
+    // OJO: la piel pone sus clases en `<html>` (`hf`, `hf-skin-cueva`, `hf-game`…), así que el
+    // `<html>` y el `<body>` no cuentan; a partir de ahí, un `hf-…` (id o clase) es nuestro.
+    for (var n = el; n && n.nodeType === 1 && n !== document.body && n !== document.documentElement; n = n.parentElement) {
       if (n.id && n.id.indexOf("hf-") === 0) return true;
       var c = n.className;
-      if (typeof c === "string" && /(^|\s)hf-/.test(c)) return true;
+      if (typeof c === "string" && /(^|\s)hf-\w/.test(c)) return true;
       if (SKIP_TAGS.test(n.tagName)) return true;
     }
     return false;
