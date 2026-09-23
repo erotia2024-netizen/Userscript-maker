@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.74
+// @version      0.1.75
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -2369,5 +2369,293 @@
       return analyze(cards());
     }
   };
+})();
+
+// ---------------------------------------------------------------------------------------------
+// rule34video.com — el registrador de la sesión (a petición del usuario: «al rato se cae la cuenta»).
+//
+// Esto NO es una función para el visitante normal: es una herramienta de diagnóstico que está
+// **apagada por defecto y no cuesta nada mientras esté apagada** (si el interruptor no está puesto,
+// el módulo termina aquí mismo, antes de poner un solo temporizador). Se enciende a mano:
+//
+//   localStorage["r34gv.debug"] = "1"      // encender (recargar después)
+//   localStorage.removeItem("r34gv.debug") // apagar
+//
+// Y desde la consola, ya con la página cargada:
+//   r34gvSesLog.status()   // ¿está corriendo? ¿me ve logueado ahora mismo?
+//   copy(r34gvSesLog.dump())  // el volcado completo, en orden, listo para pegar y mandar
+//   r34gvSesLog.clear()    // borrarlo y empezar de cero
+//
+// ¿Qué apunta? Lo justo para saber quién tumba la sesión, con la hora en milisegundos de cada cosa:
+//
+//   arranque   cada carga: la dirección, **de dónde vienes** (`document.referrer`; si pone la galería
+//              del perfil, es un post abierto en otra pestaña) y las cookies que se ven desde JS.
+//   sesión     el cambio de estado logueado/sin-loguear. En esta web el botón «Login» (`#login`) solo
+//              existe sin sesión, y el enlace de salir solo con ella; con eso se sabe sin adivinar.
+//   cookies    cada vez que cambia el juego de cookies visibles (nombres) o su tamaño. La cookie de
+//              sesión de PHP es `HttpOnly` y no se puede leer desde JS, así que lo que se vigila son
+//              las de la propia web (`kt_tcookie`, `csrf_token`, `flag2`): van y vienen con lo mismo,
+//              así que si desaparecen a la vez que la sesión, el culpable es quien las borre.
+//   peticiones las que importan para la sesión, vistas con `PerformanceObserver`: `/login`, `/logout`,
+//              `/login-required`, `/cdn-cgi/` (Cloudflare), `playlist_security` y los dos avisos del
+//              motor de la web (`js_stats` y `js_online_status`), más cualquier recurso que responda
+//              con error. Con su duración y su tamaño de respuesta (0 B = no trajo nada).
+//   ping       la web (KVS) mantiene la sesión viva con un ping cada 60 s **solo si estás logueado**.
+//              Aquí se apunta cada ping y, si estando logueado pasan 90 s sin ninguno, se avisa: eso
+//              es que el bloqueador, la red o la propia web se lo están comiendo, y explica que la
+//              sesión se caiga «sola» aunque la cookie siga puesta.
+//   pestaña    cuando la pestaña pasa a segundo plano y vuelve. Chrome estrangula los temporizadores
+//              de las pestañas de fondo: si abres un post en otra pestaña, ésta deja de cumplir su
+//              minuto, y con ella el ping de la sesión. Suele ser justo cuando se cae la cuenta.
+//
+// El volcado se guarda en `localStorage` (500 líneas, ~60 KB como mucho, se recortan las viejas), así
+// que sobrevive a la recarga y a la pestaña que se cierre: se puede copiar mucho después.
+// ---------------------------------------------------------------------------------------------
+(function () {
+  "use strict";
+  if (window.__r34gvSesLog) return;
+  window.__r34gvSesLog = true;
+
+  var ON_KEY = "r34gv.debug"; // "1"/"true" enciende
+  var LOG_KEY = "r34gv.seslog"; // el volcado, texto plano: una línea por cosa apuntada
+  var MAX = 500; // líneas guardadas
+  var TICK = 1000; // cada cuánto se mira si ha cambiado algo
+  var PING_MS = 60000; // lo que tarda la web en mandar su ping (para el aviso de abajo)
+  var SILENCIO = 90000; // sin ping en este tiempo y estando logueado → se avisa
+
+  // Lo que merece la pena apuntar de una petición (el resto de la página no dice nada de la sesión).
+  var WATCH = /\/login\b|\/logout\b|\/login-required\b|\/cdn-cgi\/|playlist_security|action=js_stats|action=js_online_status/i;
+
+  var lines = [];
+  var running = false;
+  var timer = null;
+  var observer = null;
+  var known = null; // último estado sabido: true logueado, false sin sesión, null todavía no se sabe
+  var cookies = null; // { names, len }
+  var lastPingAt = 0;
+  var pingWarned = false;
+
+  function flag() {
+    try {
+      var v = localStorage.getItem(ON_KEY);
+      return v === "1" || v === "true";
+    } catch (e) {
+      return false; // modo privado o almacén lleno: no se puede saber, y se queda apagado
+    }
+  }
+
+  function pad(n) {
+    return (n < 10 ? "0" : "") + n;
+  }
+
+  function clock() {
+    var d = new Date();
+    return pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()) + "." + ("00" + d.getMilliseconds()).slice(-3);
+  }
+
+  // Una línea más: a la consola y al volcado, que se guarda ya mismo (si se cierra la pestaña de golpe,
+  // lo apuntado hasta ahí no se pierde).
+  function record(kind, msg) {
+    var line = clock() + "  " + kind + "  " + msg;
+    lines.push(line);
+    if (lines.length > MAX) lines.splice(0, lines.length - MAX);
+    try {
+      localStorage.setItem(LOG_KEY, lines.join("\n"));
+    } catch (e) {}
+    try {
+      console.log("[r34gv sesión] " + line);
+    } catch (e) {}
+  }
+
+  function name(u) {
+    var s = String(u || "");
+    try {
+      var a = document.createElement("a");
+      a.href = s;
+      return a.pathname + (a.search ? a.search.replace(/[?&]rand=\d+/, "") : "");
+    } catch (e) {
+      return s;
+    }
+  }
+
+  // --- estado de la sesión ---------------------------------------------------------------------
+  // En esta web el botón «Login» del header (`#login`) solo existe cuando NO hay sesión, y el enlace
+  // de salir solo cuando la hay. Si no está ninguna de las dos cosas (la página aún no ha pintado el
+  // header), se devuelve null y no se apunta nada: así no hay transiciones falsas al cargar.
+  function loggedIn() {
+    if (document.getElementById("login")) return false;
+    if (document.querySelector('a[href*="/logout"]')) return true;
+    // Sin botón «Login» y sin enlace de salir a la vista: si el header ya está pintado (el bloque
+    // donde vive ese botón), es que no hay botón porque hay sesión. Si no está pintado todavía, no se
+    // sabe nada y se devuelve null.
+    if (document.querySelector(".panel_buttons")) return true;
+    return null;
+  }
+
+  function cookieSig() {
+    var raw = "";
+    try {
+      raw = document.cookie || "";
+    } catch (e) {}
+    var names = [];
+    if (raw) {
+      var parts = raw.split("; ");
+      for (var i = 0; i < parts.length; i++) names.push(parts[i].split("=")[0]);
+      names.sort();
+    }
+    return { names: names.join(","), len: raw.length };
+  }
+
+  function left(a, b) {
+    var out = [];
+    for (var i = 0; i < a.length; i++) {
+      if (b.indexOf(a[i]) === -1) out.push(a[i]);
+    }
+    return out.join(", ");
+  }
+
+  function checkCookies() {
+    var now = cookieSig();
+    if (!cookies) {
+      cookies = now;
+      return;
+    }
+    if (now.names === cookies.names && now.len === cookies.len) return;
+    var was = cookies.names ? cookies.names.split(",") : [];
+    var is = now.names ? now.names.split(",") : [];
+    var msg = "cookies visibles: " + (now.names || "(ninguna)") + " (" + now.len + " B)";
+    var gone = left(was, is);
+    var add = left(is, was);
+    if (gone) msg += " · se van: " + gone;
+    if (add) msg += " · aparecen: " + add;
+    if (!gone && !add) msg += " · cambia el tamaño (" + (now.len - cookies.len) + " B)";
+    cookies = now;
+    record("cookies", msg);
+  }
+
+  function checkSession() {
+    var now = loggedIn();
+    if (now === null) return; // todavía no se puede saber
+    if (now === known) return;
+    var was = known;
+    known = now;
+    var msg = now ? "CON sesión (aparece el enlace de salir)" : "SIN sesión (vuelve el botón «Login»)";
+    if (was === null) msg = "empieza el registro: ahora mismo " + (now ? "CON sesión" : "sin sesión");
+    record("sesión", msg + " · cookies: " + (cookieSig().names || "(ninguna)"));
+    pingWarned = false;
+    if (!now) lastPingAt = 0;
+  }
+
+  // --- peticiones ------------------------------------------------------------------------------
+  function watchRequests() {
+    if (typeof PerformanceObserver !== "function") return;
+    try {
+      observer = new PerformanceObserver(function (list) {
+        var items = list.getEntries();
+        for (var i = 0; i < items.length; i++) {
+          var e = items[i];
+          if (!WATCH.test(e.name) && !(e.responseStatus >= 400)) continue;
+          if (/action=js_online_status/i.test(e.name)) {
+            lastPingAt = Date.now();
+            pingWarned = false;
+          }
+          record(
+            "petición",
+            name(e.name) + " · " + (e.initiatorType || "?") + " · " + Math.round(e.duration) + " ms · " + (e.transferSize || 0) + " B" + (e.responseStatus ? " · HTTP " + e.responseStatus : "")
+          );
+        }
+      });
+      observer.observe({ entryTypes: ["resource"], buffered: true });
+    } catch (e) {
+      record("aviso", "no se pueden vigilar las peticiones en este navegador: " + e.message);
+    }
+  }
+
+  // El ping de la web: si estás logueado, KVS manda uno cada 60 s. Aquí no se puede demostrar una
+  // ausencia, pero sí se puede avisar de que llevas demasiado sin verlo.
+  function checkPing() {
+    if (known !== true) return;
+    if (!lastPingAt) {
+      // Nunca se ha visto uno: se cuenta desde que se supo que hay sesión.
+      lastPingAt = -1;
+      return;
+    }
+    if (lastPingAt === -1) return;
+    if (!pingWarned && Date.now() - lastPingAt > SILENCIO) {
+      pingWarned = true;
+      record("ping", "sin `js_online_status` en " + Math.round(SILENCIO / 1000) + " s (la web debería mandarlo cada " + Math.round(PING_MS / 1000) + " s). Si sigue así, la sesión se caerá sola: ese ping es lo que la mantiene viva");
+    }
+  }
+
+  // --- arranque y parada ------------------------------------------------------------------------
+  function start() {
+    if (running) return true;
+    running = true;
+    record(
+      "arranque",
+      location.origin + location.pathname + location.search + " · llega desde: " + (document.referrer ? name(document.referrer) : "(nada)") + " · cookies: " + (cookieSig().names || "(ninguna)") + " (" + cookieSig().len + " B)"
+    );
+    cookies = cookieSig();
+    checkSession();
+    watchRequests();
+    timer = setInterval(function () {
+      checkSession();
+      checkCookies();
+      checkPing();
+    }, TICK);
+
+    document.addEventListener("visibilitychange", function () {
+      record("pestaña", document.visibilityState === "hidden" ? "pasa a segundo plano (Chrome estrangula los temporizadores)" : "vuelve a primer plano");
+    });
+    window.addEventListener("pagehide", function () {
+      record("pestaña", "se va la página (" + (known ? "con sesión" : "sin sesión") + ")");
+    });
+    window.addEventListener("error", function (e) {
+      record("error", (e && e.message ? e.message : "error de script") + (e && e.filename ? " (" + name(e.filename) + ":" + e.lineno + ")" : ""));
+    });
+    return true;
+  }
+
+  function stop() {
+    if (!running) return false;
+    running = false;
+    if (timer) clearInterval(timer);
+    timer = null;
+    if (observer) {
+      try {
+        observer.disconnect();
+      } catch (e) {}
+      observer = null;
+    }
+    return true;
+  }
+
+  // Para la consola. `start()`/`stop()` sirven para encenderlo sin recargar (aunque encenderlo a mano
+  // pierde la parte del arranque de la página, que es justo la interesante, así que lo suyo es el
+  // interruptor + recargar).
+  window.r34gvSesLog = {
+    start: start,
+    stop: stop,
+    status: function () {
+      return { activo: running, logueado: loggedIn(), cookie: cookieSig().names, lineas: lines.length };
+    },
+    dump: function () {
+      try {
+        return localStorage.getItem(LOG_KEY) || "";
+      } catch (e) {
+        return "";
+      }
+    },
+    clear: function () {
+      lines = [];
+      try {
+        localStorage.removeItem(LOG_KEY);
+      } catch (e) {}
+      return true;
+    }
+  };
+
+  // Apagado por defecto: aquí no queda nada corriendo (ni temporizador, ni observador, ni escuchas).
+  if (flag()) start();
 })();
 
