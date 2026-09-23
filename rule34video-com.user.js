@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.86
+// @version      0.1.87
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -2471,6 +2471,411 @@
     regroup: regroup,
     analyze: function () {
       return analyze(cards());
+    }
+  };
+})();
+
+// ---------------------------------------------------------------------------------------------
+// rule34video.com — las búsquedas y las páginas de etiqueta.
+//
+// EL PROBLEMA (pedido del usuario: «en las búsquedas que uno pone HMV o PMV y no todo son eso»).
+// El buscador de esta web no busca en el título: es un fulltext sobre la **descripción**, y las
+// descripciones de este sitio son un vertedero de etiquetas (el subidor pone «más PMV en mi
+// telegram», su lista de palabras clave, sus otros vídeos…). Comprobado contra la web de verdad:
+// buscar «telegram» devuelve 690 resultados y **ni uno solo** lo dice en el título; «patreon»,
+// 59.534. Así que buscar «PMV» o «HMV» trae, mezclado con lo que uno quiere, todo lo que *menciona*
+// esas siglas en cualquier parte de la ficha — y abres el resultado y no es eso.
+//
+// LO QUE HACE ESTE MÓDULO: lo único que el listado dice de verdad de cada vídeo es su **título**
+// (la descripción y las etiquetas no viajan en la rejilla). Así que se mira el título de cada ficha
+// y se parte la página en dos: las que dicen todas las palabras buscadas y las que no. Después:
+//
+//   - las que no lo dicen llevan una marca («sin «pmv»») y el título atenuado, para que se vea de un
+//     vistazo por qué están ahí;
+//   - por defecto **no se muestran** (se ocultan con una clase), que es lo que pidió el usuario;
+//   - una barra arriba dice el recuento y deja ponerlo en «ver todo», que las muestra al final, con
+//     las que sí coinciden primero (nada se pierde: solo se ordena y se atenúa).
+//
+// NADA DE PERDER PÁGINA: si **ningún** título lo dice (pasa con cosas como «telegram»), no se oculta
+// nada — dejaría la página en blanco — y se avisa en la barra. Es la única regla especial, y está
+// puesta justo para que el filtro no pueda dejar la pantalla vacía.
+//
+// Vale para `/search/<lo que sea>/` **y** para `/tags/<etiqueta>/` (la página de etiqueta arrastra
+// el mismo problema: «New Videos Tagged with pmv» empieza con un vídeo cuyo título no dice pmv).
+// De dónde es la página se saca de la URL y, si no, del propio `h1` («Videos for: X (11.315)»), que
+// es lo que la web escribe de verdad — así funciona igual en el laboratorio, donde las páginas son
+// fixtures servidos en otra ruta.
+//
+// SIN LAG: es una lectura de texto por ficha y un `classList.toggle`, nada de scroll ni de medir. El
+// único vigilante es un MutationObserver sobre el contenedor del bloque, que se despierta cuando la
+// web cambia el listado por AJAX (paginación o filtros). La web **reemplaza el bloque entero** al
+// paginar, así que la barra vive fuera del bloque y se vuelve a colgar si se lo llevan por delante.
+// ---------------------------------------------------------------------------------------------
+(function () {
+  "use strict";
+  if (window.__r34gvSearch) return;
+  window.__r34gvSearch = true;
+
+  var CORE = window.r34gvCore; // lo deja core.js: saber cuál de las fichas es el anuncio nativo
+  var MODE_KEY = "r34gv.search.mode"; // "only" (por defecto) | "all"
+  var HIDE = "r34gv-hide";
+  var SAY = "r34gv-say";
+  var NOSAY = "r34gv-nosay";
+  var WAIT = 180; // ms de calma antes de repasar (la web mete fichas por AJAX)
+  var MARK = "r34gv-mark";
+
+  var grid = null;
+  var block = null; // el bloque que la web reemplaza al paginar
+  var bar = null;
+  var noteEl = null;
+  var segEl = null;
+  var ctx = null;
+  var tokens = [];
+  var mode = pref(MODE_KEY) === "all" ? "all" : "only";
+  var started = false;
+  var observer = null;
+  var timer = 0;
+
+  function pref(key) {
+    try {
+      return localStorage.getItem(key) || "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function setPref(key, value) {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {}
+  }
+
+  // --- ¿en qué página estamos? -------------------------------------------------------------------
+  // La URL manda cuando es bonita (`/search/pmv/`, `/tags/pmv/`; los espacios vienen como `+` en la
+  // búsqueda y como `_` en las etiquetas). Si no, se lee el `h1`, que la web escribe igual en los
+  // dos casos y es lo que funciona en el laboratorio (allí el fixture no vive en /search/).
+  function fromH1() {
+    var el = document.querySelector(".headline h1, .headline h2, h1, h2");
+    var text = el ? String(el.textContent || "").replace(/\s+/g, " ").trim() : "";
+    if (!text) return null;
+    var m = /^videos for:\s*(.+?)\s*\(\s*[\d.,\s]+\s*\)\s*$/i.exec(text);
+    if (m) return { kind: "search", label: "Búsqueda", query: m[1] };
+    m = /^new videos tagged with\s+(.+?)\s*\(\s*[\d.,\s]+\s*\)\s*$/i.exec(text);
+    if (m) return { kind: "tag", label: "Etiqueta", query: m[1] };
+    m = /^videos tagged with\s+(.+?)\s*\(\s*[\d.,\s]+\s*\)\s*$/i.exec(text);
+    if (m) return { kind: "tag", label: "Etiqueta", query: m[1] };
+    return null;
+  }
+
+  function fromUrl() {
+    var path = "";
+    try {
+      path = decodeURIComponent(location.pathname);
+    } catch (e) {
+      path = location.pathname || "";
+    }
+    var m = /^\/search\/([^\/]+)\/?/i.exec(path);
+    if (m) return { kind: "search", label: "Búsqueda", query: m[1].replace(/\+/g, " ") };
+    m = /^\/tags\/([^\/]+)\/?/i.exec(path);
+    if (m) return { kind: "tag", label: "Etiqueta", query: m[1].replace(/_/g, " ") };
+    var q = "";
+    try {
+      q = new URLSearchParams(location.search).get("q") || "";
+    } catch (e) {}
+    if (q.trim()) return { kind: "search", label: "Búsqueda", query: q };
+    return null;
+  }
+
+  function context() {
+    var url = fromUrl() || fromH1();
+    if (!url) return null;
+    var query = String(url.query || "").replace(/\s+/g, " ").trim();
+    if (!query || query.length > 90) return null;
+    // Con la URL y el `h1` en desacuerdo manda el `h1` (es lo que la web dice que ha buscado).
+    var head = fromH1();
+    if (head && head.query) query = String(head.query).replace(/\s+/g, " ").trim();
+    // Un `h1` de búsqueda sin rejilla es la pantalla de «sin resultados»: no hay nada que filtrar.
+    return { kind: url.kind, label: url.label, query: query };
+  }
+
+  // --- comparar el título con la búsqueda --------------------------------------------------------
+  function norm(text) {
+    var s = String(text == null ? "" : text).toLowerCase();
+    try {
+      s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    } catch (e) {}
+    return s.replace(/\s+/g, " ").trim();
+  }
+
+  // Las palabras de la búsqueda. Se tiran las de una letra (un «a» o un «y» suelto no dice nada),
+  // pero si la búsqueda es toda corta («ai», «3d») se queda tal cual: mejor filtrar de más que de
+  // menos cuando el usuario ha escrito poco.
+  function tokensOf(query) {
+    var raw = norm(query).split(/[^0-9a-z\u00c0-\u04ff\u0400-\u04ff]+/).filter(Boolean);
+    var long = raw.filter(function (t) {
+      return t.length > 1;
+    });
+    return long.length ? long : raw;
+  }
+
+  // Se queda el vídeo si el título dice **todas** las palabras buscadas (en cualquier orden y valen
+  // trozos: «HMV» cuenta dentro de «PandaHMV», que es como los subidores los titulan de verdad).
+  function says(title) {
+    var t = norm(title);
+    for (var i = 0; i < tokens.length; i++) {
+      if (t.indexOf(tokens[i]) < 0) return false;
+    }
+    return true;
+  }
+
+  function titleOf(card) {
+    var a = card.querySelector("a.th[title]");
+    var t = a ? a.getAttribute("title") : "";
+    if (!t) {
+      var el = card.querySelector(".thumb_title");
+      t = el ? el.textContent : "";
+    }
+    return String(t || "").replace(/\s+/g, " ").trim();
+  }
+
+  function isAd(card) {
+    return !!(CORE && CORE.isAdCard && CORE.isAdCard(card));
+  }
+
+  // Fichas de vídeo de la rejilla, en su orden. El anuncio nativo no cuenta: no es un vídeo y no
+  // tiene título con el que comparar nada.
+  function cards() {
+    if (!grid) return [];
+    return [].slice.call(grid.querySelectorAll(":scope > .item.thumb")).filter(function (el) {
+      return !isAd(el);
+    });
+  }
+
+  // La marca («sin «pmv»») va dentro del propio título: así no hace falta colocar nada en absoluto
+  // (ni posiciones absolutas ni un elemento más sobre la miniatura) y se lee donde se lee el título.
+  function markFor(card) {
+    var title = card.querySelector(".thumb_title") || card;
+    var el = title.querySelector(":scope > ." + MARK);
+    if (!el) {
+      el = document.createElement("span");
+      el.className = MARK;
+      title.appendChild(el);
+    }
+    el.textContent = "sin «" + ctx.query + "»";
+    el.title = "El buscador de la web también mira la descripción y las etiquetas: este resultado puede venir de ahí, no del título.";
+    return el;
+  }
+
+  function unmark(card) {
+    var el = card.querySelector("." + MARK);
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  }
+
+  // --- la barra ----------------------------------------------------------------------------------
+  function buildBar() {
+    if (bar) return;
+    bar = document.createElement("div");
+    bar.className = "r34gv-bar";
+    bar.setAttribute("data-r34gv", "search");
+
+    segEl = document.createElement("div");
+    segEl.className = "r34gv-seg";
+    var opts = [
+      ["only", "Solo coincidencias"],
+      ["all", "Ver todo"]
+    ];
+    for (var i = 0; i < opts.length; i++) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "r34gv-seg__btn";
+      b.setAttribute("data-mode", opts[i][0]);
+      b.textContent = opts[i][1];
+      b.onclick = choose;
+      segEl.appendChild(b);
+    }
+
+    noteEl = document.createElement("span");
+    noteEl.className = "r34gv-bar__note";
+
+    bar.appendChild(segEl);
+    bar.appendChild(noteEl);
+  }
+
+  // El bloque que la web reemplaza al paginar: la barra tiene que quedar FUERA, o se la lleva por
+  // delante. Los bloques de KVS llevan un id `custom_list_videos_*`; si no se encuentra ninguno, se
+  // cuelga la barra del contenedor de la rejilla (peor sitio, pero siempre fuera del listado).
+  function blockOf(g) {
+    var el = g;
+    while (el && el.parentNode && el.parentNode !== document.body) {
+      var id = el.id || "";
+      if (/^custom_list_/.test(id) || el.hasAttribute("data-block-id")) return el;
+      el = el.parentNode;
+    }
+    return g;
+  }
+
+  function ensureBar() {
+    buildBar();
+    if (!bar.parentNode || bar.parentNode !== (block || grid).parentNode || bar.nextSibling !== (block || grid)) {
+      var anchor = block || grid;
+      if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(bar, anchor);
+    }
+    var on = mode === "only";
+    var btns = bar.querySelectorAll(".r34gv-seg__btn");
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].classList.toggle("is-on", btns[i].getAttribute("data-mode") === mode);
+    }
+    segEl.hidden = false;
+  }
+
+  function say(text) {
+    if (!noteEl) return;
+    noteEl.textContent = text || "";
+    noteEl.hidden = !text;
+  }
+
+  // --- pintar ------------------------------------------------------------------------------------
+  // Nada se pierde por el camino: solo se mueven las fichas de vídeo, y solo si en la rejilla no hay
+  // nada más (si hay algún elemento de la web —un anuncio, un cartel— se deja el orden tal cual,
+  // porque mover fichas por delante de él lo descolocaría).
+  function reorder(sayCards, nosayCards) {
+    if (!sayCards.length || !nosayCards.length) return;
+    var kids = [].slice.call(grid.children);
+    for (var i = 0; i < kids.length; i++) {
+      var el = kids[i];
+      if (!(el.classList && el.classList.contains("item") && el.classList.contains("thumb"))) return;
+    }
+    if (grid.__r34gvOrder !== "say") {
+      for (i = 0; i < sayCards.length; i++) grid.appendChild(sayCards[i]);
+      for (i = 0; i < nosayCards.length; i++) grid.appendChild(nosayCards[i]);
+      grid.__r34gvOrder = "say";
+    }
+  }
+
+  function paint() {
+    if (!grid || !document.documentElement.contains(grid)) return;
+    var list = cards();
+    if (!list.length) return;
+    var yes = [];
+    var no = [];
+    for (var i = 0; i < list.length; i++) {
+      var card = list[i];
+      var hit = says(titleOf(card));
+      card.classList.toggle(SAY, hit);
+      card.classList.toggle(NOSAY, !hit);
+      if (hit) {
+        yes.push(card);
+        unmark(card);
+      } else {
+        no.push(card);
+        if (!card.querySelector("." + MARK)) markFor(card);
+        else markFor(card);
+      }
+    }
+    // Si no lo dice ninguno, no se oculta nada: la página se quedaría en blanco.
+    var hiding = mode === "only" && yes.length > 0;
+    for (i = 0; i < list.length; i++) list[i].classList.toggle(HIDE, hiding && list[i].classList.contains(NOSAY));
+    reorder(yes, no);
+
+    var text = yes.length + " de " + list.length + (list.length === 1 ? " título lo dice." : " títulos lo dicen.");
+    if (!yes.length) text += " Ninguno lo dice: se muestran todos (aquí vienen por la descripción).";
+    else if (hiding && no.length) text += " Ocultos los " + no.length + " que no lo dicen.";
+    else if (no.length) text = yes.length + " coinciden · " + no.length + " marcados al final (" + text + ")";
+    say(text);
+  }
+
+  function choose(e) {
+    var want = e.currentTarget.getAttribute("data-mode");
+    if (want === mode) return;
+    mode = want;
+    setPref(MODE_KEY, want);
+    var btns = bar.querySelectorAll(".r34gv-seg__btn");
+    for (var i = 0; i < btns.length; i++) btns[i].classList.toggle("is-on", btns[i] === e.currentTarget);
+    grid.__r34gvOrder = "";
+    paint();
+  }
+
+  function pass() {
+    var g = document.querySelector("#custom_list_videos_videos_list_search_items, #custom_list_videos_common_videos_items");
+    if (!g) g = document.querySelector(".main .thumbs, .thumbs");
+    if (!g) return false;
+    if (g !== grid) {
+      grid = g;
+      grid.__r34gvOrder = "";
+    }
+    block = blockOf(grid);
+    ensureBar();
+    paint();
+    return true;
+  }
+
+  function schedule() {
+    if (timer) return;
+    timer = setTimeout(function () {
+      timer = 0;
+      pass();
+    }, WAIT);
+  }
+
+  function start() {
+    if (started) return true;
+    ctx = context();
+    if (!ctx) return false;
+    var g = document.querySelector("#custom_list_videos_videos_list_search_items, #custom_list_videos_common_videos_items") || document.querySelector(".thumbs");
+    if (!g || !g.querySelector(".item.thumb")) return false;
+    tokens = tokensOf(ctx.query);
+    if (!tokens.length) return false;
+    started = true;
+    pass();
+
+    // Vigila el contenedor del bloque: la paginación de la web reemplaza el bloque entero, así que
+    // hay que volver a colgar la barra y volver a marcar. Lo que hace el userscript es un
+    // `classList.toggle`, que no dispara esto, así que no hay idas y venidas.
+    observer = new MutationObserver(function () {
+      schedule();
+    });
+    if (block && block.parentNode) observer.observe(block.parentNode, { childList: true });
+    observer.observe(grid, { childList: true });
+    return true;
+  }
+
+  // El userscript entra en document-start, así que cuando esto se ejecuta la página todavía no está:
+  // se espera a que aparezca (el propio documento la trae, o la mete su JS). Igual que core.js y
+  // profile.js: a la primera no, y luego se reintenta sin quedarse mirando para siempre.
+  if (!start()) {
+    document.addEventListener("DOMContentLoaded", start);
+    var tries = 0;
+    var retry = setInterval(function () {
+      if (start() || ++tries > 200) clearInterval(retry); // ~8 s
+    }, 40);
+  }
+
+  // Para probarlo desde la consola: r34gvSearch.status() · r34gvSearch.mode("all")
+  window.r34gvSearch = {
+    mode: function (m) {
+      if (m === "only" || m === "all") {
+        setPref(MODE_KEY, m);
+        mode = m;
+        if (grid) grid.__r34gvOrder = "";
+        if (started) pass();
+      }
+      return mode;
+    },
+    status: function () {
+      return {
+        pagina: ctx ? ctx.kind : null,
+        consulta: ctx ? ctx.query : null,
+        palabras: tokens,
+        modo: mode,
+        rejilla: grid ? grid.id || grid.className : null,
+        fichas: cards().length,
+        coinciden: grid ? cards().filter(function (c) {
+          return c.classList.contains(SAY);
+        }).length : 0,
+        ocultas: grid ? cards().filter(function (c) {
+          return c.classList.contains(HIDE);
+        }).length : 0
+      };
     }
   };
 })();
