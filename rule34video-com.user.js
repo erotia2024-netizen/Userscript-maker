@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.88
+// @version      0.1.89
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -2705,11 +2705,12 @@
   }
 
   // El bloque que la web reemplaza al paginar: la barra tiene que quedar FUERA, o se la lleva por
-  // delante. Los bloques de KVS llevan un id `custom_list_videos_*`; si no se encuentra ninguno, se
-  // cuelga la barra del contenedor de la rejilla (peor sitio, pero siempre fuera del listado).
+  // delante. Los bloques de KVS llevan un id `custom_list_videos_*` y la rejilla va dentro, así que
+  // se busca ese ancestro (empezando por el padre: la rejilla también empieza por `custom_list_` en
+  // su id —`…_items`— y esa no es la pieza que se reemplaza).
   function blockOf(g) {
-    var el = g;
-    while (el && el.parentNode && el.parentNode !== document.body) {
+    var el = g.parentNode;
+    while (el && el.nodeType === 1 && el !== document.body) {
       var id = el.id || "";
       if (/^custom_list_/.test(id) || el.hasAttribute("data-block-id")) return el;
       el = el.parentNode;
