@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.187
+// @version      0.1.188
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1780,9 +1780,14 @@
     nodes.forEach(function (node) {
       if (textNode(node)) count++;
     });
-    // 3. Los atributos que se ven.
+    // 3. Los atributos que se ven. Ojo: lo que la web añade por AJAX llega aquí siendo *él mismo* el
+    //    nodo nuevo (una ficha suelta), y un `querySelectorAll` no se mira a sí mismo: el nodo de
+    //    arriba entra en la lista a mano, que si no sus propios `title` se quedaban sin traducir.
     var names = Object.keys(ATTRS);
-    hf.qa(names.map(function (k) { return "[" + k + "]"; }).join(","), root).forEach(function (el) {
+    var attrSel = names.map(function (k) { return "[" + k + "]"; }).join(",");
+    var targets = hf.qa(attrSel, root);
+    if (root !== document.body && root.matches && root.matches(attrSel)) targets.unshift(root);
+    targets.forEach(function (el) {
       if (skip(el)) return;
       names.forEach(function (name) {
         if (attr(el, name)) count++;
