@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.113
+// @version      0.1.114
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -682,6 +682,19 @@
     }
   }
 
+  // La web mete su `<embed>` con `container.innerHTML += html`. Eso NO añade un nodo: vuelve a
+  // construir todo lo que había dentro del contenedor, así que nuestra barra (y su nota) se quedan
+  // fuera y en su sitio aparece una COPIA sin los manejadores de los botones (el texto se queda
+  // congelado y «▶ Jugar» no respondería). Cuando pasa, se quita la copia y se vuelve a colocar la
+  // barra de verdad.
+  function reattachBar() {
+    if (!stage || !bar) return;
+    if (bar.isConnected && bar.parentElement === stage) return;
+    var stale = q("#hf-bar");
+    if (stale && stale !== bar) stale.remove();
+    stage.appendChild(bar);
+  }
+
   var run = 0;
 
   function start() {
@@ -895,6 +908,7 @@
   function pollState() {
     if (!note) return;
     dedupePlayers();
+    reattachBar();
     var ctrl = siteVar("ctrl");
     // La web monta su controlador tarde (cuando Ruffle termina de cargar el juego) y al montarse
     // pone su tamaño de siempre («orig», 450 px). Mientras no esté a NUESTRO tamaño se le vuelve a
