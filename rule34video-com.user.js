@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.89
+// @version      0.1.90
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -2781,10 +2781,19 @@
     for (i = 0; i < list.length; i++) list[i].classList.toggle(HIDE, hiding && list[i].classList.contains(NOSAY));
     reorder(yes, no);
 
-    var text = yes.length + " de " + list.length + (list.length === 1 ? " título lo dice." : " títulos lo dicen.");
-    if (!yes.length) text += " Ninguno lo dice: se muestran todos (aquí vienen por la descripción).";
-    else if (hiding && no.length) text += " Ocultos los " + no.length + " que no lo dicen.";
-    else if (no.length) text = yes.length + " coinciden · " + no.length + " marcados al final (" + text + ")";
+    var total = list.length;
+    var uno = total === 1 ? "título" : "títulos";
+    var text;
+    if (!yes.length) {
+      // Ni uno: no se oculta nada (la página se quedaría en blanco) y se explica por qué están ahí.
+      text = "Ninguno de los " + total + " " + uno + " lo dice: se muestran todos (la web los trae por la descripción).";
+    } else if (hiding) {
+      text = yes.length + " de " + total + " " + uno + " lo dicen · ocultos los " + no.length + " que no.";
+    } else if (no.length) {
+      text = yes.length + " de " + total + " " + uno + " lo dicen · los otros " + no.length + " al final, marcados.";
+    } else {
+      text = "Los " + total + " " + uno + " lo dicen.";
+    }
     say(text);
   }
 
