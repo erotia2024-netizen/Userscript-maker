@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.163
+// @version      0.1.164
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1605,10 +1605,13 @@
   // =============================================================================================
   function tr(s) {
     if (!s) return s;
-    var v = DICT[s];
+    // La web a veces corta las frases con dos espacios de más («OLD  HENTAI FLASH GAMES», con el
+    // hueco que deja una etiqueta vacía): se busca por el texto ya normalizado.
+    var key = s.replace(/\s+/g, " ");
+    var v = DICT[key];
     if (v != null) return v;
     for (var i = 0; i < PATTERNS.length; i++) {
-      if (PATTERNS[i][0].test(s)) return s.replace(PATTERNS[i][0], PATTERNS[i][1]);
+      if (PATTERNS[i][0].test(key)) return key.replace(PATTERNS[i][0], PATTERNS[i][1]);
     }
     return s;
   }
