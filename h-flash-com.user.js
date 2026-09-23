@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.155
+// @version      0.1.156
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -543,7 +543,7 @@
 
   // Las redes de redirección y popunder de siempre: las que reparten anuncios que son un salto a su
   // web (`trafficoza.com/click?…` es una de ellas).
-  var REDIRECT_HOSTS = /(^|\.)(trafficoza|onclick(ads|max|algo|papa|best|mega|top|hi)|pop(ads|under|myads)|click(under|adu|aine|io)?|adcash|adsterra|monetag|propellerads|ad-?maven|exoclick|juicyads|trafficjunky|realsrv|exdynsrv|tsyndicate|hilltopads|adnium|bidvertiser|mgid|revenuehits|adexchange[a-z0-9-]*|nettrck|logivanta[0-9]*|adf(\.ly|oc\.us)|linkvertise|shorte\.st|ouo\.io)\./i;
+  var REDIRECT_HOSTS = /(^|\.)(trafficoza|onclick(ads|max|algo|papa|best|mega|top|hi)|pop(ads|under|myads)|click(under|adu|aine|io)?|adcash|adsterra|monetag|propellerads|ad-?maven|exoclick|juicyads|trafficjunky|realsrv|exdynsrv|tsyndicate|hilltopads|adnium|bidvertiser|mgid|revenuehits|(in)?ads?exchange[a-z0-9-]*|nettrck|logivanta[0-9]*|adf(\.ly|oc\.us)|linkvertise|shorte\.st|ouo\.io)\./i;
   // Y la pinta, para las que no están en la lista (estas redes cambian de dominio cada pocas
   // semanas): un dominio de tráfico/clic/anuncio con los parámetros de una campaña.
   var TRAP_HOST = /(^|\.)[a-z0-9-]*(click|onclick|popunder|clickunder|redir|traffic|traf|adtrack|adserv|adserver|adsrv|trk|trck)[a-z0-9-]*\./i;
@@ -808,6 +808,28 @@
     return cs.display === "none" || cs.visibility === "hidden" || cs.opacity === "0";
   }
 
+  // El otro truco del popunder: un `<a>` **vacío** —ni texto, ni imagen, ni fondo— pero del tamaño de
+  // un banner. Nadie ve nada, así que nadie puede pulsarlo a propósito: es una alfombra para recoger
+  // el clic de lo que tenga debajo. En h-flash hay una de 728x90 justo encima del selector de
+  // LAYOUT del pie (el clic en «auto/PC/Mobile» abría su web de anuncios). Sin contenido visible, el
+  // clic no era suyo: se corta igual que el de un enlace fantasma.
+  function emptyTrap(a) {
+    if (!a || a.nodeType !== 1) return false;
+    var r;
+    try {
+      r = a.getBoundingClientRect();
+    } catch (e) {
+      return false;
+    }
+    if (r.width < 60 || r.height < 30) return false;
+    if (String(a.textContent || "").replace(/\s+/g, "").length) return false;
+    if (a.querySelector && a.querySelector("img, svg, video, canvas, iframe, object, embed, picture")) return false;
+    var cs = window.getComputedStyle(a);
+    if (!cs) return false;
+    if (/url\(/.test(cs.backgroundImage || "")) return false;
+    return true;
+  }
+
   function anchorIn(ev) {
     var path;
     try {
@@ -845,6 +867,7 @@
     var why = "";
     if (ghost(a)) why = "clic sobre un enlace invisible";
     else if (adDest(href)) why = "enlace a una web de anuncios";
+    else if (emptyTrap(a)) why = "enlace vacío del tamaño de un banner (alfombra de clics)";
     if (!why) return;
     blocked("anchor", href, why);
     ev.preventDefault();
@@ -895,6 +918,16 @@
       var inner = node.querySelector ? node.querySelector("iframe[src]") : null;
       blocked("overlay", (inner && inner.getAttribute("src")) || node.id || node.className, "intersticial");
       node.remove();
+    });
+
+    // Y las alfombras de clics: un enlace vacío del tamaño de un banner (ver `emptyTrap`) colgado
+    // del cuerpo o de una caja suelta del cuerpo no enseña nada — está ahí sólo para recoger el clic
+    // de lo que tenga debajo. Se va.
+    hf.qa("body > a, body > div > a").forEach(function (a) {
+      if (!a.getAttribute || own(a.getAttribute("href") || "")) return;
+      if (!emptyTrap(a)) return;
+      blocked("anchor", a.getAttribute("href"), "alfombra de clics invisible");
+      a.remove();
     });
   }
 
@@ -1036,7 +1069,7 @@
             if (tag === "A" || tag === "AREA") {
               var href = this.getAttribute("href") || "";
               if (href && !own(href)) {
-                var why = hiddenLink(this) ? "clic fantasma" : adDest(href) ? "enlace a una web de anuncios" : "";
+                var why = hiddenLink(this) ? "clic fantasma" : adDest(href) ? "enlace a una web de anuncios" : emptyTrap(this) ? "enlace vacío del tamaño de un banner (alfombra de clics)" : "";
                 if (why) {
                   blocked("anchor", href, why);
                   return undefined;
