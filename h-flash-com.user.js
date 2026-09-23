@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.167
+// @version      0.1.168
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1614,8 +1614,30 @@
     [/^([\d.,]+) ?\/5 rating voted by ([\d.,]+) players$/, "$1/5, votado por $2 jugadores"],
     [/^Search "(.*)"$/, "Búsqueda: «$1»"],
     [/^Related tags : (.*)$/, "Etiquetas relacionadas: $1"],
-    [/^(\d+) rows?$/, "$1 filas"]
+    [/^(\d+) rows?$/, "$1 filas"],
+    // La fecha de publicación de la ficha («July 24, 2002»).
+    [
+      /^(January|February|March|April|May|June|July|August|September|October|November|December) (\d{1,2}), (\d{4})$/,
+      function (all, month, day, year) {
+        return day + " de " + MESES[month] + " de " + year;
+      }
+    ]
   ];
+
+  var MESES = {
+    January: "enero",
+    February: "febrero",
+    March: "marzo",
+    April: "abril",
+    May: "mayo",
+    June: "junio",
+    July: "julio",
+    August: "agosto",
+    September: "septiembre",
+    October: "octubre",
+    November: "noviembre",
+    December: "diciembre"
+  };
 
   // Los atributos que también se leen (el texto de los botones, el ejemplo de los campos, los
   // títulos que aparecen al pasar el ratón).
@@ -1769,10 +1791,12 @@
   // =============================================================================================
   // EL DESPLEGABLE DEL PIE
   // =============================================================================================
-  // La web pone dos enlaces en el bloque «LANGUAGE». Aquí se cogen sus direcciones (inglés y
-  // japonés: las que la propia web pone, así el desplegable sigue funcionando aunque cambien) y se
-  // añade el español. Los dos enlaces se esconden, pero se quedan en el documento.
-  var hrefs = { en: "", ja: "" };
+  // La web pone sus idiomas como enlaces en el bloque «LANGUAGE»: dos en casi todas las páginas y
+  // **cuatro** (inglés, japonés, ruso y chino) en el editor de partidas. El desplegable se monta con
+  // los que la web ponga —sus direcciones y sus nombres, tal cual— y se le añade el español: así no
+  // se pierde ninguno de los suyos por el camino. Los enlaces se esconden, pero se quedan en el
+  // documento.
+  var langs = null;
 
   function links() {
     var box = hf.q(".pagefoot .language");
@@ -1780,14 +1804,28 @@
     return { box: box, anchors: hf.qa("a[href]", box) };
   }
 
-  function url(anchors, wantJa) {
-    for (var i = 0; i < anchors.length; i++) {
-      var h = anchors[i].getAttribute("href") || "";
-      var isJa = /(^|\.)ja\./i.test(h) || /^https?:\/\/ja\./i.test(h);
-      if (isJa === !!wantJa) return hf.abs(h);
-    }
-    // Si la web cambiara los enlaces, al menos se navega a lo que toque por dominio.
-    return (wantJa ? "https://ja.h-flash.com" : "https://h-flash.com") + location.pathname;
+  function read(anchors) {
+    return anchors.map(function (a) {
+      var href = hf.abs(a.getAttribute("href") || "");
+      var host = "";
+      try {
+        host = new URL(href, location.href).hostname;
+      } catch (e) {}
+      return { value: href, label: a.textContent.replace(/\s+/g, " ").trim() || href, host: host };
+    });
+  }
+
+  // El enlace «de casa»: el de la web inglesa (en `ja.h-flash.com` es el que no es de `ja.`), que es
+  // a donde se va cuando aquí no se puede traducir (la versión japonesa) y se elige español.
+  function mainLang() {
+    var list = langs || [];
+    for (var i = 0; i < list.length; i++) if (!/^ja\./i.test(list[i].host)) return list[i];
+    return list[0] || null;
+  }
+
+  function homeUrl() {
+    var main = mainLang();
+    return (main && main.value) || (JA ? "https://h-flash.com" : location.origin) + location.pathname;
   }
 
   function build() {
@@ -1797,16 +1835,11 @@
     var sel = hf.q("#hf-lang", box);
     if (!sel) {
       if (!got.anchors.length) return false;
-      hrefs.en = url(got.anchors, false);
-      hrefs.ja = url(got.anchors, true);
+      langs = read(got.anchors);
       sel = document.createElement("select");
       sel.id = "hf-lang";
       sel.setAttribute("aria-label", "Idioma de la web");
-      [
-        { value: hrefs.en, label: "English" },
-        { value: hrefs.ja, label: "日本語" },
-        { value: "es", label: "Español" }
-      ].forEach(function (o) {
+      langs.concat([{ value: "es", label: "Español" }]).forEach(function (o) {
         var op = document.createElement("option");
         op.value = o.value;
         op.textContent = o.label;
@@ -1821,7 +1854,14 @@
       });
     }
     // El que está puesto: el español si lo tenemos puesto, si no el del dominio en el que estamos.
-    var want = hf.settings.lang === "es" ? "es" : JA ? hrefs.ja : hrefs.en;
+    var want = "es";
+    if (hf.settings.lang !== "es") {
+      var mine = null;
+      (langs || []).forEach(function (o) {
+        if (!mine && o.host === location.hostname) mine = o;
+      });
+      want = ((mine || mainLang() || {}).value) || "";
+    }
     if (want && sel.value !== want) sel.value = want;
     return true;
   }
@@ -1829,7 +1869,7 @@
   function pick(value) {
     if (value === "es") {
       if (JA) {
-        location.href = (hrefs.en || "https://h-flash.com" + location.pathname) + MARK_ES;
+        location.href = homeUrl() + MARK_ES;
         return;
       }
       hf.set("lang", "es");
