@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.188
+// @version      0.1.189
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -3192,6 +3192,9 @@
         map[id] = name;
         changed = true;
       }
+      // Las que pinta la web desde el servidor llevan su propia pista; se la ponemos igual que a las
+      // nuestras (las de esta página quitan, no ponen).
+      if (a.getAttribute("title") !== "Clic para quitarla") a.setAttribute("title", "Clic para quitarla");
     });
     chips(b.results).forEach(function (a) {
       var id = String(a.getAttribute("tagid"));
