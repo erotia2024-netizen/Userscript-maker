@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.168
+// @version      0.1.169
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1461,6 +1461,8 @@
     "TOP 1000 HENTAI FLASH GAMES": "LOS 1000 JUEGOS FLASH HENTAI MEJOR VALORADOS",
     "Previous Page": "Anterior",
     "Next Page": "Siguiente",
+    "First Page": "Primera página",
+    "Last Page": "Última página",
     "MY FAVORITES": "MIS FAVORITOS",
     "HIGHEST RATED": "MEJOR VALORADOS",
     "MOST PLAYED": "MÁS JUGADOS",
