@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.140
+// @version      0.1.141
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -601,8 +601,8 @@
     // pegado al borde derecho de la columna y arriba con el banner
     var left = Math.round(cr.left + sx + Math.max(0, cr.width - colW));
     var top = Math.round(br.top + sy);
-    // y la columna arranca debajo de él, para que no se pisen
-    var pad = Math.max(0, Math.round(top + colH - (cr.top + sy)));
+    // y la columna arranca debajo de él, con un respiro, para que no se pisen
+    var pad = Math.max(0, Math.round(top + colH + 10 - (cr.top + sy)));
     document.documentElement.classList.add("hf-ads-side");
     col.dataset.hfSide = "1";
     right.dataset.hfSide = "1";
