@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.160
+// @version      0.1.161
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1662,6 +1662,13 @@
     if (!root) return 0;
     var count = 0;
     // 1. Los elementos que hay que rehacer enteros (el «Bug Report» con su palabra en rojo).
+    Object.keys(IDS).forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el || skip(el)) return;
+      if (el.textContent.replace(/\s+/g, " ").trim() === IDS[id]) return;
+      el.textContent = IDS[id];
+      count++;
+    });
     hf.qa("a, span, b, strong", root).forEach(function (el) {
       var t = (el.textContent || "").replace(/\s+/g, " ").trim();
       if (ELEMS[t] && !el.querySelector("iframe")) {
