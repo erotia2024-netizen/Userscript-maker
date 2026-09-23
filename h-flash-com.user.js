@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.164
+// @version      0.1.165
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1465,6 +1465,26 @@
     Filter: "Filtrar",
     "descending": "descendente",
     "ascending": "ascendente",
+    // El formulario del filtro avanzado (`/list/`)
+    "Title:": "Título:",
+    "Applied Tags:": "Etiquetas aplicadas:",
+    "Sort:": "Orden:",
+    "PageSize:": "Por página:",
+    "rating": "valoración",
+    "play count": "visitas",
+    "title": "título",
+    "update date": "fecha de actualización",
+    "release date": "fecha de publicación",
+    Mobile: "Móvil",
+
+    // --- La página de ayuda del reproductor (`/plugin/flash/`) ---
+    "TL;DR. mobile => Ruffle, PC => HFlashPlayer": "RESUMEN: en el móvil → Ruffle, en PC → HFlashPlayer",
+    "Solution: Ruffle": "Solución: Ruffle",
+    "Solution: HFlashPlayer": "Solución: HFlashPlayer",
+    "Solution: Download": "Solución: descargar",
+    "Solution: Browsers that still support Flash": "Solución: navegadores que aún soportan Flash",
+    "Alternate archived old version plugin package": "Paquete alternativo del complemento (versión antigua archivada)",
+    "Please leave a comment if you need help": "Si necesitas ayuda, deja un comentario",
 
     // --- La ficha de juego: la información ---
     "Game Info": "Información del juego",
@@ -1574,7 +1594,8 @@
     ],
     [/^([\d.,]+) ?\/5 rating voted by ([\d.,]+) players$/, "$1/5, votado por $2 jugadores"],
     [/^Search "(.*)"$/, "Búsqueda: «$1»"],
-    [/^Related tags : (.*)$/, "Etiquetas relacionadas: $1"]
+    [/^Related tags : (.*)$/, "Etiquetas relacionadas: $1"],
+    [/^(\d+) rows?$/, "$1 filas"]
   ];
 
   // Los atributos que también se leen (el texto de los botones, el ejemplo de los campos, los
