@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.151
+// @version      0.1.152
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -475,8 +475,12 @@
 // impresión, ni un céntimo. Lo que se corta es lo que usa al visitante como mercancía:
 //
 //   · ventanas y pestañas que se abren solas (popups/popunders), vengan de donde vengan;
-//   · redirecciones al pinchar: el iframe del anuncio navegando la pestaña con un clic que no era
-//     suyo, o un `<a>` fantasma (invisible, fuera del documento) que el script pulsa por ti;
+//   · redirecciones: el iframe del anuncio navegando la pestaña con un clic que no era suyo, un
+//     `<a>` fantasma (invisible, fuera del documento) que el script pulsa por ti, un formulario o
+//     un `meta refresh` que te manda lejos, o un enlace a una **web de anuncios** — las redes de
+//     redirección y popunder tipo `trafficoza.com/click?key=…&zone=…&mzone=…` (`onclickads`,
+//     `popads`, `propellerads`, `adsterra`, `monetag`…). Son las que el bloqueador del navegador
+//     frena, y por eso te queda la pestaña de advertencia encima;
 //   · pantallas completas de anuncio (interstitiales) que tapan la página entera.
 //
 // Nada de eso es lo que paga el anuncio que se ve en la página: la impresión se cuenta igual. Los
@@ -486,19 +490,30 @@
 // Cómo se corta, de lo más eficaz a lo menos:
 //
 //   1. **El `sandbox` de los iframes de anuncio.** El sitio los crea con
-//      `allow-popups allow-popups-to-escape-sandbox`, que es justo el permiso que necesitan para
-//      abrir pestañas. Sin `allow-popups`, un iframe **no puede** abrir nada: el anuncio se sigue
-//      viendo y contando igual. La bandera solo se lee al empezar a navegar el iframe, así que hay
-//      que quitarla *antes*: por eso se enganchan `setAttribute`, la propiedad `sandbox`, la
-//      propiedad `src` (justo antes de que arranque la carga) y `appendChild`/`insertBefore`
-//      (justo antes de que el iframe entre en el documento, que es cuando empieza a cargar).
-//   2. **`window.open` de la página.** Se deja pasar lo que apunta a la propia web (o no apunta a
+//      `allow-top-navigation-by-user-activation … allow-popups allow-popups-to-escape-sandbox`, que
+//      son justo los permisos que necesita un creativo para llevarte a su web con un clic tuyo (el
+//      de arriba: la bandera de `top-navigation` es la que hace posible el salto a `trafficoza`, y
+//      `allow-popups` la que abre pestañas). Sin ellas un iframe **no puede** tocar la pestaña: el
+//      anuncio se sigue viendo y contando igual. Las banderas solo se leen al empezar a navegar el
+//      iframe, así que hay que quitarlas *antes*: por eso se enganchan `setAttribute`, la propiedad
+//      `sandbox`, la propiedad `src` (justo antes de que arranque la carga) y
+//      `appendChild`/`insertBefore`/`replaceChild` (justo antes de que el iframe entre en el
+//      documento, que es cuando empieza a cargar). A un iframe de anuncio que venga **sin**
+//      `sandbox` se le pone el mínimo (`allow-scripts allow-same-origin allow-forms`): sin la
+//      bandera de arriba tampoco podrá saltar.
+//   2. **La navegación de la pestaña** (`Navigation` API, la que entiende el navegador). Se corta
+//      *cualquier* intento de llevar la pestaña a una web de anuncios: el clic de un enlace, el
+//      `location.href = …` de un script, el `submit()` de un formulario o un `meta refresh`. Es la
+//      única puerta que queda después del `sandbox`, y la última línea de defensa: en el navegador
+//      que no la tenga (Firefox/Safari) quedan los enganches de clic, envío de formulario y
+//      `meta refresh` que están más abajo.
+//   3. **`window.open` de la página.** Se deja pasar lo que apunta a la propia web (o no apunta a
 //      ningún sitio: `about:blank`, `blob:`…) y se descarta lo demás. Un `<a target="_blank">` de
 //      la web no pasa por aquí: eso lo abre el navegador, y el visitante decide.
-//   3. **El clic sintético sobre un `<a>` que no se ve.** Crear el enlace, pulsarlo y tirarlo es el
-//      truco de manual del popunder; un enlace de verdad está en el documento y a la vista, porque
-//      alguien tiene que pulsarlo.
-//   4. **El intersticial.** Un iframe de anuncio (o una caja cuyo único contenido es un anuncio)
+//   4. **El clic sobre un `<a>` que no se ve** (creado, pulsado y tirado; o puesto por encima de
+//      la pantalla con `opacity:0` que es el truco de manual del popunder), y el clic sobre
+//      cualquier enlace que apunte a una web de anuncios, aunque se vea.
+//   5. **El intersticial.** Un iframe de anuncio (o una caja cuyo único contenido es un anuncio)
 //      que aparece tapando la pantalla y sin nada más dentro: se va, porque no hay manera de
 //      enseñarlo sin tapar la web.
 //
@@ -516,12 +531,27 @@
   // Los huecos de publicidad, para reconocer un anuncio cuando hay que decidir si algo es un
   // intersticial (la misma lista que usa el aplazado de `core.js`).
   var AD_HOSTS = hf.adHosts || /(adglare|sadbaguette|acscdn|magsrv|exoclick|juicyads)/i;
-  var POPUPS = /allow-popups/;
-  var ALLOW = /\ballow-popups(-to-escape-sandbox)?\b\s*/g;
+
+  // Lo que le da a un iframe una salida de la página. Para verse y contar, un anuncio solo necesita
+  // `allow-scripts` (y, si acaso, `allow-same-origin` y `allow-forms`); todo lo demás es para
+  // moverse: navegar la pestaña (con o sin permiso de tu clic), abrir ventanas, descargar cosas o
+  // sacar modales.
+  var ESCAPE = /allow-(popups(-to-escape-sandbox)?|top-navigation(-by-user-activation|-to-custom-protocols)?|downloads|modals|storage-access-by-user-activation)/;
+  var ESCAPE_G = /allow-(popups(-to-escape-sandbox)?|top-navigation(-by-user-activation|-to-custom-protocols)?|downloads|modals|storage-access-by-user-activation)\s*/g;
+  // Lo que se le pone a un iframe de anuncio que venga sin `sandbox`: puede pintarse, nada más.
+  var BASELINE = "allow-scripts allow-same-origin allow-forms";
+
+  // Las redes de redirección y popunder de siempre: las que reparten anuncios que son un salto a su
+  // web (`trafficoza.com/click?…` es una de ellas).
+  var REDIRECT_HOSTS = /(^|\.)(trafficoza|onclick(ads|max|algo|papa|best|mega|top|hi)|pop(ads|under|myads)|click(under|adu|aine|io)?|adcash|adsterra|monetag|propellerads|ad-?maven|exoclick|juicyads|trafficjunky|realsrv|exdynsrv|tsyndicate|hilltopads|adnium|bidvertiser|mgid|revenuehits|adexchange[a-z0-9-]*|nettrck|logivanta[0-9]*|adf(\.ly|oc\.us)|linkvertise|shorte\.st|ouo\.io)\./i;
+  // Y la pinta, para las que no están en la lista (estas redes cambian de dominio cada pocas
+  // semanas): un dominio de tráfico/clic/anuncio con los parámetros de una campaña.
+  var TRAP_HOST = /(^|\.)[a-z0-9-]*(click|onclick|popunder|clickunder|redir|traffic|traf|adtrack|adserv|adserver|adsrv|trk|trck)[a-z0-9-]*\./i;
+  var CAMPAIGN = /[?&](zone|mzone|zoneid|zone_id|qtier|campaign|campaignid|advertiser|cid|clickid|click_id|redirection_cost|pubid|banner_id|spot|creative|creativeid|adg|externalid|adzone|ad_id|adgroup)=/gi;
 
   var MSG = {
     popup: "Ventana emergente bloqueada",
-    anchor: "Redirección automática bloqueada",
+    anchor: "Redirección a una web de anuncios bloqueada",
     overlay: "Anuncio a pantalla completa cerrado"
   };
 
@@ -529,11 +559,11 @@
   var hist = [];
   var subs = [];
   var undo = [];
+  var layers = [];
   var on = false;
   var watching = false;
   var toastAt = 0;
   var origSet = null;
-  var origAppend = null;
 
   function total() {
     return stats.popup + stats.anchor + stats.overlay;
@@ -549,8 +579,8 @@
 
   // Apuntar un corte: al marcador, al historial (los últimos 25, para poder mirarlos desde la
   // consola con `hf.shield.log`) y a un aviso si hace falta.
-  function blocked(kind, url) {
-    hist.unshift({ kind: kind, url: String(url == null ? "" : url).slice(0, 300), at: Date.now() });
+  function blocked(kind, url, how) {
+    hist.unshift({ kind: kind, how: String(how || ""), url: String(url == null ? "" : url).slice(0, 300), at: Date.now() });
     if (hist.length > 25) hist.pop();
     if (kind in stats) stats[kind]++;
     notify(hist[0]);
@@ -561,7 +591,7 @@
   }
 
   // =============================================================================================
-  // ¿ESTO ES DE LA WEB, O DE FUERA?
+  // ¿ESTO ES DE LA WEB, O DE FUERA? ¿ES UNA WEB DE ANUNCIOS?
   // =============================================================================================
   function sameHost(a, b) {
     a = String(a || "").toLowerCase();
@@ -590,13 +620,35 @@
     return SITE.test(u.hostname);
   }
 
+  // ¿A dónde te lleva esto? A una web de anuncios: o el sitio es de una de las redes (por dominio),
+  // o la dirección tiene la pinta de una campaña (varios parámetros de los suyos). Lo que apunta a
+  // la propia web nunca lo es, se diga lo que se diga.
+  function adDest(url) {
+    var s = String(url == null ? "" : url).trim();
+    if (!s) return false;
+    var u;
+    try {
+      u = new URL(s, location.href);
+    } catch (e) {
+      return false;
+    }
+    if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+    if (own(u.href)) return false;
+    var h = u.hostname.toLowerCase();
+    if (AD_HOSTS.test(h) || REDIRECT_HOSTS.test(h)) return true;
+    var hits = (u.search.match(CAMPAIGN) || []).length;
+    if (hits >= 3) return true;
+    return hits >= 2 && TRAP_HOST.test(h);
+  }
+
   // =============================================================================================
-  // 1. EL `SANDBOX` DE LOS IFRAMES DE ANUNCIO (sin `allow-popups` no pueden abrir nada)
+  // 1. EL `SANDBOX` DE LOS IFRAMES DE ANUNCIO (sin las banderas de salida no pueden ir a ningún
+  //    sitio ni abrir nada)
   // =============================================================================================
   function writeSandbox(frame, value) {
     var s = String(value == null ? "" : value);
-    if (!POPUPS.test(s)) return false;
-    s = s.replace(ALLOW, "").replace(/\s+/g, " ").trim();
+    if (!ESCAPE.test(s)) return false;
+    s = s.replace(ESCAPE_G, "").replace(/\s+/g, " ").trim();
     stats.sandbox++;
     notify(null);
     try {
@@ -605,32 +657,108 @@
     return true;
   }
 
-  function tidyFrame(frame) {
+  // A un iframe de anuncio sin `sandbox` se le pone el mínimo. Sin la bandera de `top-navigation`
+  // (que es la que el sitio no le pone porque no tiene `sandbox` ninguno) tampoco podrá llevar la
+  // pestaña a su web con un clic tuyo.
+  function sealHost(frame, src) {
+    if (!frame || frame.tagName !== "IFRAME") return false;
+    if (frame.getAttribute("sandbox") != null) return false; // ya tiene: lo suyo es `tidyFrame`
+    var url = String(src == null ? "" : src);
+    if (!url || own(url)) return false;
+    if (!adDest(url)) return false;
+    try {
+      origSet.call(frame, "sandbox", BASELINE);
+    } catch (e) {
+      return false;
+    }
+    stats.sandbox++;
+    notify(null);
+    return true;
+  }
+
+  function tidyFrame(frame, nextSrc) {
+    if (!frame || frame.tagName !== "IFRAME") return false;
     var v = frame.getAttribute ? frame.getAttribute("sandbox") : null;
-    if (v == null || !POPUPS.test(v)) return false;
+    if (v == null) return sealHost(frame, nextSrc != null ? nextSrc : frame.getAttribute("src") || "");
+    if (!ESCAPE.test(v)) return false;
     return writeSandbox(frame, v);
+  }
+
+  // Un `meta refresh` que apunta a una web de anuncios: ni entrar. Es una redirección como
+  // cualquier otra, y en un `<meta>` metido por un script pasa desapercibida.
+  function metaTrap(node) {
+    if (!node || node.tagName !== "META") return false;
+    var eq = String(node.getAttribute("http-equiv") || "").toLowerCase();
+    if (eq !== "refresh") return false;
+    var c = String(node.getAttribute("content") || "");
+    var m = c.match(/url\s*=\s*["']?\s*([^"';]+)/i);
+    if (!m) return false;
+    var url = m[1].trim();
+    if (!adDest(url)) return false;
+    blocked("anchor", url, "meta refresh");
+    return true;
   }
 
   // Limpiar un nodo que va a entrar en el documento (o un fragmento entero de una vez) **antes** de
   // que entre: en cuanto un iframe se cuelga del documento empieza a cargar, y ahí ya está decidido
-  // con qué permisos.
-  function scan(node) {
-    if (!node) return;
+  // con qué permisos. Devuelve `true` cuando el nodo no debe entrar (el `meta refresh` condenado).
+  function scan(node, nextSrc) {
+    if (!node) return false;
     var t = node.nodeType;
     if (t === 1) {
-      if (node.tagName === "IFRAME") return tidyFrame(node);
-      if (!node.firstElementChild || !node.querySelectorAll) return;
+      if (node.tagName === "IFRAME") {
+        tidyFrame(node, nextSrc);
+        return false;
+      }
+      if (node.tagName === "META") return metaTrap(node);
+      if (!node.querySelectorAll) return false;
     } else if (t !== 9 && t !== 11) {
-      return;
+      return false;
     } else if (!node.querySelectorAll) {
-      return;
+      return false;
     }
-    var frames = node.querySelectorAll("iframe[sandbox]");
+    var frames = node.querySelectorAll("iframe");
     for (var i = 0; i < frames.length; i++) tidyFrame(frames[i]);
+    var metas = node.querySelectorAll("meta[http-equiv]");
+    for (var j = 0; j < metas.length; j++) if (metaTrap(metas[j])) metas[j].remove();
+    return false;
   }
 
   // =============================================================================================
-  // 2. `window.open`, 3. EL CLIC FANTASMA Y 4. EL INTERSTICIAL
+  // 2. LA NAVEGACIÓN DE LA PESTAÑA (la última puerta: `location.href`, `submit()`, `meta refresh`,
+  //    el clic de un enlace… todo pasa por aquí en los navegadores que la tienen)
+  // =============================================================================================
+  function navTrap(ev) {
+    if (!on) return;
+    var url = "";
+    try {
+      url = (ev.destination && ev.destination.url) || "";
+    } catch (e) {
+      url = "";
+    }
+    if (!adDest(url)) return;
+    blocked("anchor", url, "navegación (" + (ev.navigationType || "?") + ")");
+    try {
+      ev.preventDefault();
+    } catch (e) {}
+  }
+
+  // Un `submit` de verdad (el del clic en el botón): se mira a dónde manda el formulario antes de
+  // que el navegador salga.
+  function onSubmit(ev) {
+    if (!on) return;
+    var f = ev.target;
+    if (!f || f.tagName !== "FORM") return;
+    var act = f.getAttribute("action") || "";
+    if (!act) return;
+    if (!adDest(act)) return;
+    blocked("anchor", act, "envío de formulario");
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+  }
+
+  // =============================================================================================
+  // 3. `window.open` Y 4. EL CLIC (el fantasma y el de verdad)
   // =============================================================================================
   // Una «ventana» inerte para lo que se bloquea: los scripts que la usan siguen sin reventar (y
   // `closed` ya es `true`, así que el suyo tampoco se queda colgado esperando).
@@ -666,6 +794,66 @@
     return cs.display === "none" || cs.visibility === "hidden" || cs.opacity === "0";
   }
 
+  // Lo que el visitante no puede estar pulsando a propósito: un enlace que no se ve (transparente,
+  // escondido: está ahí solo para recoger el clic, que es el otro truco de manual del popunder).
+  function ghost(a) {
+    if (!a || a.nodeType !== 1) return false;
+    try {
+      if (!a.isConnected) return true;
+    } catch (e) {
+      return false;
+    }
+    var cs = window.getComputedStyle(a);
+    if (!cs) return false;
+    return cs.display === "none" || cs.visibility === "hidden" || cs.opacity === "0";
+  }
+
+  function anchorIn(ev) {
+    var path;
+    try {
+      path = ev.composedPath ? ev.composedPath() : null;
+    } catch (e) {
+      path = null;
+    }
+    if (!path) {
+      var n = ev.target;
+      while (n && n.nodeType === 1) {
+        if (n.tagName === "A" || n.tagName === "AREA") return n;
+        n = n.parentElement;
+      }
+      return null;
+    }
+    for (var i = 0; i < path.length; i++) {
+      var node = path[i];
+      if (!node || node.nodeType !== 1) continue;
+      if (node.tagName === "A" || node.tagName === "AREA") return node;
+      if (node.tagName === "BODY" || node.tagName === "HTML") break;
+    }
+    return null;
+  }
+
+  // El clic de verdad del visitante (fase de captura, así el enlace ni se enteran los scripts de la
+  // web): se corta el que apunta a una web de anuncios —mire el visitante o no dónde pincha— y el
+  // que cae sobre un enlace fantasma.
+  function onUserClick(ev) {
+    if (!on) return;
+    if (ev.button != null && ev.button !== 0) return;
+    var a = anchorIn(ev);
+    if (!a) return;
+    var href = a.getAttribute ? a.getAttribute("href") || "" : "";
+    if (!href || own(href)) return;
+    var why = "";
+    if (ghost(a)) why = "clic sobre un enlace invisible";
+    else if (adDest(href)) why = "enlace a una web de anuncios";
+    if (!why) return;
+    blocked("anchor", href, why);
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+  }
+
+  // =============================================================================================
+  // 5. EL INTERSTICIAL
+  // =============================================================================================
   function adFrame(node) {
     return !!(node && node.tagName === "IFRAME" && AD_HOSTS.test(node.getAttribute("src") || ""));
   }
@@ -678,7 +866,8 @@
     var bits = node.querySelectorAll("iframe[src], img[src], a[href]");
     for (var i = 0; i < bits.length; i++) {
       var url = bits[i].getAttribute("src") || bits[i].getAttribute("href") || "";
-      if (/^https?:/i.test(url) && !own(url) && AD_HOSTS.test(url)) return true;
+      if (!url || own(url)) continue;
+      if (AD_HOSTS.test(url) || adDest(url)) return true;
     }
     return false;
   }
@@ -704,7 +893,7 @@
       if ((node.textContent || "").replace(/\s+/g, " ").trim().length > 160) return;
       if (!adInside(node)) return;
       var inner = node.querySelector ? node.querySelector("iframe[src]") : null;
-      blocked("overlay", (inner && inner.getAttribute("src")) || node.id || node.className);
+      blocked("overlay", (inner && inner.getAttribute("src")) || node.id || node.className, "intersticial");
       node.remove();
     });
   }
@@ -738,6 +927,21 @@
     return true;
   }
 
+  function listen(target, type, fn) {
+    if (!target || !target.addEventListener) return false;
+    try {
+      target.addEventListener(type, fn, true);
+    } catch (e) {
+      return false;
+    }
+    undo.push(function () {
+      try {
+        target.removeEventListener(type, fn, true);
+      } catch (e) {}
+    });
+    return true;
+  }
+
   function install() {
     if (hf.settings.shield === false) return;
     if (on) return;
@@ -746,13 +950,14 @@
     origSet = W.Element && W.Element.prototype && W.Element.prototype.setAttribute;
     if (typeof origSet !== "function") return;
     on = true;
+    layers.length = 0;
 
     // 1. el `sandbox`: se limpia en las cuatro puertas por las que un iframe de anuncio puede
     //    entrar (atributo, propiedad, `src` y el momento de colgarse del documento).
     patch(W.Element.prototype, "setAttribute", function (orig) {
       return function (name, value) {
-        if (name === "sandbox" && value != null && POPUPS.test(String(value))) {
-          var s = String(value).replace(ALLOW, "").replace(/\s+/g, " ").trim();
+        if (name === "sandbox" && value != null && ESCAPE.test(String(value))) {
+          var s = String(value).replace(ESCAPE_G, "").replace(/\s+/g, " ").trim();
           stats.sandbox++;
           notify(null);
           return orig.call(this, name, s);
@@ -762,8 +967,8 @@
     });
     patch(W.HTMLIFrameElement && W.HTMLIFrameElement.prototype, "sandbox", function (orig, d) {
       return function (v) {
-        if (v != null && POPUPS.test(String(v))) {
-          var s = String(v).replace(ALLOW, "").replace(/\s+/g, " ").trim();
+        if (v != null && ESCAPE.test(String(v))) {
+          var s = String(v).replace(ESCAPE_G, "").replace(/\s+/g, " ").trim();
           stats.sandbox++;
           notify(null);
           return orig.call(this, s);
@@ -774,70 +979,79 @@
     patch(W.HTMLIFrameElement && W.HTMLIFrameElement.prototype, "src", function (orig) {
       return function (v) {
         try {
-          if (this.getAttribute && POPUPS.test(this.getAttribute("sandbox") || "")) tidyFrame(this);
+          tidyFrame(this, v);
         } catch (e) {}
         return orig.call(this, v);
       };
     });
-    origAppend = W.Node && W.Node.prototype && W.Node.prototype.appendChild;
-    if (typeof origAppend === "function") {
-      patch(W.Node.prototype, "appendChild", function (orig) {
-        return function (node) {
-          try {
-            scan(node);
-          } catch (e) {}
-          return orig.call(this, node);
-        };
-      });
-      patch(W.Node.prototype, "insertBefore", function (orig) {
-        return function (node) {
-          try {
-            scan(node);
-          } catch (e) {}
-          return orig.apply(this, arguments);
-        };
-      });
-      patch(W.Node.prototype, "replaceChild", function (orig) {
-        return function (node) {
-          try {
-            scan(node);
-          } catch (e) {}
-          return orig.apply(this, arguments);
-        };
+    var nodes = 0;
+    if (W.Node && W.Node.prototype) {
+      ["appendChild", "insertBefore", "replaceChild"].forEach(function (m) {
+        var ok = patch(W.Node.prototype, m, function (orig) {
+          return function (node) {
+            try {
+              if (scan(node)) return node;
+            } catch (e) {}
+            return orig.apply(this, arguments);
+          };
+        });
+        if (ok) nodes++;
       });
     }
+    layers.push("sandbox" + (nodes ? "" : " (sin hooks de nodo)"));
 
-    // 2. `window.open` (y `_self`/`_top`/`_parent`, que no son ventanas nuevas sino navegar).
-    patch(W, "open", function (orig) {
-      return function (url, name) {
-        var nm = arguments.length > 1 ? String(name == null ? "" : name) : "";
-        if (nm !== "_self" && nm !== "_top" && nm !== "_parent") {
-          var target = arguments.length ? String(url == null ? "" : url) : "";
-          if (!own(target)) {
-            blocked("popup", target);
-            return deadWindow();
-          }
-        }
-        return orig.apply(this, arguments);
-      };
-    });
+    // 2. la navegación de la pestaña (la última puerta que queda después del `sandbox`).
+    if (W.navigation && W.navigation.addEventListener) {
+      if (listen(W.navigation, "navigate", navTrap)) layers.push("navegación");
+    } else {
+      layers.push("navegación (sin Navigation API)");
+    }
 
-    // 3. el clic sintético sobre un enlace que nadie ve (fuera del documento, o escondido).
-    patch(W.HTMLElement && W.HTMLElement.prototype, "click", function (orig) {
-      return function () {
-        try {
-          var tag = this.tagName;
-          if ((tag === "A" || tag === "AREA") && hiddenLink(this)) {
-            var href = this.getAttribute("href") || "";
-            if (href && !own(href)) {
-              blocked("anchor", href);
-              return undefined;
+    // 3. `window.open` (y `_self`/`_top`/`_parent`, que no son ventanas nuevas sino navegar).
+    if (
+      patch(W, "open", function (orig) {
+        return function (url, name) {
+          var nm = arguments.length > 1 ? String(name == null ? "" : name) : "";
+          if (nm !== "_self" && nm !== "_top" && nm !== "_parent") {
+            var target = arguments.length ? String(url == null ? "" : url) : "";
+            if (!own(target)) {
+              blocked("popup", target, "window.open");
+              return deadWindow();
             }
           }
-        } catch (e) {}
-        return orig.apply(this, arguments);
-      };
-    });
+          return orig.apply(this, arguments);
+        };
+      })
+    ) {
+      layers.push("window.open");
+    }
+
+    // 4. el clic: el fantasma (sintético sobre un enlace escondido) y el de verdad (que cae sobre
+    //    un enlace invisible o apunta a una web de anuncios).
+    if (
+      patch(W.HTMLElement && W.HTMLElement.prototype, "click", function (orig) {
+        return function () {
+          try {
+            var tag = this.tagName;
+            if (tag === "A" || tag === "AREA") {
+              var href = this.getAttribute("href") || "";
+              if (href && !own(href)) {
+                var why = hiddenLink(this) ? "clic fantasma" : adDest(href) ? "enlace a una web de anuncios" : "";
+                if (why) {
+                  blocked("anchor", href, why);
+                  return undefined;
+                }
+              }
+            }
+          } catch (e) {}
+          return orig.apply(this, arguments);
+        };
+      })
+    ) {
+      layers.push("clic sintético");
+    }
+    if (listen(W.document, "click", onUserClick)) layers.push("clic del visitante");
+    if (listen(W.document, "submit", onSubmit)) layers.push("formularios");
 
     if (!watching) {
       watching = true;
@@ -854,6 +1068,7 @@
         fn();
       } catch (e) {}
     });
+    layers.length = 0;
   }
 
   hf.shield = {
@@ -861,7 +1076,9 @@
     remove: remove,
     stats: stats,
     log: hist,
+    layers: layers,
     own: own,
+    adDest: adDest,
     sweep: sweep,
     onChange: function (fn) {
       if (typeof fn === "function") subs.push(fn);
@@ -1842,8 +2059,8 @@
       }
       var n = s.popup + s.anchor + s.overlay;
       box.textContent = n
-        ? "En esta página se han bloqueado " + n + " (" + s.popup + " ventanas emergentes, " + s.anchor + " redirecciones y " + s.overlay + " pantallas completas) y se han desarmado " + s.sandbox + " huecos de anuncio."
-        : "En esta página todavía no ha hecho falta nada. Cuando un anuncio intente abrir una pestaña, redirigirte al pinchar o tapar la web, saldrá aquí.";
+        ? "En esta página se han bloqueado " + n + " (" + s.popup + " ventanas emergentes, " + s.anchor + " saltos a webs de anuncios y " + s.overlay + " pantallas completas) y se han desarmado " + s.sandbox + " huecos de anuncio."
+        : "En esta página todavía no ha hecho falta nada. Cuando un anuncio intente abrir una pestaña, llevarte a su web o tapar la página, saldrá aquí.";
     }
     paint();
     if (hf.shield) hf.shield.onChange(paint);
@@ -1867,7 +2084,7 @@
       row("Cargar", segmented("ads", [["lazy", "Cuando se miran"], ["normal", "Como la web"]])),
       hint("No se quita ningún anuncio: los del sitio se cargan igual, pero cuando su hueco llega a la pantalla en vez de nada más abrir la página."),
       sw("sideAds", "Poner el cuadrado de la columna junto al banner", "En la ficha de juego, el 300×250 de la columna derecha sube al lado del banner de la cabecera —que se estrecha para dejarle sitio— y la columna se queda solo con los juegos relacionados. Es el mismo anuncio, en el mismo hueco: solo cambia de sitio, y la carga se aplaza igual."),
-      sw("shield", "Bloquear los anuncios que te sacan de la web", "Fuera las ventanas y pestañas que se abren solas, las redirecciones al pinchar y las pantallas completas de anuncio. Los anuncios que se ven en la página (el banner, el cuadrado, los nativos, los enlaces del pie) no se tocan: se cargan y cuentan igual."),
+      sw("shield", "Bloquear los anuncios que te sacan de la web", "Fuera las ventanas y pestañas que se abren solas, las pantallas completas de anuncio y todo lo que te redirige a una web de anuncios (las redes de popunder y redirección tipo trafficoza.com, las que hacen que el bloqueador del navegador te deje su advertencia encima): se corta el salto, pinches donde pinches, y también el que intenta darse solo. Los anuncios que se ven en la página (el banner, el cuadrado, los nativos, los enlaces del pie) no se tocan: se cargan y cuentan igual."),
       adNote(),
 
       caption("Reproductor"),
@@ -1919,7 +2136,7 @@
   }
 
   function open() {
-    if (!box) build();
+    if (!box || !box.isConnected) build();
     box.hidden = false;
     if (btn) btn.classList.add("hf-on");
   }
@@ -1936,6 +2153,9 @@
 
   function init() {
     if (!document.body) return;
+    // Si la web (o el laboratorio) ha reemplazado el trozo de DOM donde vivía el botón, vuelve:
+    // por eso esto se puede llamar todas las veces que haga falta.
+    if (btn && btn.isConnected) return;
     btn = hf.el("button", {
       type: "button",
       id: "hf-settings-btn",
@@ -2023,6 +2243,7 @@
       if (hf.grid) hf.grid.layout();
       if (hf.grid) hf.grid.mark();
       if (hf.player) hf.player.init();
+      if (hf.panel) hf.panel.init();
     }
 
     hf.onDom(function () {
