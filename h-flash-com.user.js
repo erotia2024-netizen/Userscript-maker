@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.122
+// @version      0.1.123
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -269,8 +269,13 @@
     return AD_HOSTS.test(src);
   }
 
+  // Solo se aplaza ANTES de que el anuncio se haya cargado una vez. En cuanto se le devuelve su
+  // dirección (`unpark`) queda marcado como vivo y ya no se le vuelve a tocar: si no, cada repaso
+  // lo devolvía a `about:blank` y el anuncio (que ya había contado la impresión y estaba puesto)
+  // se recargaba una y otra vez. Aquí no se quita ni se esconde nada: solo se retrasa lo que aún
+  // no ha pedido nada a la red.
   function park(frame) {
-    if (frame.dataset.hfAd) return;
+    if (frame.dataset.hfAdLive || frame.dataset.hfAd) return;
     frame.dataset.hfAd = frame.getAttribute("src") || "";
     frame.setAttribute("src", "about:blank");
     adQueue.push(frame);
@@ -280,6 +285,7 @@
     var url = frame.dataset.hfAd;
     if (!url) return;
     delete frame.dataset.hfAd;
+    frame.dataset.hfAdLive = "1";
     frame.setAttribute("src", url);
   }
 
