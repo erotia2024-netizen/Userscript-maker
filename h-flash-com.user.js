@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.102
+// @version      0.1.103
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -513,6 +513,7 @@
   var note = null;
   var poll = 0;
   var tries = 0;
+  var fitLeft = 10;
 
   function site() {
     return hf.pageWin();
@@ -786,6 +787,13 @@
 
   function pollState() {
     if (!note) return;
+    // El controlador de la web se monta en un `setTimeout` DESPUÉS de crear el `<embed>` y, al
+    // montarse, pone su tamaño de siempre («orig», 450 px). Los primeros repasos vuelven a pedirle
+    // que se ajuste a nuestro marco: en cuanto está montado, el juego se hace grande de una vez.
+    if (fitLeft > 0) {
+      fitLeft--;
+      fit();
+    }
     var ctrl = siteVar("ctrl");
     var e = embed();
     var loaded = ctrl && ctrl.info ? ctrl.info.loaded : null;
@@ -895,6 +903,10 @@
     fullscreen: toggleFullscreen,
     reload: reloadGame,
     swfUrl: swfUrl,
+    // para depurar (y para el laboratorio): en qué estado está el reproductor
+    debug: function () {
+      return { started: started, mounted: !!stage, polling: !!poll, note: note && note.textContent, fallbacks: document.documentElement.classList.contains("hf-show-fallbacks") };
+    },
     stage: function () {
       return stage;
     }
