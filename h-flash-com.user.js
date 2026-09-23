@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.169
+// @version      0.1.170
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1474,6 +1474,7 @@
     Filter: "Filtrar",
     "descending": "descendente",
     "ascending": "ascendente",
+    "pages": "páginas",
     // El formulario del filtro avanzado (`/list/`)
     "Title:": "Título:",
     "Applied Tags:": "Etiquetas aplicadas:",
@@ -1591,7 +1592,9 @@
   var ELEMS = {
     "Bug Report": 'Informe de <span style="color:red">error</span>',
     "Previous Page": "Anterior",
-    "Next Page": "Siguiente"
+    "Next Page": "Siguiente",
+    "First Page": "Primera página",
+    "Last Page": "Última página"
   };
 
   // Elementos del menú que la web parte en dos («ALL» + un `<span class="mobhide"> GAMES</span>` que
