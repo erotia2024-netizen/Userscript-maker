@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.185
+// @version      0.1.186
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1474,19 +1474,19 @@
     SEARCH: "BUSCAR",
     Search: "Buscar",
     Filter: "Filtrar",
-    "descending": "descendente",
-    "ascending": "ascendente",
-    "pages": "páginas",
+    "descending": "Descendente",
+    "ascending": "Ascendente",
+    "pages": "Páginas",
     // El formulario del filtro avanzado (`/list/`)
     "Title:": "Título:",
     "Applied Tags:": "Etiquetas aplicadas:",
     "Sort:": "Orden:",
     "PageSize:": "Por página:",
-    "rating": "valoración",
-    "play count": "visitas",
-    "title": "título",
-    "update date": "fecha de actualización",
-    "release date": "fecha de publicación",
+    "rating": "Valoración",
+    "play count": "Visitas",
+    "title": "Título",
+    "update date": "Fecha de actualización",
+    "release date": "Fecha de publicación",
     Mobile: "Móvil",
 
     // --- La página de ayuda del reproductor (`/plugin/flash/`) ---
@@ -1499,27 +1499,27 @@
     "Please leave a comment if you need help": "Si necesitas ayuda, deja un comentario",
 
     // --- Las herramientas (`/tool/…`) y la ayuda (`/help/…`) ---
-    "disable extreme content warning": "desactivar el aviso de contenido extremo",
-    "remove blocked item from list": "quitar de la lista los elementos bloqueados",
+    "disable extreme content warning": "Desactivar el aviso de contenido extremo",
+    "remove blocked item from list": "Quitar de la lista los elementos bloqueados",
     // La página de AJUSTES (`/tool/prefs/`) es toda ella interfaz: sus bloques, sus pistas y las
     // etiquetas de su formulario. (El bloque «Language» de esa página lo tiene la web comentado en
     // su propio HTML: el idioma se cambia desde el desplegable del pie.)
     "All options saved in your cookies.": "Todas las opciones se guardan en tus cookies.",
     "Default Flash Plugin": "Reproductor Flash por defecto",
-    "choose my default flash plugin to use:": "elige el reproductor flash que quiero usar:",
+    "choose my default flash plugin to use:": "Elige el reproductor flash que quiero usar:",
     "*select one of this option flash content will launch automatically without click.":
-      "*si eliges una de estas opciones, el contenido flash arrancará solo, sin hacer clic.",
+      "*Si eliges una de estas opciones, el contenido flash arrancará solo, sin hacer clic.",
     None: "Ninguno",
     Layout: "Diseño",
-    "choose my interface layout:": "elige el diseño de la interfaz:",
+    "choose my interface layout:": "Elige el diseño de la interfaz:",
     "Content Block": "Bloqueo de contenido",
     "*check this option will disable extreme content warning with dark red background in game page.":
-      "*marca esta opción y el aviso de contenido extremo (el fondo rojo oscuro de la ficha) no sale.",
+      "*Marca esta opción y el aviso de contenido extremo (el fondo rojo oscuro de la ficha) no sale.",
     "*check this option will remove blocked items from list instead of showing blocked hint.":
-      "*marca esta opción y los elementos bloqueados desaparecen de la lista en vez de salir su aviso.",
+      "*Marca esta opción y los elementos bloqueados desaparecen de la lista en vez de salir su aviso.",
     "Blocked tags": "Etiquetas bloqueadas",
     "Search tags to block": "Buscar etiquetas para bloquear",
-    "* click listed tag to block.": "* haz clic en una etiqueta de la lista para bloquearla.",
+    "* click listed tag to block.": "* Haz clic en una etiqueta de la lista para bloquearla.",
     "Q: How do I download a flash?": "P: ¿Cómo descargo un flash?",
     "Q: How do I upload my flash?": "P: ¿Cómo subo mi flash?",
     "ONLINE FLASH SAVE EDITOR": "EDITOR DE PARTIDAS FLASH EN LÍNEA",
@@ -1560,26 +1560,26 @@
     "More Solutions": "Más soluciones",
     "PLUGIN": "COMPLEMENTO",
     "RESIZE": "TAMAÑO",
-    "original size": "tamaño original",
-    "fit width and height": "ajustar ancho y alto",
-    "fit width": "ajustar al ancho",
-    "fill playzone": "llenar el área",
-    "full window": "ventana completa",
+    "original size": "Tamaño original",
+    "fit width and height": "Ajustar ancho y alto",
+    "fit width": "Ajustar al ancho",
+    "fill playzone": "Llenar el área",
+    "full window": "Ventana completa",
     "Adobe Flash Plugin": "Complemento de Adobe Flash",
     "Select default": "Elegir por defecto",
-    "loading": "cargando",
-    "loading...": "cargando...",
-    "preparing": "preparando",
-    "download not available": "descarga no disponible",
-    "download not available for adblock user": "descarga no disponible con bloqueador de anuncios",
-    "raw link": "enlace directo",
+    "loading": "Cargando",
+    "loading...": "Cargando...",
+    "preparing": "Preparando",
+    "download not available": "Descarga no disponible",
+    "download not available for adblock user": "Descarga no disponible con bloqueador de anuncios",
+    "raw link": "Enlace directo",
 
     // --- Los comentarios ---
     Comment: "Comentarios",
     Name: "Nombre",
     Rules: "Normas",
     "Submit Comment": "Enviar comentario",
-    "no comment yet": "todavía no hay comentarios",
+    "no comment yet": "Todavía no hay comentarios",
     Related: "Relacionados",
 
     // --- El pie ---
@@ -1669,7 +1669,7 @@
   // Los atributos que también se leen (el texto de los botones, el ejemplo de los campos, los
   // títulos que aparecen al pasar el ratón).
   var ATTRS = {
-    placeholder: { anonymous: "anónimo" },
+    placeholder: { anonymous: "Anónimo" },
     value: {
       SEARCH: "BUSCAR",
       Search: "Buscar",
@@ -1677,7 +1677,7 @@
       "Submit Comment": "ENVIAR COMENTARIO"
     },
     title: {
-      close: "cerrar",
+      close: "Cerrar",
       "Beware, some games may have loud sound": "Cuidado: algunos juegos tienen sonido fuerte",
       "Hentai Flash HomePage": "Portada de Hentai Flash",
       "all hentai flash games": "Todos los juegos flash hentai",
@@ -1685,8 +1685,8 @@
       "random games list": "Lista de juegos aleatorios",
       // Las etiquetas que bloqueas en los ajustes (`/tool/prefs/`), que su script pinta con la pista
       // en el `title`.
-      "click to block": "clic para bloquear",
-      "click to remove": "clic para quitar"
+      "click to block": "Clic para bloquear",
+      "click to remove": "Clic para quitar"
     },
     alt: { loading: "cargando" }
   };
@@ -3088,7 +3088,7 @@
     // pone uno, que si no parece una caja negra.
     function searchHint() {
       hf.qa("input.keyword").forEach(function (n) {
-        if (!n.placeholder) n.placeholder = "buscar juegos…";
+        if (!n.placeholder) n.placeholder = "Buscar juegos…";
       });
     }
 
