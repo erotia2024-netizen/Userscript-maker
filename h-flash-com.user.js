@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.107
+// @version      0.1.108
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -685,6 +685,7 @@
   var run = 0;
 
   function start() {
+    if (started) return;
     if (hf.settings.play === "off") return;
     if (playing() || q("#embedswf")) {
       // ya hay reproductor (la web lo montó porque el navegador dice tener Flash, o porque el
@@ -699,6 +700,17 @@
     started = true;
     fit();
     begin(++run, 0);
+  }
+
+  // El botón ▶ Jugar: vuelve a intentarlo desde cero (sirve cuando el primer intento se quedó a
+  // medias, por ejemplo porque Ruffle no llegó a cargar).
+  function retry() {
+    started = false;
+    tries = 0;
+    run++;
+    fitLeft = 10;
+    document.documentElement.classList.remove("hf-show-fallbacks");
+    start();
   }
 
   // Arrancar de verdad, esperando a la web si hace falta. Sus funciones son `async`, así que es
@@ -860,7 +872,7 @@
 
     note = hf.el("div", { id: "hf-note", cls: "hf-note", text: "Preparando el juego…" });
     bar = hf.el("div", { id: "hf-bar", cls: "hf-bar" }, [
-      hf.el("button", { type: "button", cls: "hf-btn hf-btn-play", text: "▶ Jugar", onclick: start, title: "Arranca el juego con Ruffle (F = pantalla completa)" }),
+      hf.el("button", { type: "button", cls: "hf-btn hf-btn-play", text: "▶ Jugar", onclick: retry, title: "Arranca el juego con Ruffle (F = pantalla completa)" }),
       hf.el("button", { type: "button", cls: "hf-btn", text: "⛶ Pantalla completa", onclick: toggleFullscreen, title: "Pantalla completa (F)" }),
       hf.el("button", { type: "button", cls: "hf-btn", text: "↻ Recargar", onclick: reloadGame, title: "Recargar el juego (R)" }),
       hf.el("button", { type: "button", cls: "hf-btn", text: "＋", onclick: function () { zoom("bigger"); }, title: "Más grande (+)" }),
@@ -882,14 +894,15 @@
 
   function pollState() {
     if (!note) return;
-    // El controlador de la web se monta en un `setTimeout` DESPUÉS de crear el `<embed>` y, al
-    // montarse, pone su tamaño de siempre («orig», 450 px). Los primeros repasos vuelven a pedirle
-    // que se ajuste a nuestro marco: en cuanto está montado, el juego se hace grande de una vez.
-    if (fitLeft > 0) {
-      fitLeft--;
+    dedupePlayers();
+    var ctrl = siteVar("ctrl");
+    // La web monta su controlador tarde (cuando Ruffle termina de cargar el juego) y al montarse
+    // pone su tamaño de siempre («orig», 450 px). Mientras no esté a NUESTRO tamaño se le vuelve a
+    // pedir el ajuste; pasados ~30 s se deja de insistir, por si el visitante ha elegido él otro.
+    if (fitLeft > 0 || (ctrl && ctrl.info && ctrl.info.size !== "fit" && tries < 60)) {
+      if (fitLeft > 0) fitLeft--;
       fit();
     }
-    var ctrl = siteVar("ctrl");
     var e = embed();
     var loaded = ctrl && ctrl.info ? ctrl.info.loaded : null;
     if (loaded >= 100 || (e && e.tagName && e.tagName.indexOf("RUFFLE") >= 0 && loaded == null)) {
@@ -993,6 +1006,7 @@
   hf.player = {
     init: init,
     start: start,
+    retry: retry,
     fit: fit,
     zoom: zoom,
     fullscreen: toggleFullscreen,
