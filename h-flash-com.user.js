@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.100
+// @version      0.1.101
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -832,19 +832,14 @@
   }
 
   // ---- en marcha --------------------------------------------------------------------------------
-  function init() {
-    if (hf.pageKind() !== "game") return;
-    hf.until("#gamecontainer", function () {
-      mount();
-      fit();
-      start();
-      clearInterval(poll);
-      poll = setInterval(pollState, 500);
-      // El juego se apunta como abierto (historial local, para no volver a entrar sin querer).
-      setTimeout(function () {
-        if (hf.settings.seen) hf.seen.mark(hf.gameId());
-      }, 2000);
-    });
+  var bound = false;
+
+  // Los escuchas y los ajustes se enganchan una sola vez; `init()` se puede llamar muchas veces
+  // (el laboratorio y la propia web montan trozos de la página después: quien llama es `boot.js`
+  // en cada repaso del DOM, y solo monta el marco cuando la ficha ya está en la página).
+  function bind() {
+    if (bound) return;
+    bound = true;
     window.addEventListener("keydown", onKey, true);
     window.addEventListener(
       "resize",
@@ -868,6 +863,21 @@
         start();
       }
     });
+  }
+
+  function init() {
+    bind();
+    if (stage) return; // ya montado
+    if (hf.pageKind() !== "game" || !q("#gamecontainer")) return; // todavía no está la ficha
+    mount();
+    fit();
+    start();
+    clearInterval(poll);
+    poll = setInterval(pollState, 500);
+    // El juego se apunta como abierto (historial local, para no volver a entrar sin querer).
+    setTimeout(function () {
+      if (hf.settings.seen) hf.seen.mark(hf.gameId());
+    }, 2000);
   }
 
   hf.player = {
@@ -1192,6 +1202,7 @@
       softerAlerts();
       hf.deferAds();
       if (hf.grid) hf.grid.mark();
+      if (hf.player) hf.player.init();
     }
 
     hf.onDom(function () {
