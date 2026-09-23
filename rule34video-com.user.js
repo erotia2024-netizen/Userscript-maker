@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.94
+// @version      0.1.95
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -2788,8 +2788,7 @@
         unmark(card);
       } else {
         no.push(card);
-        if (!card.querySelector("." + MARK)) markFor(card);
-        else markFor(card);
+        markFor(card);
       }
     }
     // Si no lo dice ninguno, no se oculta nada: la página se quedaría en blanco.
