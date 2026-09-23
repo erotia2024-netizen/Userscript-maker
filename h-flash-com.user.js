@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.170
+// @version      0.1.171
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1603,6 +1603,7 @@
   var IDS = {
     nav_top: "MEJORES",
     nav_all: "TODOS",
+    nav_hot: "POPULARES",
     nav_random: "ALEATORIO"
   };
 
