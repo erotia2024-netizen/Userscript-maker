@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.73
+// @version      0.1.74
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -2313,14 +2313,23 @@
     regroup();
     if (mode === "character") loadRest();
 
-    // Solo miran las fichas que AÑADE la web (AJAX: paginación, filtros). Mientras el userscript
-    // reordena el observador está desconectado, así que lo suyo no se cuenta y no hay idas y venidas.
+    // Solo se miran las fichas que añade o quita la web (AJAX: paginación, filtros). Mientras el
+    // userscript reordena el observador está desconectado, así que sus propios movimientos no cuentan
+    // y no hay idas y venidas.
+    function isCard(n) {
+      return n && n.nodeType === 1 && n.classList && n.classList.contains("item") && n.classList.contains("thumb");
+    }
     observer = new MutationObserver(function (records) {
       for (var i = 0; i < records.length; i++) {
-        var added = records[i].addedNodes;
-        for (var j = 0; j < added.length; j++) {
-          var n = added[j];
-          if (n.nodeType === 1 && n.classList && (n.classList.contains("item") || n.classList.contains("thumb"))) {
+        var rec = records[i], j;
+        for (j = 0; j < rec.addedNodes.length; j++) {
+          if (isCard(rec.addedNodes[j])) {
+            schedule();
+            return;
+          }
+        }
+        for (j = 0; j < rec.removedNodes.length; j++) {
+          if (isCard(rec.removedNodes[j])) {
             schedule();
             return;
           }
