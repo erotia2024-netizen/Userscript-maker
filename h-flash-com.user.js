@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.149
+// @version      0.1.150
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -44,9 +44,9 @@
 // las tres cosas que valen para cualquier página del sitio (aplazar los anuncios hasta que se
 // miran, llevar la cuenta de los juegos ya abiertos y avisar de los cambios del DOM).
 //
-// Todo lo demás (la piel, el reproductor, las rejillas, el panel) vive en sus módulos y se cuelga
-// de aquí. Los ajustes del usuario están en `localStorage["hf.settings.v1"]`: nada de esto sale del
-// navegador ni entra en el script compilado.
+// Todo lo demás (la piel, el escudo de anuncios invasivos, el reproductor, las rejillas, el panel)
+// vive en sus módulos y se cuelga de aquí. Los ajustes del usuario están en
+// `localStorage["hf.settings.v1"]`: nada de esto sale del navegador ni entra en el script compilado.
 // ---------------------------------------------------------------------------------------------
 (function () {
   "use strict";
@@ -71,6 +71,9 @@
     // en la ficha de juego, subir el cuadrado de la columna derecha al lado del banner de la
     // cabecera (que se estrecha para dejarle sitio) y dejar la columna solo con los juegos
     sideAds: true,
+    // cortar los anuncios invasivos: ventanas y pestañas que se abren solas, redirecciones al
+    // pinchar y pantallas completas de anuncio. Los anuncios que se ven en la página no se tocan
+    shield: true,
     // qué hacer al abrir una ficha de juego: "auto" arranca solo, "click" deja los botones de la web,
     // "off" no toca nada
     play: "auto",
@@ -102,6 +105,7 @@
     if (["auto", "click", "off"].indexOf(settings.play) < 0) settings.play = DEFAULTS.play;
     if (["web", "nuevo"].indexOf(settings.emulator) < 0) settings.emulator = DEFAULTS.emulator;
     if (typeof settings.sideAds !== "boolean") settings.sideAds = DEFAULTS.sideAds;
+    if (typeof settings.shield !== "boolean") settings.shield = DEFAULTS.shield;
   }
 
   function saveSettings() {
@@ -265,7 +269,9 @@
   // pantalla. Aquí se les guarda la dirección y se quedan en `about:blank` hasta que su hueco se
   // acerca a la ventana: el anuncio se carga igual (y cuenta la impresión, que es lo que paga la
   // web), pero cuando de verdad se mira. No se quita ni un hueco ni se toca la red que los sirve.
-  var AD_HOSTS = /(adglare|sadbaguette|juicyads|exoclick|acscdn|trafficjunky|adnium|realsrv|tsyndicate|clickadu|popads|hilltopads)/i;
+  // La misma lista la usa `shield.js` para reconocer los huecos de publicidad (y solo eso: para
+  // saber cuáles son anuncios, nunca para esconderlos).
+  var AD_HOSTS = /(adglare|sadbaguette|acscdn|magsrv|exoclick|juicyads|trafficjunky|adnium|realsrv|tsyndicate|clickadu|popads|popcash|adcash|propellerads|onclickads|adsterra|admaven|exdynsrv|hilltopads|clickaine)/i;
   var adQueue = [];
 
   function isAdFrame(f) {
@@ -449,6 +455,7 @@
     until: until,
     toast: toast,
     pageKind: pageKind,
+    adHosts: AD_HOSTS,
     deferAds: deferAds,
     sweep: sweep,
     onDom: onDom,
@@ -459,6 +466,415 @@
   };
 
   loadSettings();
+})();
+
+// ---------------------------------------------------------------------------------------------
+// h-flash.com — EL ESCUDO: los anuncios que te sacan de la web, fuera.
+//
+// La web vive de la publicidad, así que aquí **no se quita ningún anuncio**: ni un hueco, ni una
+// impresión, ni un céntimo. Lo que se corta es lo que usa al visitante como mercancía:
+//
+//   · ventanas y pestañas que se abren solas (popups/popunders), vengan de donde vengan;
+//   · redirecciones al pinchar: el iframe del anuncio navegando la pestaña con un clic que no era
+//     suyo, o un `<a>` fantasma (invisible, fuera del documento) que el script pulsa por ti;
+//   · pantallas completas de anuncio (interstitiales) que tapan la página entera.
+//
+// Nada de eso es lo que paga el anuncio que se ve en la página: la impresión se cuenta igual. Los
+// huecos de verdad (el banner, el cuadrado, los nativos, la fila de enlaces del pie) se cargan y
+// cuentan como siempre — la política de `core.js` es aplazarlos, no tocarlos.
+//
+// Cómo se corta, de lo más eficaz a lo menos:
+//
+//   1. **El `sandbox` de los iframes de anuncio.** El sitio los crea con
+//      `allow-popups allow-popups-to-escape-sandbox`, que es justo el permiso que necesitan para
+//      abrir pestañas. Sin `allow-popups`, un iframe **no puede** abrir nada: el anuncio se sigue
+//      viendo y contando igual. La bandera solo se lee al empezar a navegar el iframe, así que hay
+//      que quitarla *antes*: por eso se enganchan `setAttribute`, la propiedad `sandbox`, la
+//      propiedad `src` (justo antes de que arranque la carga) y `appendChild`/`insertBefore`
+//      (justo antes de que el iframe entre en el documento, que es cuando empieza a cargar).
+//   2. **`window.open` de la página.** Se deja pasar lo que apunta a la propia web (o no apunta a
+//      ningún sitio: `about:blank`, `blob:`…) y se descarta lo demás. Un `<a target="_blank">` de
+//      la web no pasa por aquí: eso lo abre el navegador, y el visitante decide.
+//   3. **El clic sintético sobre un `<a>` que no se ve.** Crear el enlace, pulsarlo y tirarlo es el
+//      truco de manual del popunder; un enlace de verdad está en el documento y a la vista, porque
+//      alguien tiene que pulsarlo.
+//   4. **El intersticial.** Un iframe de anuncio (o una caja cuyo único contenido es un anuncio)
+//      que aparece tapando la pantalla y sin nada más dentro: se va, porque no hay manera de
+//      enseñarlo sin tapar la web.
+//
+// Todo lo que se corta se cuenta en `hf.shield.stats` (y se enseña en el panel ⚡). El ajuste es
+// `hf.settings.shield` (puesto por defecto): apagarlo devuelve la página a como estaba, con los
+// permisos y las funciones originales.
+// ---------------------------------------------------------------------------------------------
+(function () {
+  "use strict";
+  var hf = window.hf;
+  if (!hf || hf.shield) return;
+
+  // El dominio de la web (y su versión japonesa: ja.h-flash.com).
+  var SITE = /(^|\.)h-flash\.com$/i;
+  // Los huecos de publicidad, para reconocer un anuncio cuando hay que decidir si algo es un
+  // intersticial (la misma lista que usa el aplazado de `core.js`).
+  var AD_HOSTS = hf.adHosts || /(adglare|sadbaguette|acscdn|magsrv|exoclick|juicyads)/i;
+  var POPUPS = /allow-popups/;
+  var ALLOW = /\ballow-popups(-to-escape-sandbox)?\b\s*/g;
+
+  var MSG = {
+    popup: "Ventana emergente bloqueada",
+    anchor: "Redirección automática bloqueada",
+    overlay: "Anuncio a pantalla completa cerrado"
+  };
+
+  var stats = { popup: 0, anchor: 0, overlay: 0, sandbox: 0 };
+  var hist = [];
+  var subs = [];
+  var undo = [];
+  var on = false;
+  var watching = false;
+  var toastAt = 0;
+  var origSet = null;
+  var origAppend = null;
+
+  function total() {
+    return stats.popup + stats.anchor + stats.overlay;
+  }
+
+  function notify(fn) {
+    subs.forEach(function (s) {
+      try {
+        s(stats, fn);
+      } catch (e) {}
+    });
+  }
+
+  // Apuntar un corte: al marcador, al historial (los últimos 25, para poder mirarlos desde la
+  // consola con `hf.shield.log`) y a un aviso si hace falta.
+  function blocked(kind, url) {
+    hist.unshift({ kind: kind, url: String(url == null ? "" : url).slice(0, 300), at: Date.now() });
+    if (hist.length > 25) hist.pop();
+    if (kind in stats) stats[kind]++;
+    notify(hist[0]);
+    var now = Date.now();
+    if (now - toastAt < 2500) return;
+    toastAt = now;
+    hf.toast(MSG[kind] + (total() > 1 ? " · " + total() + " en total" : ""), 2600);
+  }
+
+  // =============================================================================================
+  // ¿ESTO ES DE LA WEB, O DE FUERA?
+  // =============================================================================================
+  function sameHost(a, b) {
+    a = String(a || "").toLowerCase();
+    b = String(b || "").toLowerCase();
+    if (!a || !b) return false;
+    return a === b || a.slice(-(b.length + 1)) === "." + b;
+  }
+
+  // Lo que es «de casa»: la propia web (por su dominio real, el del `canonical`, o el que está
+  // sirviendo la página ahora mismo) y lo que no sale a la red (about:, blob:, data:…).
+  function own(url) {
+    var s = String(url == null ? "" : url).trim();
+    if (!s) return true;
+    if (/^(about|blob|data|javascript|mailto|tel|hflash):/i.test(s)) return true;
+    var u;
+    try {
+      u = new URL(s, location.href);
+    } catch (e) {
+      return true;
+    }
+    if (u.protocol !== "http:" && u.protocol !== "https:") return true;
+    if (sameHost(u.hostname, location.hostname)) return true;
+    try {
+      if (sameHost(u.hostname, new URL(hf.base()).hostname)) return true;
+    } catch (e) {}
+    return SITE.test(u.hostname);
+  }
+
+  // =============================================================================================
+  // 1. EL `SANDBOX` DE LOS IFRAMES DE ANUNCIO (sin `allow-popups` no pueden abrir nada)
+  // =============================================================================================
+  function writeSandbox(frame, value) {
+    var s = String(value == null ? "" : value);
+    if (!POPUPS.test(s)) return false;
+    s = s.replace(ALLOW, "").replace(/\s+/g, " ").trim();
+    stats.sandbox++;
+    notify(null);
+    try {
+      origSet.call(frame, "sandbox", s);
+    } catch (e) {}
+    return true;
+  }
+
+  function tidyFrame(frame) {
+    var v = frame.getAttribute ? frame.getAttribute("sandbox") : null;
+    if (v == null || !POPUPS.test(v)) return false;
+    return writeSandbox(frame, v);
+  }
+
+  // Limpiar un nodo que va a entrar en el documento (o un fragmento entero de una vez) **antes** de
+  // que entre: en cuanto un iframe se cuelga del documento empieza a cargar, y ahí ya está decidido
+  // con qué permisos.
+  function scan(node) {
+    if (!node) return;
+    var t = node.nodeType;
+    if (t === 1) {
+      if (node.tagName === "IFRAME") return tidyFrame(node);
+      if (!node.firstElementChild || !node.querySelectorAll) return;
+    } else if (t !== 9 && t !== 11) {
+      return;
+    } else if (!node.querySelectorAll) {
+      return;
+    }
+    var frames = node.querySelectorAll("iframe[sandbox]");
+    for (var i = 0; i < frames.length; i++) tidyFrame(frames[i]);
+  }
+
+  // =============================================================================================
+  // 2. `window.open`, 3. EL CLIC FANTASMA Y 4. EL INTERSTICIAL
+  // =============================================================================================
+  // Una «ventana» inerte para lo que se bloquea: los scripts que la usan siguen sin reventar (y
+  // `closed` ya es `true`, así que el suyo tampoco se queda colgado esperando).
+  function deadWindow() {
+    var noop = function () {};
+    return {
+      closed: true,
+      focus: noop,
+      blur: noop,
+      close: noop,
+      moveTo: noop,
+      moveBy: noop,
+      resizeTo: noop,
+      resizeBy: noop,
+      print: noop,
+      postMessage: noop,
+      opener: null
+    };
+  }
+
+  // Un enlace que nadie ve. Los de verdad están en el documento y a la vista, porque hace falta que
+  // alguien los pulse.
+  function hiddenLink(a) {
+    if (!a || a.nodeType !== 1) return false;
+    try {
+      if (!a.isConnected) return true;
+    } catch (e) {
+      return false;
+    }
+    var r = a.getBoundingClientRect();
+    if (r.width || r.height) return false;
+    var cs = window.getComputedStyle(a);
+    return cs.display === "none" || cs.visibility === "hidden" || cs.opacity === "0";
+  }
+
+  function adFrame(node) {
+    return !!(node && node.tagName === "IFRAME" && AD_HOSTS.test(node.getAttribute("src") || ""));
+  }
+
+  // ¿dentro de esta caja lo único que hay es publicidad? Un intersticial no trae contenido de la
+  // web: un iframe de anuncio, una creatividad o un enlace de salida, y poco más.
+  function adInside(node) {
+    if (adFrame(node)) return true;
+    if (!node.querySelectorAll) return false;
+    var bits = node.querySelectorAll("iframe[src], img[src], a[href]");
+    for (var i = 0; i < bits.length; i++) {
+      var url = bits[i].getAttribute("src") || bits[i].getAttribute("href") || "";
+      if (/^https?:/i.test(url) && !own(url) && AD_HOSTS.test(url)) return true;
+    }
+    return false;
+  }
+
+  // Un intersticial: tapa media pantalla o más, va en `fixed` (o flotando por encima de todo), no
+  // trae ni un trozo de la web dentro y lo único que tiene es un anuncio.
+  var SITE_MARKS = "#gamecontainer, #flash_pageleft, #flash_pageright, .pagehead, .pagebody, .gamebox, .nav, .logo, #hf-panel, #hf-toast, #hf-bar";
+
+  function sweep() {
+    if (!on || !document.body) return;
+    var vw = window.innerWidth || 0;
+    var vh = window.innerHeight || 0;
+    if (!vw || !vh) return;
+    hf.qa("body > *").forEach(function (node) {
+      if (node.nodeType !== 1) return;
+      if (node.id && node.id.indexOf("hf-") === 0) return;
+      if (node.querySelector && node.querySelector(SITE_MARKS)) return;
+      var r = node.getBoundingClientRect();
+      if (r.width * r.height < vw * vh * 0.5) return;
+      var cs = window.getComputedStyle(node);
+      if (cs.position !== "fixed" && !(cs.position === "absolute" && (parseInt(cs.zIndex, 10) || 0) >= 1000)) return;
+      if (cs.display === "none" || cs.visibility === "hidden" || cs.pointerEvents === "none") return;
+      if ((node.textContent || "").replace(/\s+/g, " ").trim().length > 160) return;
+      if (!adInside(node)) return;
+      var inner = node.querySelector ? node.querySelector("iframe[src]") : null;
+      blocked("overlay", (inner && inner.getAttribute("src")) || node.id || node.className);
+      node.remove();
+    });
+  }
+
+  // =============================================================================================
+  // ENGANCHAR (Y PODER DESENGANCHAR)
+  // =============================================================================================
+  function patch(target, key, make) {
+    if (!target) return false;
+    var d = Object.getOwnPropertyDescriptor(target, key);
+    if (!d || !d.configurable) return false;
+    var orig = d.value || d.set;
+    if (typeof orig !== "function" || orig.__hfShield) return false;
+    var fn = make(orig, d);
+    if (typeof fn !== "function") return false;
+    fn.__hfShield = true;
+    try {
+      if (d.value !== undefined) {
+        Object.defineProperty(target, key, { value: fn, writable: true, configurable: true, enumerable: d.enumerable });
+      } else {
+        Object.defineProperty(target, key, { get: d.get, set: fn, configurable: true, enumerable: d.enumerable });
+      }
+    } catch (e) {
+      return false;
+    }
+    undo.push(function () {
+      try {
+        Object.defineProperty(target, key, d);
+      } catch (e) {}
+    });
+    return true;
+  }
+
+  function install() {
+    if (hf.settings.shield === false) return;
+    if (on) return;
+    var W = hf.pageWin();
+    if (!W || !W.document) return;
+    origSet = W.Element && W.Element.prototype && W.Element.prototype.setAttribute;
+    if (typeof origSet !== "function") return;
+    on = true;
+
+    // 1. el `sandbox`: se limpia en las cuatro puertas por las que un iframe de anuncio puede
+    //    entrar (atributo, propiedad, `src` y el momento de colgarse del documento).
+    patch(W.Element.prototype, "setAttribute", function (orig) {
+      return function (name, value) {
+        if (name === "sandbox" && value != null && POPUPS.test(String(value))) {
+          var s = String(value).replace(ALLOW, "").replace(/\s+/g, " ").trim();
+          stats.sandbox++;
+          notify(null);
+          return orig.call(this, name, s);
+        }
+        return orig.apply(this, arguments);
+      };
+    });
+    patch(W.HTMLIFrameElement && W.HTMLIFrameElement.prototype, "sandbox", function (orig, d) {
+      return function (v) {
+        if (v != null && POPUPS.test(String(v))) {
+          var s = String(v).replace(ALLOW, "").replace(/\s+/g, " ").trim();
+          stats.sandbox++;
+          notify(null);
+          return orig.call(this, s);
+        }
+        return orig.call(this, v);
+      };
+    });
+    patch(W.HTMLIFrameElement && W.HTMLIFrameElement.prototype, "src", function (orig) {
+      return function (v) {
+        try {
+          if (this.getAttribute && POPUPS.test(this.getAttribute("sandbox") || "")) tidyFrame(this);
+        } catch (e) {}
+        return orig.call(this, v);
+      };
+    });
+    origAppend = W.Node && W.Node.prototype && W.Node.prototype.appendChild;
+    if (typeof origAppend === "function") {
+      patch(W.Node.prototype, "appendChild", function (orig) {
+        return function (node) {
+          try {
+            scan(node);
+          } catch (e) {}
+          return orig.call(this, node);
+        };
+      });
+      patch(W.Node.prototype, "insertBefore", function (orig) {
+        return function (node) {
+          try {
+            scan(node);
+          } catch (e) {}
+          return orig.apply(this, arguments);
+        };
+      });
+      patch(W.Node.prototype, "replaceChild", function (orig) {
+        return function (node) {
+          try {
+            scan(node);
+          } catch (e) {}
+          return orig.apply(this, arguments);
+        };
+      });
+    }
+
+    // 2. `window.open` (y `_self`/`_top`/`_parent`, que no son ventanas nuevas sino navegar).
+    patch(W, "open", function (orig) {
+      return function (url, name) {
+        var nm = arguments.length > 1 ? String(name == null ? "" : name) : "";
+        if (nm !== "_self" && nm !== "_top" && nm !== "_parent") {
+          var target = arguments.length ? String(url == null ? "" : url) : "";
+          if (!own(target)) {
+            blocked("popup", target);
+            return deadWindow();
+          }
+        }
+        return orig.apply(this, arguments);
+      };
+    });
+
+    // 3. el clic sintético sobre un enlace que nadie ve (fuera del documento, o escondido).
+    patch(W.HTMLElement && W.HTMLElement.prototype, "click", function (orig) {
+      return function () {
+        try {
+          var tag = this.tagName;
+          if ((tag === "A" || tag === "AREA") && hiddenLink(this)) {
+            var href = this.getAttribute("href") || "";
+            if (href && !own(href)) {
+              blocked("anchor", href);
+              return undefined;
+            }
+          }
+        } catch (e) {}
+        return orig.apply(this, arguments);
+      };
+    });
+
+    if (!watching) {
+      watching = true;
+      hf.onDom(sweep);
+    }
+    sweep();
+  }
+
+  function remove() {
+    if (!on) return;
+    on = false;
+    undo.splice(0).forEach(function (fn) {
+      try {
+        fn();
+      } catch (e) {}
+    });
+  }
+
+  hf.shield = {
+    install: install,
+    remove: remove,
+    stats: stats,
+    log: hist,
+    own: own,
+    sweep: sweep,
+    onChange: function (fn) {
+      if (typeof fn === "function") subs.push(fn);
+    }
+  };
+
+  hf.onChange(function (changed) {
+    if (changed.indexOf("shield") < 0) return;
+    if (hf.settings.shield === false) remove();
+    else install();
+  });
+
+  install();
 })();
 
 // ---------------------------------------------------------------------------------------------
@@ -1396,6 +1812,26 @@
     return out;
   }
 
+  // El marcador del escudo (`shield.js`): se repinta solo en cuanto se bloquea algo, así se ve que
+  // está trabajando sin tener que abrir la consola.
+  function adNote() {
+    var box = hf.el("small", { cls: "hf-hint" });
+    function paint() {
+      var s = hf.shield ? hf.shield.stats : null;
+      if (!s) {
+        box.textContent = "";
+        return;
+      }
+      var n = s.popup + s.anchor + s.overlay;
+      box.textContent = n
+        ? "En esta página se han bloqueado " + n + " (" + s.popup + " ventanas emergentes, " + s.anchor + " redirecciones y " + s.overlay + " pantallas completas) y se han desarmado " + s.sandbox + " huecos de anuncio."
+        : "En esta página todavía no ha hecho falta nada. Cuando un anuncio intente abrir una pestaña, redirigirte al pinchar o tapar la web, saldrá aquí.";
+    }
+    paint();
+    if (hf.shield) hf.shield.onChange(paint);
+    return box;
+  }
+
   // ---- el panel --------------------------------------------------------------------------------
   function build() {
     var count = hf.seen.count();
@@ -1413,6 +1849,8 @@
       row("Cargar", segmented("ads", [["lazy", "Cuando se miran"], ["normal", "Como la web"]])),
       hint("No se quita ningún anuncio: los del sitio se cargan igual, pero cuando su hueco llega a la pantalla en vez de nada más abrir la página."),
       sw("sideAds", "Poner el cuadrado de la columna junto al banner", "En la ficha de juego, el 300×250 de la columna derecha sube al lado del banner de la cabecera —que se estrecha para dejarle sitio— y la columna se queda solo con los juegos relacionados. Es el mismo anuncio, en el mismo hueco: solo cambia de sitio, y la carga se aplaza igual."),
+      sw("shield", "Bloquear los anuncios que te sacan de la web", "Fuera las ventanas y pestañas que se abren solas, las redirecciones al pinchar y las pantallas completas de anuncio. Los anuncios que se ven en la página (el banner, el cuadrado, los nativos, los enlaces del pie) no se tocan: se cargan y cuentan igual."),
+      adNote(),
 
       caption("Reproductor"),
       row("Al abrir un juego", segmented("play", [["auto", "Arranca solo"], ["click", "Con un clic"], ["off", "No tocar"]])),
