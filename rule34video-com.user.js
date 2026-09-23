@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.91
+// @version      0.1.92
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -2517,8 +2517,7 @@
   window.__r34gvSearch = true;
 
   var CORE = window.r34gvCore; // lo deja core.js: saber cuál de las fichas es el anuncio nativo
-  var MODE_KEY = "r34gv.search.mode"; // "only" (por defecto) | "all"
-  var HIDE = "r34gv-hide";
+  var MODE_KEY = "r34gv.search.mode"; // "only" | "all" | sin nada = lo que diga la página
   var SAY = "r34gv-say";
   var NOSAY = "r34gv-nosay";
   var WAIT = 180; // ms de calma antes de repasar (la web mete fichas por AJAX)
