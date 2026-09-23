@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.142
+// @version      0.1.143
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -499,21 +499,19 @@
   //
   // (2) El cuadrado de la columna de la ficha de juego. Ahí la web mete un 300x250 (`#rightzone`)
   // justo debajo del título «Related», y parte en dos la lista de juegos relacionados. Con el
-  // ajuste `sideAds` puesto, ese hueco se saca del flujo y se sube al lado del banner —para el que
-  // se reserva su ancho—: la cabecera queda como una fila de dos anuncios y la columna se queda
-  // solo con los juegos. Además el cuadrado se escala (entero, sin recortar nada) para que ocupe
-  // **el mismo alto que el banner**: si no, con sus 250 px se salía por debajo de la franja de la
-  // cabecera y volvía a meter la cabeza en la fila de los juegos. Es el mismo anuncio, en el mismo
-  // hueco, cargado igual; se coloca con `position:absolute` en vez de mover el nodo del DOM porque
-  // mover un iframe lo recargaría y contaría otra impresión. Las medidas (cuánto se escala el
-  // cuadrado, dónde cae y cuánto hay que bajar la columna para que no se pisen) se toman en cada
-  // pasada, así que aguanta que cambie la ventana o el contenido.
+  // ajuste `sideAds` puesto, ese hueco se saca del flujo y se sube al lado del banner: la cabecera
+  // queda como una fila de dos anuncios (los dos **del mismo alto**, el cuadrado escalado entero,
+  // sin recortar nada) y la columna se queda solo con los juegos. La fila se reparte de una vez y
+  // lo que sobre se parte en dos, así que el conjunto va **centrado** en la franja del banner y los
+  // dos márgenes salen iguales; y el ancho que se le quita al banner se le da al cuadrado, por lo
+  // que el banner sale lo más grande que cabe en vez de dejar un hueco en medio. Es el mismo
+  // anuncio, en el mismo hueco, cargado igual; se coloca con `position:absolute` en vez de mover el
+  // nodo del DOM porque mover un iframe lo recargaría y contaría otra impresión. Las medidas se
+  // toman en cada pasada, así que aguanta que cambie la ventana o el contenido.
   var adBase = 0;
   var adWritten = "";
   var COL_GAP = 16;
   var COL_MIN = 1025;
-  // por debajo de esto el cuadrado no se encoge más: un anuncio de 75 px de alto no lo lee nadie
-  var COL_MIN_SCALE = 0.5;
 
   function scaleOf(v) {
     var m = /scale\(\s*([\d.]+)\s*\)/.exec(v || "");
@@ -526,36 +524,46 @@
     node.style.setProperty(prop, val, "important");
   }
 
-  // La escala del banner: la suya de fábrica como tope y el hueco real (menos lo que se le reserve
-  // al cuadrado de la columna) como límite. Devuelve la escala que ha quedado puesta.
-  function fitBanner(ad, reserve) {
+  // La escala del banner (y, si se le pasa el cuadrado de la columna, la cuenta con él).
+  //
+  // Las dos piezas van a la par: el cuadrado se escala para acabar con **el mismo alto** que el
+  // banner, así que su ancho también sale de la escala del banner (`coef` es lo que mide de ancho
+  // por unidad de escala). Con eso, «que quepan los dos con su hueco» ya es una sola cuenta:
+  //   ancho*f  +  hueco  +  coef*f  <=  franja de la cabecera
+  // Lo que sobre (ventanas muy anchas, con el banner ya en su tamaño de fábrica) se reparte en dos:
+  // la mitad de margen a la izquierda del banner y la otra mitad a la derecha del cuadrado, así que
+  // el conjunto queda **centrado** en la franja, con los dos márgenes iguales.
+  function fitBanner(ad, sit) {
     var cur = ad.style.transform || "";
     // lo que hay en línea puede ser lo que escribimos nosotros (y entonces no sirve de medida)
     if (cur && cur !== adWritten) {
       var s = scaleOf(cur);
       if (s) adBase = s;
     }
-    if (!adBase) return 0;
+    if (!adBase) return null;
     var head = ad.parentElement;
     var cs = window.getComputedStyle(head);
     var avail =
       (head.clientWidth || head.offsetWidth) -
       (parseFloat(cs.paddingLeft) || 0) -
-      (parseFloat(cs.paddingRight) || 0) -
-      (reserve || 0);
+      (parseFloat(cs.paddingRight) || 0);
     var w = ad.offsetWidth || 728;
-    if (!avail || !w || avail <= 0) return 0;
-    var fit = Math.min(adBase, avail / w);
+    var h = ad.offsetHeight || 90;
+    if (!avail || !w) return null;
+    var coef = sit ? (sit.frameW / sit.frameH) * h : 0;
+    var fit = Math.min(adBase, (avail - (sit ? COL_GAP : 0)) / (w + coef));
+    if (!(fit > 0)) return null;
+    var slack = Math.max(0, Math.round(avail - (w * fit + (sit ? COL_GAP + coef * fit : 0))));
     var txt = "scale(" + Math.round(fit * 1000) / 1000 + ")";
     if (txt !== adWritten) {
       adWritten = txt;
       ad.style.setProperty("transform", txt, "important");
       ad.style.setProperty("transform-origin", "left top", "important");
-      var h = ad.offsetHeight || 90;
       var extra = Math.max(0, Math.round(h * fit) - h);
       ad.style.setProperty("margin-bottom", extra + 8 + "px", "important");
     }
-    return fit;
+    setStyle(ad, "margin-left", Math.round(slack / 2) + "px");
+    return { fit: fit, slack: slack };
   }
 
   // El cuadrado de la columna y la cabecera, si toca ponerlo al lado (ficha de juego, pantalla de
@@ -567,7 +575,17 @@
     var right = hf.q("#flash_pageright");
     var banner = hf.q("#ads_2");
     if (!col || !right || !banner || !banner.parentElement) return null;
-    return { col: col, right: right, banner: banner };
+    var frame = hf.q("iframe", col);
+    return {
+      col: col,
+      right: right,
+      banner: banner,
+      frame: frame,
+      // el cuadrado se mide por su iframe, no por su caja: la caja la encogemos nosotros y con el
+      // `transform` puesta esa medida entraría otra vez en la cuenta por su cuenta
+      frameW: (frame && frame.offsetWidth) || 300,
+      frameH: (frame && frame.offsetHeight) || 250
+    };
   }
 
   // Devolver el cuadrado a la columna (ajuste apagado, ventana estrecha, o página sin cabecera).
@@ -597,25 +615,21 @@
     var banner = hf.q("#ads_2");
     if (!banner || !banner.parentElement) return unsit();
     var sit = sideOf();
-    var fit = fitBanner(banner, sit ? (sit.right.offsetWidth || 300) + COL_GAP : 0);
-    if (!fit || !sit) return unsit();
+    var geo = fitBanner(banner, sit);
+    if (!geo || !sit) return unsit();
     var col = sit.col;
     var right = sit.right;
-    var frame = hf.q("iframe", col);
+    var frame = sit.frame;
     var br = banner.getBoundingClientRect();
     var cr = right.getBoundingClientRect();
     var sx = window.pageXOffset || 0;
     var sy = window.pageYOffset || 0;
-    // el cuadrado se mide por su iframe, no por su caja: la caja la encogemos nosotros y con el
-    // `transform` puesta la medida volvería a entrar en la cuenta por su cuenta
-    var fW = (frame && frame.offsetWidth) || 300;
-    var fH = (frame && frame.offsetHeight) || 250;
-    var bannerH = Math.round((banner.offsetHeight || 90) * fit);
-    var k = Math.max(COL_MIN_SCALE, Math.min(1, (bannerH || fH) / fH));
-    var boxW = Math.round(fW * k);
-    var boxH = Math.round(fH * k);
-    // pegado al borde derecho de la columna y arriba con el banner
-    var left = Math.round(cr.left + sx + Math.max(0, cr.width - boxW));
+    // el cuadrado, entero (se escala, no se recorta) y con el mismo alto que el banner
+    var k = Math.min(1, ((banner.offsetHeight || 90) * geo.fit) / sit.frameH);
+    var boxW = Math.round(sit.frameW * k);
+    var boxH = Math.round(sit.frameH * k);
+    // pegado al banner por la derecha y arriba con él
+    var left = Math.round(br.left + sx + br.width + COL_GAP);
     var top = Math.round(br.top + sy);
     // y la columna arranca debajo de él (si aún sobresale), con un respiro, para que no se pisen
     var pad = Math.max(0, Math.round(top + boxH + 10 - (cr.top + sy)));
