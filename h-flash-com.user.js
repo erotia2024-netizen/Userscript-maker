@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.119
+// @version      0.1.120
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -934,7 +934,7 @@
       return;
     }
     if (!e && !started) {
-      noteText("Pulsa ▶ Jugar");
+      noteText(hf.settings.play === "off" ? "Reproductor apagado · actívalo en ⚡" : "Pulsa ▶ Jugar");
       return;
     }
     if (++tries > 40) {
