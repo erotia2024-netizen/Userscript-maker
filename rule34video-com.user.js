@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         rule34video.com
-// @version      0.1.75
+// @version      0.1.76
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -2523,12 +2523,12 @@
     if (now.names === cookies.names && now.len === cookies.len) return;
     var was = cookies.names ? cookies.names.split(",") : [];
     var is = now.names ? now.names.split(",") : [];
-    var msg = "cookies visibles: " + (now.names || "(ninguna)") + " (" + now.len + " B)";
+    var delta = now.len - cookies.len;
+    var msg = "cookies: " + is.length + " · " + now.len + " B (" + (delta > 0 ? "+" : "") + delta + " B)";
     var gone = left(was, is);
     var add = left(is, was);
     if (gone) msg += " · se van: " + gone;
     if (add) msg += " · aparecen: " + add;
-    if (!gone && !add) msg += " · cambia el tamaño (" + (now.len - cookies.len) + " B)";
     cookies = now;
     record("cookies", msg);
   }
@@ -2611,7 +2611,11 @@
       record("pestaña", "se va la página (" + (known ? "con sesión" : "sin sesión") + ")");
     });
     window.addEventListener("error", function (e) {
-      record("error", (e && e.message ? e.message : "error de script") + (e && e.filename ? " (" + name(e.filename) + ":" + e.lineno + ")" : ""));
+      // El «Script error.» de un script de otro origen no trae ni mensaje ni fichero: no dice nada (es
+      // lo normal en esta página, con los anuncios y el consentimiento pinchando aquí). Solo se apunta
+      // lo que se puede leer.
+      if (!e || !e.message || !e.filename) return;
+      record("error", e.message + " (" + name(e.filename) + ":" + e.lineno + ")");
     });
     return true;
   }
