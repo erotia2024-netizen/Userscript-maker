@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.165
+// @version      0.1.166
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1454,6 +1454,12 @@
     "RANDOM HENTAI FLASH GAMES": "JUEGOS FLASH HENTAI ALEATORIOS",
     "ALL HENTAI FLASH GAMES": "TODOS LOS JUEGOS FLASH HENTAI",
     "HOT 100 HENTAI FLASH GAMES": "LOS 100 JUEGOS FLASH HENTAI MÁS POPULARES",
+    // La web parte estos títulos en dos trozos (`HOT 100<span class="mobhide"> HENTAI FLASH
+    // GAMES</span>`, que en el móvil se queda en «HOT 100»): hay que traducir también los trozos.
+    "HENTAI FLASH GAMES": "JUEGOS FLASH HENTAI",
+    "HOT 100": "TOP 100",
+    "Previous Page": "Anterior",
+    "Next Page": "Siguiente",
     "MY FAVORITES": "MIS FAVORITOS",
     "HIGHEST RATED": "MEJOR VALORADOS",
     "MOST PLAYED": "MÁS JUGADOS",
@@ -1570,7 +1576,9 @@
   // Textos que la web monta en un elemento con varios trozos dentro (ahí no vale traducir nodo a
   // nodo: hay que rehacer el elemento entero).
   var ELEMS = {
-    "Bug Report": 'Informe de <span style="color:red">error</span>'
+    "Bug Report": 'Informe de <span style="color:red">error</span>',
+    "Previous Page": "Anterior",
+    "Next Page": "Siguiente"
   };
 
   // Elementos del menú que la web parte en dos («ALL» + un `<span class="mobhide"> GAMES</span>` que
