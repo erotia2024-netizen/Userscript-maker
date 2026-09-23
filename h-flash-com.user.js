@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.183
+// @version      0.1.184
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -446,6 +446,8 @@
   window.hf = {
     DEFAULTS: DEFAULTS,
     settings: settings,
+    // Lo que falle en los pasos de `boot.js` (`pass()`) se apunta aquí en vez de reventar la página.
+    errors: [],
     set: set,
     onChange: onChange,
     load: loadSettings,
@@ -1926,6 +1928,13 @@
     if (value) location.href = value;
   }
 
+  // Los idiomas que la web pone (los de su bloque «LANGUAGE»), ya leídos: es lo que usan el panel y
+  // el bloque «Idioma» de la página de ajustes para montar su desplegable (`chooser`).
+  function languages() {
+    if (!langs) build();
+    return (langs || []).slice();
+  }
+
   // El encargo que viaja en el hash (ver `MARK_ES`): se apunta el idioma y se deja la URL limpia.
   function mark() {
     var h = location.hash || "";
@@ -2003,10 +2012,7 @@
     },
     // Los idiomas de la web (los que pone en su bloque «LANGUAGE») y el «elegir» del desplegable, que
     // es lo que usa el panel para tener el mismo mando sin bajar al pie.
-    languages: function () {
-      if (!langs) build();
-      return (langs || []).slice();
-    },
+    languages: languages,
     pick: pick,
     // Pasar el texto por el diccionario (para lo que se construya fuera del documento).
     tr: tr,
@@ -2925,22 +2931,26 @@
 //   · Un aviso de **guardado**: la web los guarda al instante en cookies, pero no lo dice en
 //     ninguna parte y el ajuste parece no hacer nada.
 //
-// Todo lo de aquí es de esta página: se comprueba la ruta y, si no es, no se toca nada. Las piezas
-// se insertan una sola vez (cada una se busca a sí misma antes de montarse), así que `init()` puede
-// llamarse tantas veces como quiera el vigilante del DOM.
+// Todo lo de aquí es de esta página: si no es la de ajustes (se reconoce por su formulario, ver
+// `isPrefs`), no se toca nada. Las piezas se insertan una sola vez (cada una se busca a sí misma
+// antes de montarse), así que `init()` puede llamarse tantas veces como quiera el vigilante del DOM.
 // ---------------------------------------------------------------------------------------------
 (function () {
   "use strict";
   var hf = window.hf;
   if (!hf || hf.prefs) return;
 
-  function isPrefs() {
-    return /\/tool\/prefs\/?$/.test(location.pathname);
-  }
-
-  // El formulario de la página (`<form name="preform">`).
+  // ¿Es esta la página de ajustes? No se pregunta por la dirección (`/tool/prefs/`) a propósito: el
+  // laboratorio monta la página guardada dentro de su propia URL, así que la ruta no sirve. Se
+  // pregunta por el formulario, que es suyo y no lo tiene ninguna otra página de la web
+  // (`<form name="preform">` con el selector de reproductor).
   function form() {
     return (document.forms && document.forms.preform) || null;
+  }
+
+  function isPrefs() {
+    var f = form();
+    return !!(f && f.querySelector("select[name=plugin_selector]"));
   }
 
   // El `.field` (el bloque con su título) que contiene un control.
@@ -3083,18 +3093,42 @@
     }
 
     function pass() {
-      columns();
-      layout();
-      softerAlerts();
-      searchHint();
-      if (hf.skin) hf.skin.layoutAds();
-      hf.deferAds();
-      if (hf.grid) hf.grid.layout();
-      if (hf.grid) hf.grid.mark();
-      if (hf.player) hf.player.init();
-      if (hf.panel) hf.panel.init();
-      if (hf.lang) hf.lang.init();
-      if (hf.prefs) hf.prefs.init();
+      // Cada paso va aislado: un fallo en una pieza (una web que cambia, un navegador viejo) no
+      // puede llevarse por delante a las demás — y menos a las que van al final, que son el idioma y
+      // la página de ajustes. Lo que falle se apunta en `hf.errors` para mirarlo desde la consola.
+      function safe(name, fn) {
+        try {
+          fn();
+        } catch (e) {
+          hf.errors.push({ piece: name, error: String((e && e.message) || e) });
+        }
+      }
+      safe("columns", columns);
+      safe("layout", layout);
+      safe("softerAlerts", softerAlerts);
+      safe("searchHint", searchHint);
+      safe("skin", function () {
+        if (hf.skin) hf.skin.layoutAds();
+      });
+      safe("ads", hf.deferAds);
+      safe("grid", function () {
+        if (hf.grid) hf.grid.layout();
+      });
+      safe("gridMarks", function () {
+        if (hf.grid) hf.grid.mark();
+      });
+      safe("player", function () {
+        if (hf.player) hf.player.init();
+      });
+      safe("panel", function () {
+        if (hf.panel) hf.panel.init();
+      });
+      safe("lang", function () {
+        if (hf.lang) hf.lang.init();
+      });
+      safe("prefs", function () {
+        if (hf.prefs) hf.prefs.init();
+      });
     }
 
     hf.onDom(function () {
