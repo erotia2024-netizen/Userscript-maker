@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.143
+// @version      0.1.144
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -624,6 +624,11 @@
     var cr = right.getBoundingClientRect();
     var sx = window.pageXOffset || 0;
     var sy = window.pageYOffset || 0;
+    // Al principio de cargar el banner todavía no tiene caja (la web convierte su `<iframe2>` en
+    // un `<iframe>` de verdad un poco después): si se mide entonces sale un hueco de cero y el
+    // cuadrado acabaría pegado al borde. Cuando eso pasa no se toca nada y se deja para la
+    // siguiente pasada (el arranque repasa cada pocos segundos hasta que la página se está quieta).
+    if (!(br.width > 100)) return false;
     // el cuadrado, entero (se escala, no se recorta) y con el mismo alto que el banner
     var k = Math.min(1, ((banner.offsetHeight || 90) * geo.fit) / sit.frameH);
     var boxW = Math.round(sit.frameW * k);
@@ -1573,13 +1578,18 @@
 
     // Los anuncios aplazados se devuelven al acercarse. `scroll` en captura y pasivo (barato), y un
     // repaso flojo cada pocos segundos como red de seguridad (hay navegadores que no avisan de un
-    // cambio de tamaño, y el laboratorio monta la página después de cargar).
+    // cambio de tamaño, y el laboratorio monta la página después de cargar). En ese repaso se
+    // vuelve a colocar el banner y el cuadrado de la columna: la primera pasada puede pillar la
+    // página a medio montar (el banner todavía sin caja) y así se arregla sola en cuanto está.
     window.addEventListener("scroll", hf.sweep, { passive: true, capture: true });
     window.addEventListener("resize", function () {
       hf.sweep();
       if (hf.skin) hf.skin.layoutAds();
     });
-    setInterval(hf.sweep, 2500);
+    setInterval(function () {
+      hf.sweep();
+      if (hf.skin) hf.skin.layoutAds();
+    }, 2500);
   });
 })();
 
