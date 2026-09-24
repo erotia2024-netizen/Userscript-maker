@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.259
+// @version      0.1.260
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -382,6 +382,11 @@
   function frameShows(f) {
     if (!adHasBox(f)) return false; // sin caja: no pinta nada
     if (f.dataset && f.dataset.hfAdFilled) return true; // ya se le vio un anuncio puesto aquí
+    // Y el hueco que lleva un buen rato sin decir nada (ni un `load`, ni un documento que se pueda
+    // leer): ahí no hay anuncio. Es el caso que se escapa a todo lo demás —el `<iframe>` de la red
+    // que se queda a medias y no llega a pintar nunca— y el que dejaba 90 px de nada en cada
+    // página. Si más tarde llega, el `load` le devuelve el sitio.
+    if (f.dataset && f.dataset.hfAdQuiet) return false;
     var doc = null;
     try {
       doc = f.contentDocument;
@@ -430,10 +435,16 @@
     if (hf && hf.skin && hf.skin.adGap) hf.skin.adGap(node);
   }
 
+  // Cuánto se le da a un hueco para que dé señales (un `load` con su documento) antes de darlo por
+  // vacío. Los anuncios de verdad cargan en uno o dos segundos; esperar cinco no molesta a nadie y
+  // deja margen de sobra.
+  var AD_QUIET_MS = 5000;
+
   function watchAd(f) {
     if (f.__hfAdWatch) return;
     f.__hfAdWatch = true;
     f.addEventListener("load", function () {
+      delete f.dataset.hfAdQuiet; // dio señales: sigue vivo
       if (!adLanded(f)) return;
       // Un `load` en un hueco **sin caja** (el que la web nunca midió, como los del laboratorio, que
       // no cargan anuncios) no es un anuncio: si se diera por bueno, el hueco se quedaría reservado
@@ -444,6 +455,18 @@
       var zone = f.closest && f.closest("#topzone");
       if (zone) markAdEmpty(zone, false);
     });
+    // Y el reloj del silencio: si en `AD_QUIET_MS` no ha dicho ni mu, se marca `hfAdQuiet` (que es
+    // lo que `frameShows` mira) y el repaso lo desploma en la pasada siguiente. Nada se toca del
+    // anuncio: si llega, su `load` borra la marca y le devuelve su sitio.
+    if (f.dataset && !f.dataset.hfAdQuiet) {
+      setTimeout(function () {
+        if (!f.isConnected || f.dataset.hfAdFilled || f.dataset.hfAdQuiet) return;
+        f.dataset.hfAdQuiet = "1";
+        try {
+          emptyZones();
+        } catch (e) {}
+      }, AD_QUIET_MS);
+    }
   }
 
   function emptyZones() {
