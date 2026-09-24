@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.279
+// @version      0.1.280
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -4776,8 +4776,12 @@
   hf.feedback = { init: init, page: page };
 })();
 
-// ---------------------------------------------------------------------------------------------
-// h-flash.com — LA PÁGINA DE AUTORES (`/author/`)
+  // ---------------------------------------------------------------------------------------------
+  // h-flash.com — LA PÁGINA DE AUTORES (`/author/`)
+  //
+  // ...y, de propina, el «SORT» de los dos listados de juegos que la web deja a medias: la ficha de
+  // un autor (`/author/<nombre>/`) y la de una etiqueta (`/tag/<nombre>/`). Ver el final del
+  // archivo: el desplegable ordena la lista de la propia página, sin mandarte al filtro avanzado.
 //
 // 190 autores en una lista de 2005. Cada uno es un `<a class="tag">` de 280 px —la web los pone
 // cuatro por fila y deja 144 px muertos al final de cada una— con el avatar flotado a la izquierda,
@@ -5124,7 +5128,311 @@
     }
   }
 
+  // =============================================================================================
+  // EL «SORT» DE LOS DOS LISTADOS DE JUEGOS (`/tag/<x>/` y `/author/<x>/`)
+  // =============================================================================================
+  // Los dos traen el mismo `<select>` «SORT» y el mismo defecto: al elegir una opción hace
+  // `window.location = '/list/#tag=<id>&sort=<x>'`, así que te **saca de la página**, te cambia la
+  // maqueta por la del filtro avanzado y, encima, el título lo ordena de la Z a la A. Aquí el
+  // desplegable se queda donde está y ordena **la lista de esta página**, sin movernos: los juegos
+  // de esa etiqueta se piden al catálogo de la web (`/list/dataapp.json`, el mismo que usa su
+  // filtro avanzado) y las tarjetas se repintan en nuestra rejilla, de `PER_PAGE` en `PER_PAGE`,
+  // con el pie de páginas de siempre. El catálogo queda en `sessionStorage` con la clave de la
+  // propia web (`json_list`): cuesta una vez por sesión y, si su filtro avanzado ya lo había
+  // cargado, ni eso.
+  var CATALOG = "/list/dataapp.json";
+  var CATALOG_KEY = "json_list";
+  var PER_PAGE = 24;
+
+  // Cómo se ordena cada opción del desplegable, y cómo se llama en la nota de debajo. Los títulos,
+  // de la A a la Z —que es como se leen—; lo demás, lo más nuevo/jugado/valorado primero.
+  var SORTS = {
+    "": { by: "update", up: false, name: "fecha de actualización" },
+    release: { by: "release", up: false, name: "fecha de publicación" },
+    played: { by: "played", up: false, name: "veces jugado" },
+    rating: { by: "rating", up: false, name: "valoración" },
+    title: { by: "title", up: true, name: "título (A→Z)" }
+  };
+
+  // La etiqueta de la página: en esta web el autor es una etiqueta más, así que `#tag=74` sirve
+  // para las dos. Va en el `onchange` del desplegable —lo que la web iba a mandar al filtro
+  // avanzado— y, en la ficha de un autor, además en los iconos de su caja (`played_auth_74`).
+  function listTag() {
+    var sel = hf.q(".list_option select");
+    var m = sel && /[#?&]tag=(\d+)/.exec(sel.getAttribute("onchange") || "");
+    if (m) return m[1];
+    var icon = hf.q("[id^=acount_auth_]") || hf.q("[id^=played_auth_]");
+    m = icon && /auth_(\d+)/.exec(icon.id);
+    return m ? m[1] : "";
+  }
+
+  // ¿La página es uno de esos dos listados? Hacen falta el desplegable, su columna de tarjetas y la
+  // etiqueta. `sel.hfSort` es la marca de «ya es nuestro», para no engancharlo dos veces.
+  function sortedList() {
+    var sel = hf.q(".list_option select");
+    var list = hf.q(".pageleft");
+    if (!sel || !list || sel.hfSort) return null;
+    if (!hf.q("a.gameboxmain2", list)) return null;
+    if (!listTag()) return null;
+    return { sel: sel, list: list };
+  }
+
+  // El catálogo entero (12.534 juegos con sus etiquetas, fechas, visitas y notas). Se pide una vez:
+  // si ya está en la sesión —la web lo guarda ahí— se aprovecha, y si no, se pide y se guarda como
+  // lo guarda ella. Quien lo pida mientras carga, espera.
+  var catalogData = null;
+  var catalogWaiting = [];
+
+  function catalog(ok, fail) {
+    if (catalogData) return ok(catalogData);
+    catalogWaiting.push({ ok: ok, no: fail });
+    if (catalogWaiting.length > 1) return;
+    var raw = null;
+    try {
+      raw = sessionStorage.getItem(CATALOG_KEY);
+    } catch (e) {}
+    if (raw && raw.length > 1000) {
+      try {
+        return catDone(JSON.parse(raw));
+      } catch (e) {}
+    }
+    hf.toast("Cargando la lista de juegos de la web…", 8000);
+    fetch(hf.abs(CATALOG))
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.text();
+      })
+      .then(function (txt) {
+        try {
+          sessionStorage.setItem(CATALOG_KEY, txt);
+        } catch (e) {}
+        catDone(JSON.parse(txt));
+      })
+      .catch(function () {
+        var w = catalogWaiting.splice(0);
+        hf.toast("No se pudo cargar la lista de juegos de la web");
+        w.forEach(function (x) {
+          if (x.no) x.no();
+        });
+      });
+  }
+
+  function catDone(data) {
+    catalogData = data;
+    var w = catalogWaiting.splice(0);
+    w.forEach(function (x) {
+      x.ok(data);
+    });
+  }
+
+  // El comparador de cada orden. Los títulos van con `fold` —el mismo que el buscador de autores—
+  // para que las mayúsculas y los acentos no partan la lista en dos.
+  function comparator(cfg) {
+    if (cfg.by === "title") {
+      var sgn = cfg.up ? 1 : -1;
+      return function (a, b) {
+        var x = fold(a.title);
+        var y = fold(b.title);
+        return (x < y ? -1 : x > y ? 1 : 0) * sgn;
+      };
+    }
+    if (cfg.by === "rating" || cfg.by === "played") {
+      return function (a, b) {
+        if (cfg.by === "rating") {
+          var ra = a.rated ? 1 : 0;
+          var rb = b.rated ? 1 : 0;
+          if (ra !== rb) return rb - ra; // los que no tienen nota, al final
+        }
+        return (Number(b[cfg.by]) || 0) - (Number(a[cfg.by]) || 0);
+      };
+    }
+    var mul = cfg.up ? 1 : -1;
+    return function (a, b) {
+      var x = a[cfg.by];
+      var y = b[cfg.by];
+      // Las fechas que la web no sabe (`0001-01-01`) se van al final, se ordene como se ordene.
+      if (cfg.by === "release") {
+        var ex = !x || x === "0001-01-01";
+        var ey = !y || y === "0001-01-01";
+        if (ex !== ey) return ex ? 1 : -1;
+      }
+      if (x === y) return 0;
+      return (x > y ? 1 : -1) * mul;
+    };
+  }
+
+  // Una tarjeta igual que las de la web (misma maqueta: nuestra piel las viste), pero con los datos
+  // del catálogo: la miniatura, el título y su trozo de detrás, los dos iconos del sprite y las
+  // etiquetas.
+  function nwSpan() {
+    var s = document.createElement("span");
+    s.className = "nw";
+    s.title = "open in new window";
+    s.setAttribute("onclick", "nw(this)");
+    return s;
+  }
+
+  function card(a) {
+    var title = hf.el("span", { cls: "title" });
+    title.textContent = a.title || a.stitle || "";
+    title.appendChild(nwSpan());
+    var kids = [
+      hf.el("img", { cls: "thumb", src: hf.abs(a.thumb), alt: a.stitle || a.title, loading: "lazy" }),
+      title
+    ];
+    var rest = "";
+    if (a.stitle && a.title && a.stitle.indexOf(a.title) === 0) rest = a.stitle.slice(a.title.length).trim();
+    if (rest) kids.push(hf.el("span", { cls: "title2", text: rest }));
+    kids.push(hf.el("span", { cls: "icon played", id: "played_list_" + a.id, aid: a.id }));
+    kids.push(hf.el("span", { cls: "icon rank", aid: a.id }));
+    var names = String(a.tags || "")
+      .split(",")
+      .map(function (n) {
+        return n.trim();
+      })
+      .filter(Boolean);
+    if (names.length) {
+      kids.push(hf.el("br"));
+      var box = hf.el("span", { cls: "tags", id: "tags_list_" + a.id });
+      names.forEach(function (n) {
+        box.appendChild(hf.el("span", { cls: "tag", text: n }));
+      });
+      kids.push(box);
+    }
+    return hf.el(
+      "a",
+      {
+        cls: "gamebox gameboxmain2",
+        href: hf.abs(a.path),
+        tagid: a.tagsid,
+        title: a.stitle || a.title || ""
+      },
+      kids
+    );
+  }
+
+  // Repintar una página: las tarjetas (que van ANTES del pie, que ya está puesto) y la nota con lo
+  // que se está viendo.
+  function sortPaint(l) {
+    hf.qa("a.gameboxmain2, .clear, .pagelink", l.list).forEach(function (n) {
+      n.remove();
+    });
+    var from = (l.page - 1) * PER_PAGE;
+    var frag = document.createDocumentFragment();
+    l.items.slice(from, from + PER_PAGE).forEach(function (a) {
+      frag.appendChild(card(a));
+    });
+    l.list.insertBefore(frag, l.pager);
+    if (hf.grid) {
+      hf.grid.layout();
+      hf.grid.mark();
+    }
+    var pages = Math.max(1, Math.ceil(l.items.length / PER_PAGE));
+    l.note.textContent =
+      l.items.length +
+      (l.items.length === 1 ? " juego" : " juegos") +
+      " · " +
+      SORTS[l.key].name +
+      (pages > 1 ? " · " + l.page + "/" + pages : "");
+    sortPager(l, pages);
+  }
+
+  // El pie de páginas, con el mismo aspecto que el de la lista de autores (`.hf-apager`).
+  function sortPager(l, pages) {
+    var p = l.pager;
+    p.innerHTML = "";
+    if (pages < 2) {
+      p.hidden = true;
+      return;
+    }
+    p.hidden = false;
+
+    function button(text, page, cls) {
+      var b = hf.el("button", { type: "button", cls: cls || "" });
+      b.textContent = text;
+      var off = page < 1 || page > pages;
+      b.disabled = off;
+      if (off) {
+        b.setAttribute("aria-disabled", "true");
+      } else {
+        if (page === l.page) b.setAttribute("aria-current", "page");
+        b.addEventListener("click", function () {
+          sortGo(l, page);
+        });
+      }
+      return b;
+    }
+
+    p.appendChild(button("‹", l.page - 1, "hf-apage-prev"));
+    var nums = [];
+    if (pages <= 9) {
+      for (var i = 1; i <= pages; i++) nums.push(i);
+    } else {
+      nums.push(1);
+      if (l.page > 3) nums.push(0);
+      for (var m = Math.max(2, l.page - 1); m <= Math.min(pages - 1, l.page + 1); m++) nums.push(m);
+      if (l.page < pages - 2) nums.push(0);
+      nums.push(pages);
+    }
+    nums.forEach(function (i) {
+      if (!i) {
+        p.appendChild(hf.el("span", { cls: "hf-apage-info", text: "…" }));
+        return;
+      }
+      p.appendChild(button(String(i), i, i === l.page ? "hf-apage-on" : ""));
+    });
+    p.appendChild(button("›", l.page + 1, "hf-apage-next"));
+  }
+
+  function sortGo(l, page) {
+    var pages = Math.max(1, Math.ceil(l.items.length / PER_PAGE));
+    page = Math.min(Math.max(1, page), pages);
+    if (page === l.page) return;
+    l.page = page;
+    sortPaint(l);
+    var r = l.list.getBoundingClientRect();
+    if (r.top < 0) window.scrollTo(0, window.scrollY + r.top - 16);
+  }
+
+  // Ordenar: primero el catálogo (que puede tardar), después filtrar por la etiqueta de la página,
+  // ordenar y pintar. Si el catálogo no llega, se avisa y no se toca nada.
+  function sortApply(l, key) {
+    if (!SORTS[key]) key = "";
+    l.key = key;
+    l.page = 1;
+    catalog(function (data) {
+      var want = "," + l.tag + ",";
+      var items = data.filter(function (a) {
+        return a && a.tagsid && ("," + a.tagsid + ",").indexOf(want) > -1;
+      });
+      items.sort(comparator(SORTS[key]));
+      l.items = items;
+      sortPaint(l);
+      var r = l.list.getBoundingClientRect();
+      if (r.top < 0) window.scrollTo(0, window.scrollY + r.top - 16);
+    });
+  }
+
+  // Enganchar el desplegable: fuera el salto a `/list/`, dentro el nuestro. Una sola vez.
+  function initSorted(l) {
+    l.sel.hfSort = true;
+    l.tag = listTag();
+    if (l.sel.getAttribute("onchange")) l.sel.removeAttribute("onchange");
+    var box = l.sel.parentNode;
+    l.note = hf.el("span", { cls: "hf-asort-note" });
+    box.appendChild(l.note);
+    l.pager = hf.el("div", { cls: "hf-apager hf-asort-pager", hidden: "hidden" });
+    l.list.appendChild(l.pager);
+    l.sel.addEventListener("change", function () {
+      sortApply(l, l.sel.value);
+    });
+  }
+
   function init() {
+    var s = sortedList();
+    if (s) initSorted(s);
+    if (s) initSorted(s);
+
     var l = page();
     if (!l) return;
     l.classList.add("hf-authorlist");
