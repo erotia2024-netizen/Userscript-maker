@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.231
+// @version      0.1.232
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -4136,7 +4136,9 @@
   // (el disco entero), al editor sólo le sirve lo de dentro de la carpeta del dominio, empezando
   // por «/». Todo el bloque es nuestro, así que no hay nada que traducir.
   function tools(b) {
-    if (!b || b.querySelector(".hf-tools")) return;
+    // Ya está hecho: se pregunta en toda la página y no solo aquí dentro, porque `layout()` se lleva
+    // el bloque a su columna y entonces este `b` ya no lo tiene (y sin esta comprobación se repetiría).
+    if (!b || hf.q(".hf-tools")) return;
     var ta = hf.q("#ta_hdd", b);
     var ul = ta ? ta.closest("ul") : null;
     var box = hf.el("div", { cls: "hf-tools" });
