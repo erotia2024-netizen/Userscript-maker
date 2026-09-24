@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.202
+// @version      0.1.203
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -2159,6 +2159,43 @@
     s.id = "hf-ruffle-new";
   }
 
+  // Ruffle cargado, para quien no sea la ficha de juego (el **editor de partidas** de
+  // `/tool/save-editor/` también es un `.swf` y también necesita el emulador). Se usa el del sitio o
+  // el más nuevo del CDN según el ajuste `emulator`, igual que en el reproductor; `done` se llama
+  // cuando está listo (o cuando se ha hecho lo posible).
+  function withRuffle(done) {
+    var finish = function () {
+      if (done) done();
+    };
+    if (ruffleReady()) {
+      finish();
+      return;
+    }
+    if (hf.settings.emulator === "nuevo") {
+      loadNewestRuffle(finish);
+      return;
+    }
+    var theirs = siteFn("load_ruffle");
+    if (!theirs) {
+      loadNewestRuffle(finish);
+      return;
+    }
+    // El camino del sitio: `load_ruffle()` pone el script de h-flash y va mirando si el `<embed>` ya
+    // es de Ruffle. Si en unos segundos no lo es, se tira del más nuevo.
+    try {
+      theirs();
+    } catch (e) {}
+    var tries = 0;
+    (function tick() {
+      if (ruffleReady() || ++tries > 20) {
+        if (!ruffleReady()) loadNewestRuffle(finish);
+        else finish();
+        return;
+      }
+      setTimeout(tick, 300);
+    })();
+  }
+
   // ---- arrancar el juego -----------------------------------------------------------------------
   // Monta el `<embed>`. Primero por el camino de la web (`embedswf()`: es quien cuenta la
   // reproducción, respeta sus parámetros y monta su controlador); si esa función no existe, se pone
@@ -2559,6 +2596,7 @@
     fullscreen: toggleFullscreen,
     reload: reloadGame,
     swfUrl: swfUrl,
+    withRuffle: withRuffle,
     // para depurar (y para el laboratorio): en qué estado está el reproductor
     debug: function () {
       return { started: started, mounted: !!stage, polling: !!poll, note: note && note.textContent, fallbacks: document.documentElement.classList.contains("hf-show-fallbacks") };
