@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.222
+// @version      0.1.223
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -3744,6 +3744,56 @@
     if (master.length) draw("");
   }
 
+  // ---------------------------------------------------------------------------------------------
+  // LOS «SIMILARES» (los juegos del mismo círculo que los conocidos)
+  // ---------------------------------------------------------------------------------------------
+  // La lista de conocidos son ~22 juegos con su ruta de partida, y resulta que casi todos son del
+  // mismo autor: la web los etiqueta a todos como **«JSK Studio»** (y la ficha de cada juego lleva su
+  // autor en el meta). Cruzando el catálogo entero de la web —`/list/dataapp.json`, 12.534 juegos
+  // con sus etiquetas y su dirección, el mismo que usa el *advanced filter* de `/list/`— con la
+  // lista de conocidos, salen **67 entradas del círculo**: 22 ya están en la lista de fábrica y
+  // **33 más se quedan fuera**. Esas 33 van aquí: el desplegable las enseña en su propio grupo y,
+  // como su partida no se puede saber desde la web (el `.sol` vive en el disco y el nombre del
+  // `.swf` no coincide con la dirección del juego), se propone `<swf>/save_data.sol`, que es el
+  // patrón de las que sí se conocen. De cada juego se guarda su título, su dirección y la ruta de su
+  // `.swf` (sacada de su ficha). Si algún día la web sube más juegos del círculo, esto se rehace
+  // cruzando el catálogo otra vez.
+  var SIMILAR = [
+    ["Imouto-sama Can't Be Refused?", "/imouto-sama-can't-be-refused/", "/data/swf/2018/03/miyuka-unc.swf"],
+    ["Tomboy Get Complete!", "/tomboy-get-complete/", "/data/swf/2013/09/Tomboy Get Complete Jap-Uncensored.swf"],
+    ["With Imouto... 2", "/with-imouto-2/", "/data/swf/2014/05/Imouto2-uncensored.swf"],
+    ["Shogun Princess Christianne", "/shogun-princess-christianne/", "/data/swf/2014/07/shogun-princess-christianne.swf"],
+    ["Schoolgirl Torment FLASH", "/schoolgirl-torment-flash/", "/data/swf/2015/04/xx_with_ayasaki.swf"],
+    ["Sherry", "/jsk-sherry/", "/data/swf/2015/04/sherry-uncensored.swf"],
+    ["Fuuma Girl Maisa", "/fuuma-girl-maisa/", "/data/swf/2015/04/fuuma-girl-maisa.swf"],
+    ["Rita", "/jsk-studio-rita/", "/data/swf/2015/05/rita-uncensored.swf"],
+    ["Mating Admiral: Isokaze", "/mating-admiral-isokaze/", "/data/swf/2017/09/isokaze-unc.swf"],
+    ["Mating Admiral: Arashi", "/mating-admiral-arashi/", "/data/swf/2017/09/arashi-unc.swf"],
+    ["Mating Admiral: Hamakaze", "/mating-admiral-hamakaze/", "/data/swf/2017/09/hamakaze-unc.swf"],
+    ["Tomboy Get Complete! English ver", "/tomboy-get-complete-eng/", "/data/swf/2018/02/tomboy_eng_unc.swf"],
+    ["Misa", "/jsk-misa/", "/data/swf/2018/02/misa-uncensored.swf"],
+    ["Imouto-sama Can't Be Refused? English ver", "/imouto-sama-cant-be-refused-eng/", "/data/swf/2018/03/miyuka-uncensored.swf"],
+    ["With Imouto... 2 English ver", "/with-imouto-2-eng/", "/data/swf/2018/04/imoutoto2eng.swf"],
+    ["Fuuma Girl Maisa English ver", "/fuuma-girl-maisa-eng/", "/data/swf/2018/04/maisa-eng-unc.swf"],
+    ["Overthrow! The Demon Queen", "/overthrow-the-demon-queen/", "/data/swf/2018/04/overthrow.swf"],
+    ["Overthrow! The Demon Queen English ver", "/overthrow-the-demon-queen-eng/", "/data/swf/2018/04/overthrow-eng.swf"],
+    ["Shogun Princess Christianne English ver", "/shogun-princess-christianne-eng/", "/data/swf/2018/04/SPC.swf"],
+    ["Manaka", "/jsk-manaka/", "/data/swf/2018/10/manaka.swf"],
+    ["sex with Sasahara", "/jsk-sasahara/", "/data/swf/2018/10/xx_rp_sasahara.swf"],
+    ["Kanami", "/jsk-kanami/", "/data/swf/2018/10/kanami.swf"],
+    ["Fate", "/jsk-fate/", "/data/swf/2018/10/fate-uncensored.swf"],
+    ["Devil girl vs Hero", "/devil-girl-vs-hero/", "/data/swf/2019/03/devil-girl-vs-hero.swf"],
+    ["Hand-to-Hand Imouto English version", "/hand-to-hand-imouto-eng/", "/data/swf/2019/04/kakutou_imouto_english.swf"],
+    ["Miyui ~My Neighbor Swordswoman in School~", "/miyui-my-neighbor-swordswoman-in-school/", "/data/swf/2019/04/kenshi.swf"],
+    ["Schoolgirl Torment english version", "/schoolgirl-torment-flash-eng/", "/data/swf/2019/05/xxayasaki-eng.swf"],
+    ["Kanami English ver", "/jsk-kanami-eng/", "/data/swf/2019/05/kanami-eng.swf"],
+    ["Manaka English ver", "/jsk-manaka-eng/", "/data/swf/2019/05/manaka-eng.swf"],
+    ["Magical Girl Buster Englisth Ver", "/magical-girl-buster-eng/", "/data/swf/data/jsk-studio/magical-girl-buster-eng/Magical Girl Buster.swf"],
+    ["Miyui ~My Neighbor Swordswoman in School~ English ver", "/miyui-my-neighbor-swordswoman-in-school-eng/", "/data/swf/data/jsk-studio/miyui-eng/miyui-eng.swf"],
+    ["Imouto Ryuko", "/ryuko-imouto-2/", "/data/swf/2023/12/ryuko edit.swf"],
+    ["Yuiaki", "/jsk-yuiaki/", "/data/swf/2024/02/Yuiaki-uncensored.swf"]
+  ];
+
   // =============================================================================================
   // EL FILTRO DE LOS JUEGOS CONOCIDOS
   // =============================================================================================
@@ -3784,6 +3834,13 @@
     }
   }
 
+  // La ruta que se propone para un similar: la carpeta de su `.swf` y el nombre de partida de toda la
+  // vida (`save_data.sol`). Es una aproximación (el nombre del `.sol` cambia: `save_data2.sol`,
+  // `save_data4.sol`…) y así se avisa en el propio grupo del desplegable.
+  function guess(s) {
+    return s[2] ? s[2] + "/save_data.sol" : "";
+  }
+
   function draw(q) {
     var sel = hf.q("#known_selector");
     if (!sel) return;
@@ -3798,20 +3855,52 @@
         keep.push(master[i]);
       }
     }
+    var sims = [];
+    for (var k = 0; k < SIMILAR.length; k++) {
+      if (!want || norm(SIMILAR[k][0]).indexOf(want) >= 0 || norm(SIMILAR[k][1]).indexOf(want) >= 0) {
+        sims.push(SIMILAR[k]);
+      }
+    }
     var chosen = sel.value;
-    while (sel.options.length) sel.remove(0);
-    if (!keep.length) {
+    while (sel.firstChild) sel.removeChild(sel.firstChild); // opciones **y** grupos: `options` no cuenta los `optgroup`
+    if (!keep.length && !sims.length) {
       var none = new Option("Sin resultados", "");
       none.disabled = true;
       sel.options.add(none);
     } else {
-      for (var j = 0; j < keep.length; j++) {
-        var o = new Option(keep[j].name, keep[j].value);
-        if (keep[j].value === chosen) o.selected = true;
-        sel.options.add(o);
+      // Los conocidos primero (su ruta es la buena) y debajo los similares, en su grupo y con su
+      // «≈» delante, para que se vea de un vistazo que ahí la ruta es una aproximación.
+      if (keep.length || sims.length) {
+        var ph = new Option("— Elige un juego —", "");
+        if (!chosen) ph.selected = true;
+        sel.appendChild(ph);
+      }
+      if (keep.length) {
+        var gk = hf.el("optgroup", { label: "Juegos conocidos" });
+        for (var j = 0; j < keep.length; j++) {
+          var o = new Option(keep[j].name, keep[j].value);
+          if (keep[j].value === chosen) o.selected = true;
+          gk.appendChild(o);
+        }
+        sel.appendChild(gk);
+      }
+      if (sims.length) {
+        var gs = hf.el("optgroup", { label: "Similares (JSK Studio) · ruta aproximada" });
+        for (var m = 0; m < sims.length; m++) {
+          var so = new Option("≈ " + sims[m][0], guess(sims[m]));
+          so.setAttribute("title", guess(sims[m]));
+          if (guess(sims[m]) === chosen) so.selected = true;
+          gs.appendChild(so);
+        }
+        sel.appendChild(gs);
       }
     }
-    if (field) field.setAttribute("title", keep.length + " de " + master.length + " juegos");
+    if (field) {
+      field.setAttribute(
+        "title",
+        (keep.length + sims.length) + " de " + (master.length + SIMILAR.length) + " juegos"
+      );
+    }
   }
 
   function watchList(sel) {
