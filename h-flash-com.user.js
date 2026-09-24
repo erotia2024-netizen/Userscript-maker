@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.218
+// @version      0.1.219
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -4151,14 +4151,16 @@
     }
   }
 
-  // Un repaso flojo hasta que el emulador está: para poner la línea de estado y para mandar la ruta
-  // que se quedara esperando. Se para en cuanto está (o a los 30 s, con su aviso).
+  // Un repaso flojo hasta que el emulador está y no queda nada apuntado: para poner la línea de
+  // estado, mandar la ruta que se quedara esperando y armar el enlace de la web (que puede llegar
+  // tarde). Se para en cuanto está (o a los 30 s, con su aviso).
   function watch() {
     if (poll) return;
     var tries = 0;
     poll = setInterval(function () {
       noComments();
-      if (api()) {
+      linkIt();
+      if (api() && !pending && !wantLink) {
         ready();
         return;
       }
