@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.228
+// @version      0.1.229
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -4151,25 +4151,22 @@
         text: "Everything"
       })
     );
-    line.appendChild(
-      document.createTextNode(
-        " (de voidtools, gratis) encuentra en un segundo todos los «.sol» del disco: escribe "
-      )
-    );
+    line.appendChild(document.createTextNode(" (de voidtools, gratis) los encuentra en un segundo: busca "));
     line.appendChild(hf.el("code", { text: "ext:sol" }));
-    line.appendChild(document.createTextNode(" en su caja de búsqueda y, si quieres solo los de esta web, añade "));
+    line.appendChild(document.createTextNode(" y, para solo los de esta web, añade "));
     line.appendChild(hf.el("code", { text: "#SharedObjects" }));
-    line.appendChild(document.createTextNode(". También vale cualquier buscador de archivos que tengas."));
+    line.appendChild(document.createTextNode("."));
     box.appendChild(line);
-    box.appendChild(
-      hf.el("p", {
-        cls: "hf-tools-note",
-        text:
-          "De la ruta que te dé, al editor solo le sirve lo que hay desde la carpeta del dominio hacia dentro, empezando por «/»: de «…\\#SharedObjects\\LYHNF2WQ\\h-flash.com\\save_data_juego.sol» se escribe «/save_data_juego.sol»."
-      })
-    );
     if (ul && ul.parentNode) ul.parentNode.insertBefore(box, ul.nextSibling);
     else b.appendChild(box);
+    // La nota (el ejemplo de la ruta) se queda en el bloque de abajo, con las rutas del disco, que es
+    // de lo que habla; el bloque corto es el que sube al lado del formulario (`layout()`).
+    var tip = hf.el("p", {
+      cls: "hf-tools-note",
+      text:
+        "De la ruta que te dé, al editor solo le sirve lo que hay desde la carpeta del dominio hacia dentro, empezando por «/»: de «…\\#SharedObjects\\LYHNF2WQ\\h-flash.com\\save_data_juego.sol» se escribe «/save_data_juego.sol»."
+    });
+    if (box.parentNode) box.parentNode.insertBefore(tip, box.nextSibling);
   }
 
   // =============================================================================================
@@ -4211,6 +4208,11 @@
     var card = hf.q(".hf-form", b);
     if (card) side.appendChild(card); // el formulario, al lado del editor
     if (secs[0]) side.appendChild(secs[0].box); // «CÓMO SE USA», que son tres pasos
+    // Y el bloque corto del buscador de partidas, que es del mismo tema que el formulario (el hueco
+    // que la web deja sin resolver: averiguar dónde está el `.sol`). Su nota larga se queda abajo, con
+    // las rutas del disco.
+    var finder = hf.q(".hf-tools", hb);
+    if (finder) side.appendChild(finder);
     loose.forEach(function (n) {
       n.parentNode.removeChild(n);
     });
