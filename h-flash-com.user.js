@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.191
+// @version      0.1.192
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -2935,6 +2935,12 @@
 //     justo la duda que plantea ese ajuste y ya tiene su página con las soluciones.
 //   · Un aviso de **guardado**: la web los guarda al instante en cookies, pero no lo dice en
 //     ninguna parte y el ajuste parece no hacer nada.
+//   · El bloque entero **subido hasta el menú de etiquetas**: la cabecera de la web trae debajo del
+//     menú su banner de anuncios (un 728x90 que la web agranda a 1281 px), y en una página tan corta
+//     como esta ese hueco se queda vacío cuando la red no rellena el anuncio —en el laboratorio,
+//     siempre—, así que entre las etiquetas y los ajustes aparecía un hueco muerto de casi doscientos
+//     píxeles. Aquí el bloque sube y el banner baja al final del contenido (`hoist`), sin quitar el
+//     anuncio ni tocar su iframe: se carga y cuenta igual, sólo cambia de sitio.
 //
 // Todo lo de aquí es de esta página: si no es la de ajustes (se reconoce por su formulario, ver
 // `isPrefs`), no se toca nada. Las piezas se insertan una sola vez (cada una se busca a sí misma
@@ -2997,6 +3003,38 @@
       text: "¿Cuál elijo?"
     });
     sel.parentNode.insertBefore(a, sel.nextSibling);
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // EL BANNER DE LA CABECERA, AL FINAL DEL CONTENIDO
+  // ---------------------------------------------------------------------------------------------
+  // Debajo del menú de etiquetas la web pone su banner (`#ads_2`): un 728x90 que su propio código
+  // agranda con `transform:scale(1.76)` hasta los 1281 px de su diseño. En una página como esta,
+  // que no tiene más contenido, ese hueco de 158 px es lo primero que se ve —y cuando la red no
+  // rellena el anuncio se queda en negro—. Como aquí no hay nada que mirar por encima de los
+  // ajustes, se trae el bloque «Preferencias» hasta pegarlo al menú de etiquetas y el banner se va
+  // al final del contenido, entre los ajustes y el pie. **No se quita, no se esconde y su iframe no
+  // se toca**: se carga y cuenta la impresión igual, sólo cambia de sitio (el mismo criterio que en
+  // el resto de la suite: los huecos de publicidad se aplazan, nunca se quitan).
+  //
+  // El iframe sólo se mueve mientras la web lo tiene **aplazado** (`core.js` le guarda la dirección
+  // y lo deja en `about:blank` hasta que su hueco se acerca a la ventana; es el ajuste `ads` que
+  // viene puesto). Mover un iframe ya cargado lo recargaría —y pediría el anuncio una segunda vez—,
+  // así que si ya está cargado la página se queda como la tiene la web. La marca `data-hf-moved`
+  // deja el asunto resuelto: el vigilante del DOM repasa la página muchas veces y esto se hace una.
+  function hoist() {
+    var f = form();
+    if (!f) return;
+    var ad = hf.q("#ads_2");
+    if (!ad || ad.getAttribute("data-hf-moved")) return;
+    if (!ad.getAttribute("data-hf-ad")) return; // ya cargado (o sin aplazar): no se toca
+    var foot = hf.q(".pagefoot");
+    var target = (foot && foot.parentNode) || document.body;
+    if (!target || target === ad.parentNode) return;
+    target.insertBefore(ad, foot || null);
+    ad.setAttribute("data-hf-moved", "1");
+    // El banner ya no vive en la cabecera: hay que volver a medirlo para su sitio nuevo.
+    if (hf.skin && hf.skin.layoutAds) hf.skin.layoutAds();
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -3304,11 +3342,12 @@
     if (!isPrefs()) return;
     language();
     help();
+    hoist();
     salute();
     tags();
   }
 
-  hf.prefs = { init: init, tags: tags, blocked: blockedIds };
+  hf.prefs = { init: init, tags: tags, blocked: blockedIds, hoist: hoist };
 })();
 
 // ---------------------------------------------------------------------------------------------
