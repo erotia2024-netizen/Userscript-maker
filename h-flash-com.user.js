@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.301
+// @version      0.1.302
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -5839,14 +5839,42 @@
     return n + " · la " + (i + 1) + "ª etiqueta de la web (de las que más se usan)";
   }
 
+  // LOS NOMBRES QUE LA WEB YA TIENE PUESTOS EN LA CABECERA.
+  // El índice de etiquetas que usamos (el de `/tags/`) da los nombres en inglés, y la web tiene su
+  // versión japonesa en otro dominio (`ja.h-flash.com`: misma plantilla, mismas direcciones
+  // `/tag/<x>/`, pero los nombres en japonés: ループ, ゲーム…). Si reescribiésemos las dos filas a
+  // pelo, a un visitante japonés le saldrían 26 etiquetas en inglés, que es justo lo contrario de lo
+  // que hace el resto del userscript con el idioma (ver `lang.js`). Así que antes de reescribir se
+  // apuntan los nombres que la web tiene en ese momento —se leen del HTML ORIGINAL que se guarda en
+  // `hfOrig`, no de la fila ya reescrita— y se usan para las etiquetas que YA estaban en la
+  // cabecera; el nombre del índice queda solo para las que añadimos nosotros. En la web inglesa el
+  // nombre propio y el del índice son el mismo, así que allí no cambia nada.
+  var ownNames = null;
+
+  function ownLabels(lines) {
+    var out = {};
+    lines.forEach(function (l) {
+      var html = l && (l.hfOrig != null ? l.hfOrig : l.innerHTML);
+      if (!html) return;
+      var re = /<a[^>]+href="[^"]*\/tag\/([^"#?\/]+)\/"[^>]*>([\s\S]*?)<\/a>/g;
+      var m;
+      while ((m = re.exec(html))) {
+        var txt = m[2].replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+        if (txt && !out[m[1]]) out[m[1]] = txt;
+      }
+    });
+    return out;
+  }
+
   function tagLink(t, i) {
+    var name = (ownNames && ownNames[t.slug]) || t.name;
     var a = hf.el("a", {
       cls: "hf-ct" + (i < CROWNS ? " hf-ct-" + (i + 1) : ""),
       href: hf.abs("/tag/" + t.slug + "/"),
       title: tagTitle(t, i)
     });
     if (i < CROWNS) a.appendChild(hf.el("span", { cls: "hf-crown", html: CROWN_SVG }));
-    a.appendChild(document.createTextNode(t.name));
+    a.appendChild(document.createTextNode(name));
     return a;
   }
 
@@ -5874,6 +5902,7 @@
       return;
     }
     var list = tags().slice(0, ROWS[0] + ROWS[1]);
+    ownNames = ownLabels(lines);
     var sig = list
       .map(function (t) {
         return t.slug + ":" + t.n;
