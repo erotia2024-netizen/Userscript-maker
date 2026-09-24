@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.196
+// @version      0.1.197
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -3353,6 +3353,114 @@
 })();
 
 // ---------------------------------------------------------------------------------------------
+// h-flash.com — LAS PÁGINAS DE TEXTO (la ayuda del reproductor y, después, el FAQ y los avisos).
+//
+// La web escribe sus artículos a mano, con las etiquetas de 2005: los apartados son un `<span>` con
+// `<br/><br/>` detrás para hacer el hueco, las «ventajas / inconvenientes» son `<li>` sueltos —sin
+// ninguna lista que los envuelva, que es HTML inválido—, los guiones de la sección de navegadores
+// viven dentro de `<p>` que empiezan por «- » (y además la web los mete dentro de otro `<p>`, que el
+// navegador parte por la mitad), los párrafos van con `text-indent` de 2em y 40 px de margen a los
+// lados, y la lista de autocomprobación del reproductor es un `<textarea readonly>` de 250 px (1200
+// en móvil) lleno de texto monoespaciado.
+//
+// Aquí no se reescribe el artículo: se le ponen las clases que el CSS necesita (el aspecto va todo
+// en `styles.css`, bloque 13) y se arreglan las tres cosas que no se pueden apañar desde el CSS:
+//
+//   · las «ventajas / inconvenientes» y los guiones, que pasan a ser listas de verdad;
+//   · la línea de «last update», que era un `<div>` sin clase;
+//   · los enlaces a archivos (`.exe`, `.zip`, `.swf`), que se marcan para pintarlos como descargas.
+//
+// Todo es idempotente (cada paso se busca a sí mismo antes de tocar nada), así que `init()` puede
+// llamarse en cada repaso del vigilante del DOM sin duplicar nada.
+// ---------------------------------------------------------------------------------------------
+(function () {
+  "use strict";
+  var hf = window.hf;
+  if (!hf || hf.article) return;
+
+  // Las marcas de que esta página es un artículo: su índice («Table of content») o la lista de
+  // autocomprobación del reproductor. Cuando se hagan el FAQ y los avisos se añaden aquí sus marcas
+  // (son la misma clase de página: texto con apartados).
+  function page() {
+    var b = hf.q(".pagebody:not(.pagehead)");
+    if (!b) return null;
+    if (hf.q(".tcontent", b) || hf.q("#ta_check", b)) return b;
+    return null;
+  }
+
+  // ¿Es esta la página de ajustes? Esa tiene su propio módulo (`prefs.js`) y no se toca desde aquí.
+  function isPrefs() {
+    return !!(hf.q("form[name=preform]") || hf.q(".pagebody #hf-lang-field"));
+  }
+
+  // La línea de la última actualización: en la web es el primer `<div>` del artículo, sin clase.
+  function meta(b) {
+    var first = b.firstElementChild;
+    if (!first || first.tagName !== "DIV" || first.className) return;
+    first.classList.add("hf-meta");
+  }
+
+  // Ventajas / inconvenientes: son `<li>` sueltos, fuera de cualquier lista. Se marcan (y se les dice
+  // cuál de los dos son) para que el CSS los pinte como las píldoras verde y roja que son.
+  function proscons(b) {
+    hf.qa("li", b).forEach(function (li) {
+      if (li.closest("ul, ol")) return;
+      var pro = hf.q(".pros", li);
+      var con = hf.q(".cons", li);
+      if (!pro && !con) return;
+      li.classList.add("hf-pc", pro ? "hf-pro" : "hf-con");
+    });
+  }
+
+  // Los guiones de «Browsers that still support Flash»: `<p>` que empiezan por «- ». Se juntan los
+  // que van seguidos en una lista de verdad, quitándole a cada uno el guion (que ya lo pone la lista).
+  function notes(b) {
+    var ps = hf
+      .qa("p", b)
+      .filter(function (p) {
+        return !p.closest(".hf-notes") && /^-\s+\S/.test(String(p.textContent || "").trim());
+      });
+    if (ps.length < 2) return;
+    var ul = hf.el("ul", { cls: "hf-notes" });
+    ps[0].parentNode.insertBefore(ul, ps[0]);
+    ps.forEach(function (p) {
+      var li = hf.el("li");
+      // se mueve el contenido tal cual (los enlaces que haya dentro, incluidos)
+      while (p.firstChild) li.appendChild(p.firstChild);
+      var first = li.firstChild;
+      if (first && first.nodeType === 3) first.nodeValue = first.nodeValue.replace(/^\s*-\s*/, "");
+      ul.appendChild(li);
+      p.remove();
+    });
+  }
+
+  // Los enlaces a un archivo (el reproductor, el paquete del archivo, el .swf suelto): se marcan para
+  // que se vean como lo que son —una descarga— y no como un enlace cualquiera del texto.
+  var FILE = /\.(exe|zip|swf|reg|rar|7z)(\?|#|$)/i;
+
+  function files(b) {
+    hf.qa("a[href]", b).forEach(function (a) {
+      var href = a.getAttribute("href") || "";
+      if (!FILE.test(href) && !/\/data\/swf\//i.test(href)) return;
+      a.classList.add("hf-file");
+    });
+  }
+
+  function init() {
+    if (isPrefs()) return;
+    var b = page();
+    if (!b) return;
+    b.classList.add("hf-article");
+    meta(b);
+    proscons(b);
+    notes(b);
+    files(b);
+  }
+
+  hf.article = { init: init, page: page, meta: meta, proscons: proscons, notes: notes, files: files };
+})();
+
+// ---------------------------------------------------------------------------------------------
 // h-flash.com — ARRANQUE. Junta las piezas en el orden que toca y deja un solo vigilante del DOM
 // para lo que la web añade por AJAX (la lista de aleatorios de la portada, los comentarios, los
 // anuncios nuevos): todo lo que entra después se vuelve a repasar.
@@ -3450,6 +3558,9 @@
       });
       safe("prefs", function () {
         if (hf.prefs) hf.prefs.init();
+      });
+      safe("article", function () {
+        if (hf.article) hf.article.init();
       });
     }
 
