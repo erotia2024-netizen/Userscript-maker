@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.299
+// @version      0.1.300
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -2400,6 +2400,29 @@
     return !!q("#embedsp");
   }
 
+  // ¿Es uno de los juegos de terceros (los patrocinados, `/sp/...`)? La web los marca con `issp` y
+  // los avisa ella misma: «This is a 3rd-party promote game. This game is not Flash-based.» Ahí no
+  // hay `.swf` que emular: la web mete la oferta en su propio `<iframe id="embedsp">` y le engancha
+  // su controlador. Se mira por `issp` (la marca de la web) y, si no estuviera, por el iframe con una
+  // dirección que no es de Flash. Sin esto se llamaría a su `load_ruffle()`, que monta un `<embed>`
+  // con la dirección de la oferta, y Ruffle se pasaría el rato intentando leer una página web como si
+  // fuera un `.swf` (error de carga y una caja rota encima de la oferta).
+  function promo() {
+    if (siteVar("issp") === true) return true;
+    if (!q("#embedsp")) return false;
+    return !/\.swf(\?|#|$)/i.test(String(siteVar("swfpath") || ""));
+  }
+
+  // Los `<embed>` que no son un `.swf`: en una página de terceros los crea la propia web si alguien
+  // llama a su `load_ruffle()`. No son un reproductor, así que se quitan (el juego es el `#embedsp`).
+  function dropFakeEmbeds() {
+    if (!q("#embedsp")) return;
+    hf.qa("#gamecontainer embed, #gamecontainer ruffle-embed, #gamecontainer ruffle-player").forEach(function (n) {
+      var u = n.getAttribute("src") || "";
+      if (u && !/\.swf(\?|#|$)/i.test(u) && n.parentNode) n.parentNode.removeChild(n);
+    });
+  }
+
   // ---- cargar un script del emulador -----------------------------------------------------------
   function loadScript(url, ok, fail) {
     var s = document.createElement("script");
@@ -2501,6 +2524,7 @@
   // llegamos nosotros: si acaban habiendo dos, sobra uno (los dos cargan el mismo juego, y cada uno
   // es una instancia de Ruffle entera). Se queda el primero, que es al que el controlador da tamaño.
   function dedupePlayers() {
+    dropFakeEmbeds();
     var list = hf.qa("#gamecontainer ruffle-embed, #gamecontainer ruffle-player, #gamecontainer embed, #gamecontainer object");
     for (var i = 1; i < list.length; i++) {
       if (list[i].parentNode) list[i].parentNode.removeChild(list[i]);
@@ -2525,6 +2549,13 @@
   function start() {
     if (started) return;
     if (hf.settings.play === "off") return;
+    if (promo()) {
+      // De terceros: el reproductor ya es suyo (o lo monta la web, `embedsp()`), así que aquí no se
+      // arranca nada; solo se le da sitio.
+      started = true;
+      fit();
+      return;
+    }
     if (playing() || q("#embedswf")) {
       // ya hay reproductor (la web lo montó porque el navegador dice tener Flash, o porque el
       // visitante lleva la extensión de Ruffle): no se toca nada, solo se le da sitio.
@@ -2550,6 +2581,24 @@
     document.documentElement.classList.remove("hf-show-fallbacks");
     setReady(false);
     start();
+  }
+
+  // ▶ Jugar en un juego de terceros: se enseña su `<iframe>` (a la oferta le gusta que alguien la
+  // pida; la web la deja tapada hasta entonces) y se le da el hueco que dice la ficha.
+  function promoPlay() {
+    var e = q("#embedsp");
+    if (!e) return;
+    e.style.visibility = "";
+    var w = parseInt(siteVar("swfw"), 10);
+    var h = parseInt(siteVar("swfh"), 10);
+    if (w > 0) e.setAttribute("width", String(w));
+    if (h > 0) e.setAttribute("height", String(h));
+    fit();
+  }
+
+  function play() {
+    if (promo()) promoPlay();
+    else retry();
   }
 
   // Arrancar de verdad, esperando a la web si hace falta. Sus funciones son `async`, así que es
@@ -2711,7 +2760,7 @@
 
     note = hf.el("div", { id: "hf-note", cls: "hf-note", text: "Preparando el juego…" });
     bar = hf.el("div", { id: "hf-bar", cls: "hf-bar" }, [
-      hf.el("button", { type: "button", cls: "hf-btn hf-btn-play", text: "▶ Jugar", onclick: retry, title: "Arranca el juego con Ruffle (F = pantalla completa)" }),
+      hf.el("button", { type: "button", cls: "hf-btn hf-btn-play", text: "▶ Jugar", onclick: play, title: "Arranca el juego con Ruffle (F = pantalla completa)" }),
       hf.el("button", { type: "button", cls: "hf-btn", text: "⛶ Pantalla completa", onclick: toggleFullscreen, title: "Pantalla completa (F)" }),
       hf.el("button", { type: "button", cls: "hf-btn", text: "↻ Recargar", onclick: reloadGame, title: "Recargar el juego (R)" }),
       hf.el("button", { type: "button", cls: "hf-btn", text: "＋", onclick: function () { zoom("bigger"); }, title: "Más grande (+)" }),
@@ -2749,6 +2798,23 @@
     if (!note) return;
     dedupePlayers();
     reattachBar();
+    // Juego de terceros: no hay `.swf` que emular ni porcentaje que mirar. La web ya tiene su
+    // reproductor (su `<iframe id="embedsp">` con la oferta), así que se deja tal cual, se dice lo
+    // que es y se le da sitio. El ▶ de la barra enseña/fitxa ese iframe (ver `promoPlay`).
+    if (promo()) {
+      if (bar) bar.classList.add("hf-promo");
+      stage.classList.add("hf-stage--on");
+      noteText("Juego de terceros: lo sirve la web (no es Flash)", "ok");
+      setReady(true);
+      // El mismo respeto por el tamaño elegido que en el reproductor normal: se insiste con el
+      // «fit» mientras la web no lo tenga puesto, y se deja en paz en cuanto el visitante elige otro.
+      var pc = siteVar("ctrl");
+      if (fitLeft > 0 || (pc && pc.info && pc.info.size !== "fit" && tries < 60)) {
+        if (fitLeft > 0) fitLeft--;
+        fit();
+      }
+      return;
+    }
     var ctrl = siteVar("ctrl");
     // La web monta su controlador tarde (cuando Ruffle termina de cargar el juego) y al montarse
     // pone su tamaño de siempre («orig», 450 px). Mientras no esté a NUESTRO tamaño se le vuelve a
