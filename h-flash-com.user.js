@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.236
+// @version      0.1.237
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -347,25 +347,26 @@
   // contenido suba. **No se toca ningún anuncio**: ni el `src`, ni el tamaño, ni la red que lo
   // sirve. Y en cuanto uno llega, la marca se quita sola y el hueco vuelve a estar.
   //
-  // Con el tamaño no basta para saberlo: a un `<iframe>` de anuncio que nunca recibe nada (el
-  // bloqueador corta la petición) el navegador le da igualmente su caja de 728x90, así que mide lo
-  // mismo esté lleno o vacío. Lo que sí lo dice es el documento: el que no ha cargado nada se queda
-  // en `about:blank` —que es del mismo origen y se puede mirar dentro: está vacío—, y el que sí ha
-  // cargado es de otro dominio y su `contentDocument` es `null`. En la duda (no se puede mirar),
-  // se le deja el sitio: sólo se desploma el hueco cuando consta que no hay nada.
-  function frameBlank(f) {
+  // Con una sola señal no basta, porque el `<iframe>` de un anuncio pasa por varios estados antes de
+  // decidirse: mientras la petición está en el aire no tiene caja; cuando el navegador la corta se
+  // queda con su caja de 728x90 pero con `about:blank` dentro —así que mide lo mismo que un anuncio
+  // de verdad—; y sólo cuando el anuncio **llega** tiene caja *y* un documento de otro dominio (su
+  // `contentDocument` es `null`, o su `URL` no es `about:blank`). Por eso «hay algo» es caja **y**
+  // documento: con las dos a la vez es un anuncio puesto; con una sola, no hay nada que enseñar.
+  // En la duda (no se puede mirar dentro) se le deja el sitio: sólo se desploma lo que consta vacío.
+  function frameShows(f) {
+    if (!(f.offsetWidth > 0 && f.offsetHeight > 0)) return false; // sin caja: no pinta nada
     var doc = null;
     try {
       doc = f.contentDocument;
     } catch (e) {
-      return false;
+      return true;
     }
-    if (!doc) return false; // cargado (de otro dominio): hay anuncio
-    var url = doc.URL || "";
-    if (url && url !== "about:blank") return false; // documento de verdad: hay algo
+    if (!doc) return true; // de otro dominio: hay anuncio
+    if ((doc.URL || "") !== "about:blank") return true; // documento de verdad: hay algo
     var body = doc.body;
-    if (!body) return true;
-    return body.children.length === 0 && !(body.textContent || "").trim();
+    if (!body) return false;
+    return body.children.length > 0 || !!(body.textContent || "").trim();
   }
 
   function emptyZones() {
@@ -374,9 +375,9 @@
       var painted = qa("ins, img, object, embed, video, canvas, a", zone).some(function (n) {
         return n.offsetWidth > 0 || n.offsetHeight > 0;
       });
-      var blank = frames.length > 0 && frames.every(frameBlank);
+      var shows = frames.some(frameShows);
       var nothing = !frames.length && !(zone.textContent || "").trim();
-      zone.classList.toggle("hf-ad-empty", !painted && (blank || nothing));
+      zone.classList.toggle("hf-ad-empty", !painted && !shows && (frames.length > 0 || nothing));
     });
   }
 
