@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.210
+// @version      0.1.211
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1703,7 +1703,8 @@
       SEARCH: "BUSCAR",
       Search: "Buscar",
       Filter: "Filtrar",
-      "Submit Comment": "ENVIAR COMENTARIO"
+      "Submit Comment": "ENVIAR COMENTARIO",
+      "Generate Link": "Generar enlace"
     },
     title: {
       close: "Cerrar",
