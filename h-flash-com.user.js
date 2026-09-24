@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.199
+// @version      0.1.200
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -3524,8 +3524,16 @@
     if (guardOnscreen()) return;
     if (guarding) return;
     guarding = true;
-    // La función de la web todavía no está: se espera a que aparezca (una sola vez por página).
-    hf.until(guardOnscreen, function () {}, 30);
+    // La función de la web puede llegar un momento después (su `pack0.js` entra con `async`, y el
+    // enganche de los comentarios se apunta justo detrás): se espera con un tic corto, que es una
+    // comprobación de nada, y se para en cuanto está (o a los 20 s, si en esta página no hay tal
+    // función y no hay nada que guardar).
+    var tries = 0;
+    (function tick() {
+      if (guardOnscreen()) return;
+      if (++tries > 400) return;
+      setTimeout(tick, 50);
+    })();
   }
 
   function init() {
