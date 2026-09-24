@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.198
+// @version      0.1.199
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -3364,11 +3364,13 @@
 // en móvil) lleno de texto monoespaciado.
 //
 // Aquí no se reescribe el artículo: se le ponen las clases que el CSS necesita (el aspecto va todo
-// en `styles.css`, bloque 13) y se arreglan las tres cosas que no se pueden apañar desde el CSS:
+// en `styles.css`, bloque 13) y se arreglan las cosas que no se pueden apañar desde el CSS:
 //
 //   · las «ventajas / inconvenientes» y los guiones, que pasan a ser listas de verdad;
 //   · la línea de «last update», que era un `<div>` sin clase;
-//   · los enlaces a archivos (`.exe`, `.zip`, `.swf`), que se marcan para pintarlos como descargas.
+//   · los enlaces a archivos (`.exe`, `.zip`, `.swf`), que se marcan para pintarlos como descargas;
+//   · y los **comentarios**, que en estas páginas de texto no tienen ningún sentido y se van enteros
+//     (ver `comments()`).
 //
 // Todo es idempotente (cada paso se busca a sí mismo antes de tocar nada), así que `init()` puede
 // llamarse en cada repaso del vigilante del DOM sin duplicar nada.
@@ -3470,6 +3472,62 @@
     if (ta && ta.parentElement) ta.parentElement.classList.add("hf-check");
   }
 
+  // =============================================================================================
+  // LOS COMENTARIOS, FUERA
+  // =============================================================================================
+  // En una página de ayuda no hay nada que comentar: nadie lo hace, y la web los sirve con
+  // `comment.js`, que en cuanto la caja asoma por la pantalla pide el archivo de comentarios al
+  // servidor. Aquí se quita el bloque entero —título, formulario y lista—, sin dejar el hueco.
+  //
+  // Y hay que dejar el enganche de la web sin nada que enganchar: el script de los comentarios llama
+  // a `onscreen("commentcontent", …)` (el de la web: «cuando esta caja llegue a la pantalla, haz
+  // esto»), y su `onscreen_test()` hace `$id(id).getBoundingClientRect()` — que revienta si el
+  // elemento ya no está (`Cannot read properties of null`), y lo llama la web en cada scroll. Por eso
+  // `guardOnscreen()` le pone delante una comprobación de que el elemento existe: el enganche que
+  // quede pendiente devuelve `false` y se queda quieto en vez de llenar la consola de errores.
+  function comments(b) {
+    var field = hf.q("#commentfield", b) || hf.q("#commentfield");
+    if (!field) return false;
+    var win = hf.pageWin();
+    // El enganche que ya estuviera apuntado se borra; el que la web apunte después lo para el
+    // guardián de abajo.
+    if (win && win.__onscreen_callback) delete win.__onscreen_callback["commentcontent"];
+    field.remove();
+    return true;
+  }
+
+  // El `onscreen_test` de la web, a prueba de elementos que ya no están. Se instala una sola vez y
+  // da igual el orden: la función de la web puede aparecer antes o después que este módulo (en el
+  // sitio real llega con su `pack0.js`; en el laboratorio, cuando se le pide que ejecute los scripts
+  // de la página guardada). Devuelve `true` cuando el guardián ya está puesto.
+  function guardOnscreen() {
+    var win = hf.pageWin();
+    var orig = win && win.onscreen_test;
+    if (typeof orig !== "function") return false;
+    if (orig.__hfGuard) return true;
+    var safe = function (id) {
+      if (!document.getElementById(id)) return false;
+      return orig.apply(this, arguments);
+    };
+    safe.__hfGuard = true;
+    try {
+      win.onscreen_test = safe;
+    } catch (e) {
+      return false;
+    }
+    return true;
+  }
+
+  var guarding = false;
+
+  function disarm() {
+    if (guardOnscreen()) return;
+    if (guarding) return;
+    guarding = true;
+    // La función de la web todavía no está: se espera a que aparezca (una sola vez por página).
+    hf.until(guardOnscreen, function () {}, 30);
+  }
+
   function init() {
     if (isPrefs()) return;
     var b = page();
@@ -3481,6 +3539,8 @@
     notes(b);
     files(b);
     check(b);
+    comments(b);
+    disarm();
   }
 
   hf.article = {
@@ -3491,7 +3551,9 @@
     group: group,
     notes: notes,
     files: files,
-    check: check
+    check: check,
+    comments: comments,
+    guard: guardOnscreen
   };
 })();
 
