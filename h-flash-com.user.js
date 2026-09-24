@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.266
+// @version      0.1.267
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -4993,6 +4993,14 @@
       a.classList.add("hf-al-card");
       var last = a.lastElementChild;
       if (last && last.tagName === "BR") last.remove();
+    });
+
+    // En una ficha tan corta hay nombres que no caben y salen cortados con puntos suspensivos: a ésos
+    // —y sólo a ésos, para no llenar de bocadillos las que ya se leen enteras— se les pone el nombre
+    // completo en el `title`, que es el bocadillo del navegador.
+    hf.qa(".hf-al-card", l).forEach(function (a) {
+      var t = hf.q(".title", a);
+      if (t && !a.title && t.scrollWidth > t.clientWidth + 1) a.title = t.textContent.trim();
     });
 
     if (!st || !st.bar.isConnected || st.l !== l) st = mount(l);
