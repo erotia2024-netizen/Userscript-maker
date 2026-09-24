@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.246
+// @version      0.1.247
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -362,6 +362,7 @@
   // documento: con las dos a la vez es un anuncio puesto; con una sola, no hay nada que enseñar.
   // En la duda (no se puede mirar dentro) se le deja el sitio: sólo se desploma lo que consta vacío.
   function frameShows(f) {
+    if (f.dataset && f.dataset.hfAdFilled) return true; // ya se le vio un anuncio puesto aquí
     if (!(f.offsetWidth > 0 && f.offsetHeight > 0)) return false; // sin caja: no pinta nada
     var doc = null;
     try {
@@ -376,6 +377,39 @@
     return body.children.length > 0 || !!(body.textContent || "").trim();
   }
 
+  // El anuncio que llega DESPUÉS de que se le desplomara el hueco. El `height: 0` del CSS enmudece
+  // la señal que se usaba para saber si había algo —la caja del `<iframe>`—, así que un anuncio que
+  // aparece tarde (la petición que estaba en el aire, el hueco perezoso que se suelta al acercarse,
+  // el que recarga la propia red) se quedaba sin sitio para siempre. Pero ese anuncio **recarga el
+  // `<iframe>`**, y eso sí se puede oír: su `load`. Si al cargar el documento ya es de otro dominio
+  // —o el `about:blank` se ha ido—, hay anuncio, y el hueco se le devuelve en el acto.
+  //
+  // El vigilante se pone en cuanto se mira un `<iframe>` de anuncio, para que esté antes de que el
+  // anuncio pueda llegar. La comprobación no se hace al ponerlo: si se hiciera, el `<iframe>` que ya
+  // trae el documento de la red (aunque esté vacío —el caso del hueco que se quiere desplomar—)
+  // pasaría por anuncio y no se desplomaría nunca.
+  function adLanded(f) {
+    var doc = null;
+    try {
+      doc = f.contentDocument;
+    } catch (e) {
+      doc = null;
+    }
+    return !(doc && (doc.URL || "") === "about:blank");
+  }
+
+  function watchAd(f) {
+    if (f.__hfAdWatch) return;
+    f.__hfAdWatch = true;
+    f.addEventListener("load", function () {
+      if (!adLanded(f)) return;
+      f.dataset.hfAdFilled = "1";
+      f.classList.remove("hf-ad-empty");
+      var zone = f.closest && f.closest("#topzone");
+      if (zone) zone.classList.remove("hf-ad-empty");
+    });
+  }
+
   function emptyZones() {
     // En unas páginas la web envuelve sus anuncios en `#topzone` (el editor de partidas) y en otras
     // deja el `<iframe>` suelto como hijo del `.pagehead` (la faq, el disclaimer, el formulario de
@@ -385,6 +419,7 @@
     var enZona = [];
     qa("#topzone").forEach(function (zone) {
       var frames = qa("iframe", zone);
+      frames.forEach(watchAd);
       enZona = enZona.concat(frames);
       var painted = qa("ins, img, object, embed, video, canvas, a", zone).some(function (n) {
         return n.offsetWidth > 0 || n.offsetHeight > 0;
@@ -395,6 +430,7 @@
     });
     qa(".pagehead > iframe").forEach(function (f) {
       if (!adFrame(f) || enZona.indexOf(f) >= 0) return;
+      watchAd(f);
       f.classList.toggle("hf-ad-empty", !frameShows(f));
     });
   }
