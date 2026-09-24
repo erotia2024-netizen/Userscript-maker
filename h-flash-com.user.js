@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.273
+// @version      0.1.274
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -5034,6 +5034,7 @@
       if (b.disabled) {
         b.setAttribute("aria-disabled", "true");
       } else {
+        if (page === s.page) b.setAttribute("aria-current", "page");
         b.addEventListener("click", function () {
           goto(s, page);
         });
