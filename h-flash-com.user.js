@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.193
+// @version      0.1.194
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -3020,17 +3020,19 @@
   // El iframe sólo se mueve mientras la web lo tiene **aplazado** (`core.js` le guarda la dirección
   // y lo deja en `about:blank` hasta que su hueco se acerca a la ventana; es el ajuste `ads` que
   // viene puesto). Mover un iframe ya cargado lo recargaría —y pediría el anuncio una segunda vez—,
-  // así que si ya está cargado la página se queda como la tiene la web. La marca `data-hf-moved`
-  // deja el asunto resuelto: el vigilante del DOM repasa la página muchas veces y esto se hace una.
+  // así que si ya está cargado la página se queda como la tiene la web. Con eso el paso se puede
+  // repetir en cada repaso (que es como se llama) sin moverlo dos veces: si el banner ya está en su
+  // sitio no se hace nada, y si la web lo devolviera a la cabecera, vuelve a bajar mientras siga
+  // sin cargar.
   function hoist() {
     var f = form();
     if (!f) return;
     var ad = hf.q("#ads_2");
-    if (!ad || ad.getAttribute("data-hf-moved")) return;
-    if (!ad.getAttribute("data-hf-ad")) return; // ya cargado (o sin aplazar): no se toca
+    if (!ad) return;
     var foot = hf.q(".pagefoot");
     var target = (foot && foot.parentNode) || document.body;
-    if (!target || target === ad.parentNode) return;
+    if (!target || ad.parentNode === target) return; // ya está al final del contenido
+    if (!ad.getAttribute("data-hf-ad")) return; // ya cargado (o sin aplazar): no se toca
     target.insertBefore(ad, foot || null);
     ad.setAttribute("data-hf-moved", "1");
     // El banner ya no vive en la cabecera: hay que volver a medirlo para su sitio nuevo.
