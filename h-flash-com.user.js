@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.215
+// @version      0.1.216
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -3642,6 +3642,7 @@
     files: files,
     check: check,
     comments: comments,
+    disarm: disarm,
     guard: guardOnscreen
   };
 })();
@@ -3947,12 +3948,30 @@
     poll = 0;
   }
 
+  // Los comentarios, fuera también aquí (pedido del usuario: en la web queda el título —«Si
+  // necesitas ayuda, deja un comentario»— con el formulario y la lista vacíos debajo, o sea un
+  // apartado que solo ocupa sitio). Se reutiliza lo del módulo de las páginas de texto: quita el
+  // título con su ancla, el hueco del formulario y la lista, deja a salvo el anuncio que la web
+  // meta dentro del envoltorio (no se toca nunca) y desarma su `onscreen("commentcontent")`.
+  function noComments() {
+    if (!hf.article || !hf.article.comments) return;
+    try {
+      hf.article.comments();
+    } catch (e) {}
+    if (hf.article.disarm) {
+      try {
+        hf.article.disarm();
+      } catch (e) {}
+    }
+  }
+
   // Un repaso flojo hasta que el emulador está: para poner la línea de estado y para mandar la ruta
   // que se quedara esperando. Se para en cuanto está (o a los 30 s, con su aviso).
   function watch() {
     if (poll) return;
     var tries = 0;
     poll = setInterval(function () {
+      noComments();
       if (api()) {
         ready();
         return;
@@ -3981,6 +4000,7 @@
     }
     bridge();
     stage();
+    noComments();
     ensure();
     watch();
   }
@@ -3992,7 +4012,8 @@
     help: helpBox,
     send: send,
     link: link,
-    api: api
+    api: api,
+    comments: noComments
   };
 })();
 
