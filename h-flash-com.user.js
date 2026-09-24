@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.288
+// @version      0.1.289
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -5061,6 +5061,14 @@
   function paint(s) {
     var p = s.pager;
     var n = s.pages.length;
+    // El pie sólo se rehace si de verdad cambia (número de páginas y página en la que se está). Sin
+    // esta salida, repintarlo en cada pasada era una escritura en el DOM, y el vigilante del
+    // documento (que mira los cambios de hijos) volvía a llamar a la pasada: un tic de 250 ms para
+    // siempre —en la lista de autores se notaba poco, pero en el índice de etiquetas (680 fichas) no
+    // dejaba respirar a la página—. Rehacerlo «cada vez que cambia algo» era de gratis.
+    var key = n + ":" + s.page;
+    if (p.hfKey === key) return;
+    p.hfKey = key;
     p.innerHTML = "";
     if (n < 2) {
       p.hidden = true;
@@ -5151,10 +5159,16 @@
     show(s);
     paint(s);
 
+    // El contador y el aviso se escriben sólo si cambian: escribir el mismo texto vuelve a tocar el
+    // DOM, y eso despertaba otra vez al vigilante (ver la nota del pie de páginas).
     var total = s.items.length;
-    s.count.textContent = tokens.length ? shown + " de " + total : total + " " + s.kind.what;
+    var txt = tokens.length ? shown + " de " + total : total + " " + s.kind.what;
+    if (s.count.textContent !== txt) s.count.textContent = txt;
     s.none.hidden = !(tokens.length && !shown);
-    if (!s.none.hidden) s.none.textContent = s.kind.none(s.input.value.trim());
+    if (!s.none.hidden) {
+      var aviso = s.kind.none(s.input.value.trim());
+      if (s.none.textContent !== aviso) s.none.textContent = aviso;
+    }
     s.clear.hidden = !s.input.value;
 
     // Si se estaba mirando la lista mucho más abajo, se sube hasta el buscador para ver lo que ha
