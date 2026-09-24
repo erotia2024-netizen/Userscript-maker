@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.281
+// @version      0.1.282
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -5426,9 +5426,16 @@
     l.sel.hfSort = true;
     l.tag = listTag();
     if (l.sel.getAttribute("onchange")) l.sel.removeAttribute("onchange");
-    var box = l.sel.parentNode;
+    // La nota y el pie se buscan antes de crearlos (y se tira lo que hubiera de una pasada
+    // anterior): así, si la web reemplazara el desplegable y volviéramos a entrar, no se apilan.
+    hf.qa(".hf-asort-note").forEach(function (n) {
+      n.remove();
+    });
+    hf.qa(".hf-asort-pager").forEach(function (n) {
+      n.remove();
+    });
     l.note = hf.el("span", { cls: "hf-asort-note" });
-    box.appendChild(l.note);
+    l.sel.parentNode.appendChild(l.note);
     l.pager = hf.el("div", { cls: "hf-apager hf-asort-pager", hidden: "hidden" });
     l.list.appendChild(l.pager);
     l.sel.addEventListener("change", function () {
@@ -5438,7 +5445,6 @@
 
   function init() {
     var s = sortedList();
-    if (s) initSorted(s);
     if (s) initSorted(s);
 
     var l = page();
