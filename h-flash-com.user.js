@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.200
+// @version      0.1.201
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -3477,7 +3477,13 @@
   // =============================================================================================
   // En una página de ayuda no hay nada que comentar: nadie lo hace, y la web los sirve con
   // `comment.js`, que en cuanto la caja asoma por la pantalla pide el archivo de comentarios al
-  // servidor. Aquí se quita el bloque entero —título, formulario y lista—, sin dejar el hueco.
+  // servidor. Aquí se quitan —título con su ancla, hueco del formulario y lista— y el envoltorio se
+  // va con ellos si se queda vacío, para no dejar el hueco.
+  //
+  // Con una excepción: la web mete a veces su caja de anuncio dentro de este envoltorio (el
+  // `aclib`, una caja de 728x110; en la ficha de juego está ahí mismo). Un anuncio no se toca
+  // nunca —ni se quita, ni se mueve, ni se recarga—, así que si al vaciarlo queda algo dentro, el
+  // envoltorio se queda tal cual y solo se habrán ido los comentarios.
   //
   // Y hay que dejar el enganche de la web sin nada que enganchar: el script de los comentarios llama
   // a `onscreen("commentcontent", …)` (el de la web: «cuando esta caja llegue a la pantalla, haz
@@ -3485,6 +3491,9 @@
   // elemento ya no está (`Cannot read properties of null`), y lo llama la web en cada scroll. Por eso
   // `guardOnscreen()` le pone delante una comprobación de que el elemento existe: el enganche que
   // quede pendiente devuelve `false` y se queda quieto en vez de llenar la consola de errores.
+  // Lo que no puede quedarse dentro del envoltorio: un anuncio (o la caja que lo trae).
+  var KEEP = "iframe, ins, object, embed, picture, [id*=aclib], [class*=aclib]";
+
   function comments(b) {
     var field = hf.q("#commentfield", b) || hf.q("#commentfield");
     if (!field) return false;
@@ -3492,7 +3501,11 @@
     // El enganche que ya estuviera apuntado se borra; el que la web apunte después lo para el
     // guardián de abajo.
     if (win && win.__onscreen_callback) delete win.__onscreen_callback["commentcontent"];
-    field.remove();
+    ["#commenttitle", "#commentformloader", "#commentcontent"].forEach(function (sel) {
+      var n = hf.q(sel, field);
+      if (n) n.remove();
+    });
+    if (!hf.q(KEEP, field) && !String(field.textContent || "").trim()) field.remove();
     return true;
   }
 
