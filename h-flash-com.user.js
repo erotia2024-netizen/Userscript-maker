@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.203
+// @version      0.1.204
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -3617,6 +3617,353 @@
 })();
 
 // ---------------------------------------------------------------------------------------------
+// h-flash.com — EL EDITOR DE PARTIDAS A DOMICILIO (`/tool/save-editor/`).
+//
+// Aquí la web tiene su herramienta para tocar las partidas de los juegos (los `.sol` que Flash deja
+// en el disco) y la tiene rota por dos sitios distintos:
+//
+//   1. **Es Flash.** El editor es `save-editor.swf` metido en un `<embed>`: sin Flash no hay nada, y
+//      en su sitio queda un hueco muerto de 640x480 en mitad de la página. Aquí se carga **Ruffle**
+//      (el del sitio o el más nuevo, según el ajuste `emulator` del panel ⚡) y el emulador se lleva
+//      el `<embed>`: Ruffle «mejora» la etiqueta en su sitio, así que las variables de la web
+//      (`swf`, `swfpath`) y su elemento siguen siendo los mismos.
+//   2. **El puente JS↔Flash.** La web le manda la ruta de la partida con `swf.setpath(ruta)`, que es
+//      una llamada al `ExternalInterface` del `.swf`: en Flash de verdad funcionaba, y en Ruffle esa
+//      función **no existe**, así que el editor arranca pero nunca sabe qué partida abrir (su tabla
+//      sale vacía y la herramienta no sirve para nada). Lo que se hace es ponerle al reproductor un
+//      `setpath` que sí llega al `.swf` por donde Ruffle lo espera
+//      (`callExternalInterface("setPath", ruta, cargar)`): con eso el código de la web funciona tal
+//      y como está escrito —eliges el juego, la ruta viaja, el editor lista los valores de la
+//      partida— y la herramienta vuelve a funcionar entera.
+//
+// Y de paso se le da el aire de la casa (bloque 15 del CSS) y se traduce (`lang.js`): el formulario
+// —la lista de juegos, la ruta, el enlace de HFlashPlayer, que es un `hflash://` que solo entiende
+// su reproductor de escritorio— como una tarjeta con sus etiquetas y su botón de copiar; el marco del
+// editor, que pasa de 640 px clavados a todo el ancho de la columna; y la ayuda —cuatro bloques que
+// la web escribe con `<li>` sueltos, fuera de cualquier lista, y con los colores de 2005 en línea—
+// como pasos de verdad con sus pistas.
+//
+// Todo se marca a sí mismo antes de tocar nada (y todo se busca, no se envuelve: al reproductor no se
+// le mueve de sitio, que reiniciarlo es volver a cargar el editor), así que `init()` puede llamarse en
+// cada repaso del vigilante del DOM.
+// ---------------------------------------------------------------------------------------------
+(function () {
+  "use strict";
+  var hf = window.hf;
+  if (!hf || hf.editor) return;
+
+  // ¿Es esta la página del editor? Se pregunta por sus tres piezas —la lista de juegos conocidos, el
+  // campo de la ruta y el textarea con las rutas del disco— y no por la dirección, porque el
+  // laboratorio monta la página dentro de su propia URL.
+  function tool() {
+    var sel = hf.q("#known_selector");
+    var path = hf.q("#savepath");
+    return sel && path ? sel.closest(".pagebody") : null;
+  }
+
+  function isEditor() {
+    return !!(tool() && hf.q("#ta_hdd"));
+  }
+
+  // El bloque de la ayuda: el otro `.pagebody` (el que trae el textarea de las rutas).
+  function helpBox() {
+    var ta = hf.q("#ta_hdd");
+    if (!ta) return null;
+    var b = ta.closest(".pagebody");
+    return b && b !== tool() ? b : null;
+  }
+
+  // =============================================================================================
+  // EL FORMULARIO (la lista de juegos, la ruta, el enlace)
+  // =============================================================================================
+  // «KNOWN GAMES:» es un texto suelto dentro del `div`, sin etiqueta. Se le pone una de verdad (con
+  // su `for`), que además se puede pintar como las de la casa.
+  function selector(b) {
+    var sel = hf.q("#known_selector", b);
+    if (!sel || b.querySelector(".hf-known")) return;
+    var line = sel.parentElement;
+    if (!line) return;
+    for (var i = 0; i < line.childNodes.length; i++) {
+      var n = line.childNodes[i];
+      if (n.nodeType === 3 && n.nodeValue.replace(/\s+/g, "")) n.nodeValue = "";
+    }
+    line.classList.add("hf-knownrow");
+    line.insertBefore(hf.el("label", { cls: "hf-known", for: "known_selector", text: "Juegos conocidos" }), sel);
+  }
+
+  // La fila de la ruta: la web mete el campo, la etiqueta y el botón en un `<p>` y el botón queda
+  // colgando a otra altura; aquí se marca la fila para que el CSS los alinee.
+  function pathRow(b) {
+    var input = hf.q("#savepath", b);
+    if (!input) return;
+    var row = input.closest("p") || input.parentElement;
+    row.classList.add("hf-pathrow");
+    var span = row.querySelector("span");
+    if (span) span.classList.add("hf-label");
+    var btn = row.querySelector("input[type=button]");
+    if (btn) {
+      btn.classList.add("hf-btn");
+      btn.setAttribute("title", "Pon la ruta en el campo de arriba y genera el enlace de HFlashPlayer");
+    }
+    if (!input.getAttribute("placeholder")) input.setAttribute("placeholder", "/save_data_juego.sol");
+    input.setAttribute("spellcheck", "false");
+  }
+
+  // El enlace de HFlashPlayer: es un `hflash://<base64>` que solo abre su reproductor de escritorio
+  // (pégandolo allí), así que se le pone un botón para copiarlo y una pista que lo explique. Mientras
+  // no haya ruta, la fila se queda apagada (que si no parece rota).
+  function linkRow(b) {
+    var a = hf.q("#hflashplayer_link", b);
+    if (!a) return;
+    var row = a.closest("p") || a.parentElement;
+    row.classList.add("hf-linkrow");
+    var span = row.querySelector("span");
+    if (span) {
+      span.classList.add("hf-label");
+      span.removeAttribute("style");
+    }
+    if (!hf.q(".hf-copy", row)) {
+      row.appendChild(
+        hf.el("button", { type: "button", cls: "hf-copy hf-btn", text: "Copiar enlace", onclick: copy })
+      );
+    }
+    if (!hf.q(".hf-linktip", row.parentNode)) {
+      row.parentNode.insertBefore(
+        hf.el("p", {
+          cls: "hf-linktip",
+          text: "El enlace hflash:// lo abre tu reproductor de escritorio (HFlashPlayer): cópialo y pégalo ahí."
+        }),
+        row.nextSibling
+      );
+    }
+    state();
+  }
+
+  // El enlace ya generado (o nada, si todavía no hay ruta).
+  function link() {
+    var a = hf.q("#hflashplayer_link");
+    return a ? String(a.textContent || "").trim() : "";
+  }
+
+  // Lo que depende de que haya enlace: la fila se enciende y el botón de copiar se puede pulsar.
+  function state() {
+    var a = hf.q("#hflashplayer_link");
+    var row = a && a.closest(".hf-linkrow");
+    var btn = row && hf.q(".hf-copy", row);
+    var empty = !link();
+    if (row) row.classList.toggle("hf-link-empty", empty);
+    if (btn && btn.disabled !== empty) btn.disabled = empty;
+  }
+
+  function copy() {
+    var text = link();
+    if (!text) {
+      hf.toast("Todavía no hay enlace: elige un juego o escribe una ruta");
+      return;
+    }
+    var done = function () {
+      hf.toast("Enlace copiado");
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, plain);
+      return;
+    }
+    plain();
+
+    // Sin permiso de portapapeles (o sin él, en un navegador viejo): el apaño de toda la vida.
+    function plain() {
+      var t = hf.el("textarea", { cls: "hf-hidden-copy" });
+      t.value = text;
+      document.body.appendChild(t);
+      t.select();
+      try {
+        document.execCommand("copy");
+        done();
+      } catch (e) {
+        hf.toast("No se pudo copiar: " + text);
+      }
+      t.remove();
+    }
+  }
+
+  // =============================================================================================
+  // LA AYUDA (los cuatro bloques de instrucciones)
+  // =============================================================================================
+  // Cada paso es un `<li>` suelto dentro de un `<p>` y el navegador los saca de ahí (un `<li>` cierra
+  // el `<p>`): quedan hermanos y sin ninguna lista que los envuelva. Se juntan los que van seguidos en
+  // una `<ul>` de verdad —con eso el `<li>` vuelve a estar donde tiene que estar— y el CSS los pinta.
+  function steps(b) {
+    hf.qa("li", b).forEach(function (li) {
+      if (li.closest("ul, ol")) return;
+      var parent = li.parentElement;
+      if (!parent) return;
+      var ul = hf.el("ul", { cls: "hf-steps" });
+      parent.insertBefore(ul, li);
+      var n = li;
+      while (n && n.nodeType === 1 && n.tagName === "LI") {
+        var next = n.nextElementSibling;
+        ul.appendChild(n);
+        n = next;
+      }
+    });
+  }
+
+  // Los colores van en línea (verde el consejo, rojo el aviso, naranja la ruta de Chrome) y en la
+  // piel oscura esos tonos de 2005 no se leen. Se quitan y se cambia por nuestras clases, que además
+  // dicen lo mismo: verde = consejo, rojo = aviso, acento = ruta.
+  function paint(b) {
+    hf.qa("[style]", b).forEach(function (el) {
+      var c = String(el.style.color || "").toLowerCase().replace(/\s+/g, "");
+      if (!c) return;
+      el.style.removeProperty("color");
+      el.style.removeProperty("word-break");
+      if (c === "green") el.classList.add("hf-tip-ok");
+      else if (c === "red") el.classList.add("hf-tip-bad");
+      else if (c === "orange" || c === "orange;") el.classList.add("hf-codepath");
+    });
+  }
+
+  // =============================================================================================
+  // EL EDITOR DE VERDAD (el `.swf`, con Ruffle)
+  // =============================================================================================
+  var note = null;
+  var pending = null; // la ruta que llegó antes de que el emulador estuviera listo
+  var poll = 0;
+
+  function stageEl() {
+    return hf.q("#embedswf");
+  }
+
+  // La API de Ruffle del reproductor que ocupa el `<embed>` (o nada, si todavía no está).
+  function api() {
+    var e = stageEl();
+    if (!e || typeof e.ruffle !== "function") return null;
+    try {
+      var p = e.ruffle();
+      return p && typeof p.callExternalInterface === "function" ? p : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  // El `setpath` que la web espera encontrar en la etiqueta. En Flash de verdad lo traía el
+  // reproductor (LiveConnect); en Ruffle hay que hablarle por su API, que es la que acaba llamando al
+  // `ExternalInterface` del `.swf`. Si el navegador SÍ tiene Flash, la etiqueta ya trae su `setpath` y
+  // no se toca nada.
+  function bridge() {
+    var e = stageEl();
+    if (!e || e.setpath) return;
+    e.setpath = function (path, load) {
+      send(path, load);
+      state();
+    };
+  }
+
+  function send(path, load) {
+    var p = api();
+    if (!p) {
+      pending = { path: path, load: load };
+      return false;
+    }
+    try {
+      p.callExternalInterface("setPath", String(path == null ? "" : path), !!load);
+      pending = null;
+      return true;
+    } catch (err) {
+      pending = { path: path, load: load };
+      return false;
+    }
+  }
+
+  function noteText(t, kind) {
+    if (!note) return;
+    note.textContent = t;
+    note.className = "hf-editor-note" + (kind ? " hf-editor-note--" + kind : "");
+  }
+
+  // El marco: se marca la propia etiqueta (el CSS le da el ancho de la columna y su borde) y se le
+  // pone debajo una línea de estado. No se envuelve el reproductor en nada: moverlo lo reiniciaría.
+  function stage() {
+    var e = stageEl();
+    if (!e) return;
+    if (!note) {
+      note = hf.el("p", { cls: "hf-editor-note", text: "Cargando el editor…" });
+      e.parentNode.insertBefore(note, e.nextSibling);
+    }
+    document.documentElement.classList.add("hf-saveeditor");
+  }
+
+  // El emulador, cuando haga falta. Igual que en la ficha de juego: el del sitio si el ajuste dice
+  // «web», y si no el más nuevo del CDN (`player.js` es quien sabe de eso).
+  function ensure() {
+    if (api()) return;
+    if (hf.player && hf.player.withRuffle) hf.player.withRuffle(function () {
+      ready();
+    });
+  }
+
+  function ready() {
+    if (!api()) return;
+    noteText("Listo · el editor lee las partidas guardadas en este navegador", "ok");
+    if (pending) {
+      var p = pending;
+      pending = null;
+      send(p.path, p.load);
+    }
+    clearInterval(poll);
+    poll = 0;
+  }
+
+  // Un repaso flojo hasta que el emulador está: para poner la línea de estado y para mandar la ruta
+  // que se quedara esperando. Se para en cuanto está (o a los 30 s, con su aviso).
+  function watch() {
+    if (poll) return;
+    var tries = 0;
+    poll = setInterval(function () {
+      if (api()) {
+        ready();
+        return;
+      }
+      if (++tries > 75) {
+        clearInterval(poll);
+        poll = 0;
+        noteText("El emulador no cargó: el editor no puede abrirse (míralo en el panel ⚡)", "bad");
+      }
+    }, 400);
+  }
+
+  function init() {
+    if (!isEditor()) return;
+    var b = tool();
+    var hb = helpBox();
+    b.classList.add("hf-tool");
+    if (hb) hb.classList.add("hf-help");
+    document.documentElement.classList.add("hf-saveeditor");
+    selector(b);
+    pathRow(b);
+    linkRow(b);
+    if (hb) {
+      steps(hb);
+      paint(hb);
+    }
+    bridge();
+    stage();
+    ensure();
+    watch();
+  }
+
+  hf.editor = {
+    init: init,
+    isEditor: isEditor,
+    tool: tool,
+    help: helpBox,
+    send: send,
+    link: link,
+    api: api
+  };
+})();
+
+// ---------------------------------------------------------------------------------------------
 // h-flash.com — ARRANQUE. Junta las piezas en el orden que toca y deja un solo vigilante del DOM
 // para lo que la web añade por AJAX (la lista de aleatorios de la portada, los comentarios, los
 // anuncios nuevos): todo lo que entra después se vuelve a repasar.
@@ -3717,6 +4064,9 @@
       });
       safe("article", function () {
         if (hf.article) hf.article.init();
+      });
+      safe("editor", function () {
+        if (hf.editor) hf.editor.init();
       });
     }
 
