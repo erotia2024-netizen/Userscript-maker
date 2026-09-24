@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.226
+// @version      0.1.227
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -4210,9 +4210,7 @@
     var side = hf.el("div", { cls: "hf-side hf-help" });
     var card = hf.q(".hf-form", b);
     if (card) side.appendChild(card); // el formulario, al lado del editor
-    secs.slice(0, 2).forEach(function (s) {
-      side.appendChild(s.box);
-    });
+    if (secs[0]) side.appendChild(secs[0].box); // «CÓMO SE USA», que son tres pasos
     loose.forEach(function (n) {
       n.parentNode.removeChild(n);
     });
