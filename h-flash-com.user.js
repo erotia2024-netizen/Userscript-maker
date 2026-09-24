@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.217
+// @version      0.1.218
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -3855,26 +3855,39 @@
     } catch (e) {}
   }
 
-  // Se usa la propia `setpath()` de la web (la del `<script>` de la página): es quien rellena el
-  // campo, arma el enlace y le pasa la ruta al editor. Si esa función no estuviera, se hace a mano lo
-  // mínimo (el campo). En los dos casos se llama también a `send()`, que deja la ruta apuntada si el
-  // emulador todavía no está (y entonces la manda `ready()`, en cuanto lo esté).
+  // El enlace lo arma la propia `setpath()` de la web... y puede que todavía no esté: el HTML de la
+  // página (con su `<script>`) se monta un momento DESPUÉS que el userscript, así que al volver a la
+  // página la función aún no existe. Por eso la ruta se deja apuntada en `wantLink` y se reintenta en
+  // el repaso del emulador (que va cada 400 ms), en vez de darse por perdida.
+  var wantLink = "";
+
   function restore() {
     var path = recall();
     if (!path) return;
     var input = hf.q("#savepath");
     if (!input || String(input.value || "").trim()) return;
     restored = true;
+    input.value = path; // el campo, ya
+    wantLink = path; // el enlace y el editor, en cuanto se pueda
+    send(path, false);
+    state();
+    linkIt();
+  }
+
+  // La ruta apuntada, al enlace de la web (que es quien rellena el `hflash://`, se lo pasa al editor
+  // y deja la fila encendida).
+  function linkIt() {
+    if (!wantLink) return;
     var win = hf.pageWin();
     var theirs = win && win.setpath;
-    if (typeof theirs === "function") {
-      try {
-        theirs(path);
-      } catch (e) {}
-    } else {
-      input.value = path;
+    if (typeof theirs !== "function") return;
+    var path = wantLink;
+    wantLink = "";
+    try {
+      theirs(path);
+    } catch (e) {
+      wantLink = path; // la web todavía no puede (le falta algo de su propio script)
     }
-    send(path, false);
     state();
   }
 
@@ -4099,6 +4112,7 @@
   function ensure() {
     if (api()) return;
     if (hf.player && hf.player.withRuffle) hf.player.withRuffle(function () {
+      linkIt();
       ready();
     });
   }
@@ -4114,8 +4128,10 @@
       pending = null;
       send(p.path, p.load);
     }
-    clearInterval(poll);
-    poll = 0;
+    if (!wantLink) {
+      clearInterval(poll);
+      poll = 0;
+    }
   }
 
   // Los comentarios, fuera también aquí (pedido del usuario: en la web queda el título —«Si
