@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.250
+// @version      0.1.251
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -606,7 +606,10 @@
 //      `appendChild`/`insertBefore`/`replaceChild` (justo antes de que el iframe entre en el
 //      documento, que es cuando empieza a cargar). A un iframe de anuncio que venga **sin**
 //      `sandbox` se le pone el mínimo (`allow-scripts allow-same-origin allow-forms`): sin la
-//      bandera de arriba tampoco podrá saltar.
+//      bandera de arriba tampoco podrá saltar. Y sólo se toca el `sandbox` de un iframe de anuncio
+//      —el que va a `candy.engine.adglare.net`, `engine.sadbaguette.com`…—: a los de un widget de
+//      fuera se les deja lo suyo, que Google pone a su captcha `allow-popups` y `allow-modals` para
+//      que funcione, y quitárselas lo rompe.
 //   2. **La navegación de la pestaña** (`Navigation` API, la que entiende el navegador). Se corta
 //      *cualquier* intento de llevar la pestaña a una web de anuncios: el clic de un enlace, el
 //      `location.href = …` de un script, el `submit()` de un formulario o un `meta refresh`. Es la
@@ -782,11 +785,42 @@
     return true;
   }
 
+  // ¿Este `<iframe>` da a la página una salida? `allow-popups`, `allow-top-navigation`… no son
+  // banderas de un anuncio que se ve, son de uno que se mueve; pero **tampoco son cosa de un widget
+  // de fuera que la web pone para que funcione**, así que hay que saber a qué iframe se le toca
+  // antes de tocárselo. Google —el captcha del formulario de contacto— pone a su iframe
+  // `allow-forms allow-popups allow-same-origin allow-scripts allow-top-navigation` y luego le añade
+  // `allow-modals`, `allow-popups-to-escape-sandbox` y `allow-storage-access-by-user-activation`:
+  // sin esas banderas su widget **da error** en cuanto se toca. La decisión se toma por la dirección
+  // del `<iframe>` (la misma cuenta que usa `adDest` para los enlaces): si no se sabe a dónde va
+  // —todavía no tiene `src`, o es `about:blank`, o es de la propia web— no se le toca nada. El de un
+  // anuncio llega con su `src` de siempre (`candy.engine.adglare.net`, `engine.sadbaguette.com`…),
+  // así que sí entra.
+  function stripEscape(value) {
+    return String(value).replace(ESCAPE_G, "").replace(/\s+/g, " ").trim();
+  }
+
+  function adSandboxHost(frame) {
+    if (!frame || frame.tagName !== "IFRAME") return false;
+    var s = (frame.getAttribute && frame.getAttribute("src")) || "";
+    if (!s) {
+      try {
+        s = frame.src || "";
+      } catch (e) {
+        s = "";
+      }
+    }
+    if (!s || own(s)) return false;
+    return adDest(s);
+  }
+
   function tidyFrame(frame, nextSrc) {
     if (!frame || frame.tagName !== "IFRAME") return false;
+    var url = nextSrc != null ? nextSrc : (frame.getAttribute("src") || "");
     var v = frame.getAttribute ? frame.getAttribute("sandbox") : null;
-    if (v == null) return sealHost(frame, nextSrc != null ? nextSrc : frame.getAttribute("src") || "");
+    if (v == null) return sealHost(frame, url);
     if (!ESCAPE.test(v)) return false;
+    if (!adDest(url) || own(url)) return false; // no es un anuncio: se le deja su `sandbox` en paz
     return writeSandbox(frame, v);
   }
 
@@ -1091,26 +1125,34 @@
     on = true;
     layers.length = 0;
 
-    // 1. el `sandbox`: se limpia en las cuatro puertas por las que un iframe de anuncio puede
-    //    entrar (atributo, propiedad, `src` y el momento de colgarse del documento).
+    // 1. el `sandbox`: se limpia en las puertas por las que un iframe de anuncio puede entrar
+    //    (atributo, propiedad, `src` y el momento de colgarse del documento). Sólo a los de anuncio
+    //    —ver `adSandboxHost`—: a los de un widget de fuera (el captcha) se les deja lo suyo.
     patch(W.Element.prototype, "setAttribute", function (orig) {
       return function (name, value) {
-        if (name === "sandbox" && value != null && ESCAPE.test(String(value))) {
-          var s = String(value).replace(ESCAPE_G, "").replace(/\s+/g, " ").trim();
+        if (name === "sandbox" && value != null && ESCAPE.test(String(value)) && adSandboxHost(this)) {
           stats.sandbox++;
           notify(null);
-          return orig.call(this, name, s);
+          return orig.call(this, name, stripEscape(value));
+        }
+        // El `src` que llega por atributo —el HTML escrito a mano, un `setAttribute`— es la puerta
+        // que faltaba: si el `<iframe>` ya traía su `sandbox` y el `src` le llega después (que es el
+        // orden del HTML: los atributos van uno detrás de otro), al llegar el `src` ya se sabe a
+        // dónde va y se le puede limpiar el `sandbox` que se le dejó pasar.
+        if (name === "src" && this && this.tagName === "IFRAME") {
+          try {
+            tidyFrame(this, value);
+          } catch (e) {}
         }
         return orig.apply(this, arguments);
       };
     });
     patch(W.HTMLIFrameElement && W.HTMLIFrameElement.prototype, "sandbox", function (orig, d) {
       return function (v) {
-        if (v != null && ESCAPE.test(String(v))) {
-          var s = String(v).replace(ESCAPE_G, "").replace(/\s+/g, " ").trim();
+        if (v != null && ESCAPE.test(String(v)) && adSandboxHost(this)) {
           stats.sandbox++;
           notify(null);
-          return orig.call(this, s);
+          return orig.call(this, stripEscape(v));
         }
         return orig.call(this, v);
       };
