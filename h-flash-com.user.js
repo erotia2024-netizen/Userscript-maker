@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.285
+// @version      0.1.286
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -4857,7 +4857,34 @@
   // puede cambiar el trozo por AJAX).
   var st = null;
 
-  function mount(l) {
+  // Las dos listas que se buscan y se paginan —la de autores (`/author/`) y el índice de etiquetas
+  // (`/tags/list/`)— son la misma pieza con otro texto: de aquí salen el rótulo del contador, el
+  // ejemplo del campo, el nombre de la lista para el lector de pantalla y las filas que caben en una
+  // página (12 en los autores; 18 en las etiquetas, que son 680 y con 12 salían quince páginas).
+  var KIND_AUTHORS = {
+    what: "autores",
+    ph: "Buscar autor…",
+    aria: "Buscar autor",
+    pager: "Páginas de autores",
+    rows: 12,
+    none: function (v) {
+      return "Ningún autor coincide con «" + v + "».";
+    }
+  };
+
+  var KIND_TAGS = {
+    what: "etiquetas",
+    ph: "Buscar etiqueta…",
+    aria: "Buscar etiqueta",
+    pager: "Páginas de etiquetas",
+    rows: 18,
+    none: function (v) {
+      return "Ninguna etiqueta coincide con «" + v + "».";
+    }
+  };
+
+  function mount(l, kind) {
+    kind = kind || KIND_AUTHORS;
     // Si ya había un buscador o un paginador por ahí (una lista vieja, un repaso del vigilante), se
     // recogen antes: el paginador cuelga de fuera de la lista, así que hay que buscarlo aparte.
     hf.qa(".hf-abar").forEach(function (n) {
@@ -4877,8 +4904,8 @@
     var input = hf.el("input", {
       cls: "hf-afilter",
       type: "search",
-      placeholder: "Buscar autor…",
-      "aria-label": "Buscar autor",
+      placeholder: kind.ph,
+      "aria-label": kind.aria,
       autocomplete: "off",
       spellcheck: "false"
     });
@@ -4908,7 +4935,7 @@
 
     // El paginador: va **fuera** de la lista (si fuera dentro, el `column-count` lo repartiría como
     // una ficha más, y el propio paginador se paginaría a sí mismo).
-    var pager = hf.el("div", { cls: "hf-apager", role: "navigation", "aria-label": "Páginas de autores" });
+    var pager = hf.el("div", { cls: "hf-apager", role: "navigation", "aria-label": kind.pager });
     l.parentNode.insertBefore(pager, l.nextSibling);
 
     // El «no hay nada»: vive dentro de la lista (cruza las cuatro columnas) y sólo aparece cuando la
@@ -4918,6 +4945,7 @@
 
     var s = {
       l: l,
+      kind: kind,
       bar: bar,
       input: input,
       clear: clear,
@@ -4988,10 +5016,10 @@
   // Cuántas casillas entran en una página: una fila por columna. Las columnas las pone el CSS, así que
   // se le preguntan a él: en pantalla ancha son 4 (48 casillas), 3 por debajo de 1.100 px y 2 por
   // debajo de 860. Si el CSS no dijera nada, se da por una columna.
-  function pageSize(l) {
+  function pageSize(l, rows) {
     var n = parseInt(getComputedStyle(l).columnCount, 10);
     if (!n || n < 1) n = 1;
-    return n * ROWS;
+    return n * (rows || ROWS);
   }
 
   // Partir lo que se ve en páginas. Se cierra página cuando ya se llegó al tamaño y **lo que viene es
@@ -5117,15 +5145,15 @@
     var vis = s.cells.filter(function (c) {
       return !c.classList.contains("hf-aout");
     });
-    s.pages = paginate(vis, pageSize(s.l));
+    s.pages = paginate(vis, pageSize(s.l, s.kind.rows));
     if (s.page > s.pages.length - 1) s.page = s.pages.length - 1;
     show(s);
     paint(s);
 
     var total = s.items.length;
-    s.count.textContent = tokens.length ? shown + " de " + total : total + " autores";
+    s.count.textContent = tokens.length ? shown + " de " + total : total + " " + s.kind.what;
     s.none.hidden = !(tokens.length && !shown);
-    if (!s.none.hidden) s.none.textContent = "Ningún autor coincide con «" + s.input.value.trim() + "».";
+    if (!s.none.hidden) s.none.textContent = s.kind.none(s.input.value.trim());
     s.clear.hidden = !s.input.value;
 
     // Si se estaba mirando la lista mucho más abajo, se sube hasta el buscador para ver lo que ha
@@ -5443,9 +5471,53 @@
     });
   }
 
+  // El índice de etiquetas (`/tags/list/`): la misma clase de lista que la de autores —32 tramos de
+  // letra y unos 680 enlaces, cada uno con su nombre, su contador y su nombre japonés—, así que se
+  // lleva el mismo buscador y el mismo paginador, con su propio hueco de estado (`ts`). Se reconoce
+  // por el contenedor de la web (`.doujinlist`, que sólo tiene esa página) y por tener un puñado de
+  // enlaces dentro; si no, no es una lista y no se toca.
+  function tagIndex() {
+    var l = hf.q(".doujinlist");
+    if (!l) return null;
+    var n = 0;
+    Array.prototype.forEach.call(l.children, function (c) {
+      if (c.tagName === "A") n++;
+    });
+    return n >= 20 ? l : null;
+  }
+
+  function initTags(l) {
+    l.classList.add("hf-tagindex");
+    // La letra del tramo va como la de los autores (la misma pieza, otro contenedor) y cada etiqueta
+    // es una ficha más del paginador. Todo idempotente: el vigilante puede volver a pasar.
+    Array.prototype.forEach.call(l.children, function (c) {
+      if (!c.classList) return;
+      if (c.classList.contains("tline")) {
+        c.classList.add("hf-al-letter");
+        var h = hf.q("h2, .dhead", c);
+        if (h) h.classList.add("hf-al-l");
+      } else if (c.tagName === "A") {
+        c.classList.add("hf-al-card");
+      }
+    });
+    hf.qa(".hf-al-card", l).forEach(function (a) {
+      var t = hf.q(".title", a);
+      if (t && !a.title && t.scrollWidth > t.clientWidth + 1) a.title = t.textContent.trim();
+    });
+    if (!ts || !ts.bar.isConnected || ts.l !== l) ts = mount(l, KIND_TAGS);
+    var data = read(l);
+    ts.items = data.items;
+    ts.letters = data.letters;
+    ts.cells = data.cells;
+    apply(ts, false);
+  }
+
   function init() {
     var s = sortedList();
     if (s) initSorted(s);
+
+    var tags = tagIndex();
+    if (tags) initTags(tags);
 
     var l = page();
     if (!l) return;
@@ -5474,7 +5546,7 @@
       if (t && !a.title && t.scrollWidth > t.clientWidth + 1) a.title = t.textContent.trim();
     });
 
-    if (!st || !st.bar.isConnected || st.l !== l) st = mount(l);
+    if (!st || !st.bar.isConnected || st.l !== l) st = mount(l, KIND_AUTHORS);
     var data = read(l);
     st.items = data.items;
     st.letters = data.letters;
@@ -5489,10 +5561,11 @@
     clearTimeout(rt);
     rt = setTimeout(function () {
       if (st && st.l.isConnected) apply(st, false);
+      if (ts && ts.l.isConnected) apply(ts, false);
     }, 250);
   });
 
-  hf.author = { init: init, page: page };
+  hf.author = { init: init, page: page, tags: tagIndex };
 })();
 
 // ---------------------------------------------------------------------------------------------
