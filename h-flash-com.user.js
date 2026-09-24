@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.272
+// @version      0.1.273
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -4788,25 +4788,35 @@
 //
 // Aquí no se mueve ni un enlace ni se reescribe una línea de la lista: sólo se **marcan** la lista,
 // la letra de cada tramo y cada ficha —el aspecto va entero en el bloque 17 del CSS—, y el CSS las
-// pone en una **rejilla densa que llena el ancho**: la ficha es una tarjeta de dos renglones (avatar,
-// nombre y, debajo, el nombre japonés con las marcas a la derecha) y la letra del tramo es una
-// etiqueta más de la rejilla, del tamaño de una ficha, que va delante de los suyos. Así las 218
-// casillas —190 fichas y 28 letras— se reparten en 28 filas en vez de gastar una fila entera por
-// letra, la página baja de 5.266 px a ~1.950 y no queda ni un hueco al final de las filas. El `<br>`
-// de relleno se va, que el alto de la tarjeta lo pone su avatar. Todo es idempotente (cada paso se
-// busca a sí mismo), así que el vigilante del DOM puede volver a llamarlo sin duplicar nada.
+// pone en un **índice a columnas**: cuatro columnas con su barra rosa en medio (`column-count` +
+// `column-rule`), la letra de cada tramo como etiqueta dentro de la columna que le toca y la ficha
+// como tarjeta de dos renglones (avatar, nombre y, debajo, el nombre japonés con las marcas). El
+// `<br>` de relleno se va. Todo es idempotente (cada paso se busca a sí mismo), así que el vigilante
+// del documento puede volver a llamarlo sin duplicar nada.
 //
-// Y encima, el **buscador**: la fila del título (`AUTORES`) tenía media pantalla vacía a su derecha,
-// así que ahí vive un campo que va acotando la lista mientras se escribe —por el nombre y por el
-// nombre japonés—, con su contador y su ✕ para limpiar. El que no encaja se esconde, y el tramo de
-// letra que se queda sin nadie se esconde también: queda sólo lo del autor buscado, sin huecos.
-// La lista entera sigue en el documento (no se destruye nada: sólo se oculta), así que vaciar el
-// campo la devuelve tal cual estaba.
+// Y encima, dos cosas nuestras:
+//
+//   · El **buscador**: la fila del título (`AUTORES`) tenía media pantalla vacía a su derecha, así
+//     que ahí vive un campo que va acotando la lista mientras se escribe —por el nombre y por el
+//     nombre japonés—, con su contador y su ✕ para limpiar. El que no encaja se esconde, y el tramo
+//     de letra que se queda sin nadie se esconde también. La lista entera sigue en el documento (no
+//     se destruye nada: sólo se oculta), así que vaciar el campo la devuelve tal cual estaba.
+//
+//   · El **paginador**: cuatro columnas de 190 autores son un rato de scroll, así que la lista se
+//     parte en páginas de `12 filas × columnas` casillas —contando letras y fichas— y debajo de la
+//     lista va el pie de página. Se corta **al principio de un tramo** (cuando a la página ya le
+//     toca cerrarse y lo que viene es una letra), para que un tramo no se parta entre dos páginas.
+//     Las columnas las dice el CSS (4, 3 o 2 según el ancho), así que al estrecharse la ventana el
+//     paginador rearma solo las páginas, sin que haya que tocar nada aquí.
 // ---------------------------------------------------------------------------------------------
 (function () {
   "use strict";
   var hf = window.hf;
   if (!hf || hf.author) return;
+
+  // Cuántas filas de fichas caben en cada columna antes de pasar de página. Con 4 columnas son 48
+  // casillas por página: 190 autores y 28 letras caen en 5 páginas.
+  var ROWS = 12;
 
   // La página es la LISTA de autores: el contenedor `.authorlist` con sus fichas (un enlace con la
   // foto). Se piden dos para no confundirla con la ficha de un autor suelto (`/author/<nombre>/`),
@@ -4819,7 +4829,7 @@
 
   // Comparar sin mayúsculas, sin acentos y sin el ruido del japonés: «Airo» encuentra a «airo», y
   // «maido» a «マイド». NFKC va primero para que las formas de ancho completo («ＡＩＲＯ», los ﾏｲﾄﾞ de
-  // medio ancho) caigan en la misma letra que las normales; luego NFD para poder quitarlos acentos.
+  // medio ancho) caigan en la misma letra que las normales; luego NFD para poder quitarles acentos.
   function fold(s) {
     return String(s == null ? "" : s)
       .normalize("NFKC")
@@ -4831,13 +4841,17 @@
       .trim();
   }
 
-  // El estado de la búsqueda. Se monta una vez por lista y se vuelve a leer la lista en cada
-  // pasada (la web puede cambiar el trozo por AJAX).
+  // El estado de la lista: se monta una vez por lista y se vuelve a leer en cada pasada (la web
+  // puede cambiar el trozo por AJAX).
   var st = null;
 
   function mount(l) {
-    // Si ya había uno por ahí (una lista vieja, un repaso del vigilante), se recoge antes.
+    // Si ya había un buscador o un paginador por ahí (una lista vieja, un repaso del vigilante), se
+    // recogen antes: el paginador cuelga de fuera de la lista, así que hay que buscarlo aparte.
     hf.qa(".hf-abar").forEach(function (n) {
+      n.remove();
+    });
+    hf.qa(".hf-apager").forEach(function (n) {
       n.remove();
     });
 
@@ -4870,8 +4884,8 @@
     var count = hf.el("span", { cls: "hf-acount", role: "status", "aria-live": "polite" });
     var bar = hf.el("div", { cls: "hf-abar", role: "search" }, [count, field]);
 
-    // El sitio natural es la fila del título (que tenía el hueco vacío a la derecha). Si esa página
-    // no lo trae, se pone justo encima de la lista.
+    // El sitio natural del buscador es la fila del título (que tenía el hueco vacío a la derecha). Si
+    // esa página no lo trae, se pone justo encima de la lista.
     var host = hf.q(".mtitle");
     if (host && host.parentNode) {
       host.classList.add("hf-authorhead");
@@ -4880,22 +4894,40 @@
       l.parentNode.insertBefore(bar, l);
     }
 
-    // El «no hay nada»: vive dentro de la rejilla (ocupa la fila entera) y sólo aparece cuando la
+    // El paginador: va **fuera** de la lista (si fuera dentro, el `column-count` lo repartiría como
+    // una ficha más, y el propio paginador se paginaría a sí mismo).
+    var pager = hf.el("div", { cls: "hf-apager", role: "navigation", "aria-label": "Páginas de autores" });
+    l.parentNode.insertBefore(pager, l.nextSibling);
+
+    // El «no hay nada»: vive dentro de la lista (cruza las cuatro columnas) y sólo aparece cuando la
     // búsqueda no deja ni una ficha.
     var none = hf.el("div", { cls: "hf-anone", hidden: true });
     l.appendChild(none);
 
-    var s = { l: l, bar: bar, input: input, clear: clear, count: count, none: none, items: [], letters: [] };
+    var s = {
+      l: l,
+      bar: bar,
+      input: input,
+      clear: clear,
+      count: count,
+      none: none,
+      pager: pager,
+      cells: [],
+      items: [],
+      letters: [],
+      pages: [],
+      page: 0
+    };
 
     input.addEventListener("input", function () {
-      apply(s);
+      apply(s, true);
     });
     input.addEventListener("keydown", function (e) {
       if (e.key === "Escape") {
         e.preventDefault();
         if (s.input.value) {
           s.input.value = "";
-          apply(s);
+          apply(s, true);
         } else {
           s.input.blur();
         }
@@ -4905,38 +4937,145 @@
     });
     clear.addEventListener("click", function () {
       s.input.value = "";
-      apply(s);
+      apply(s, true);
       s.input.focus();
     });
 
     return s;
   }
 
-  // Leer la lista: cada ficha, la letra de su tramo (por índice) y su texto ya plegado. El orden del
-  // documento es el de la rejilla (las letras y las fichas son hermanas), así que basta con pasear a
-  // los hijos y apuntar qué letra tocaba.
+  // Leer la lista: cada ficha, la letra de su tramo (por índice) y su texto ya plegado, más la lista
+  // de casillas (letras y fichas en el orden del documento, que es el orden en que el CSS las reparte
+  // por las columnas). El orden del documento es ese, así que basta con pasear a los hijos.
   function read(l) {
     var items = [];
     var letters = [];
+    var cells = [];
     var idx = -1;
     Array.prototype.forEach.call(l.children, function (n) {
       if (!n.classList) return;
       if (n.classList.contains("hf-al-letter")) {
         letters.push(n);
         idx = letters.length - 1;
+        n.hfIdx = cells.length;
+        cells.push(n);
         return;
       }
       if (!n.classList.contains("hf-al-card")) return;
+      n.hfIdx = cells.length;
+      cells.push(n);
       var t = hf.q(".title", n);
       var j = hf.q(".fname", n);
       var name = t ? t.textContent : "";
       var jp = j ? j.textContent : "";
       items.push({ card: n, letter: idx, name: name.trim(), jp: jp.trim(), hay: fold(name + " " + jp) });
     });
-    return { items: items, letters: letters };
+    return { items: items, letters: letters, cells: cells };
   }
 
-  function apply(s) {
+  // Cuántas casillas entran en una página: una fila por columna. Las columnas las pone el CSS, así que
+  // se le preguntan a él: en pantalla ancha son 4 (48 casillas), 3 por debajo de 1.100 px y 2 por
+  // debajo de 860. Si el CSS no dijera nada, se da por una columna.
+  function pageSize(l) {
+    var n = parseInt(getComputedStyle(l).columnCount, 10);
+    if (!n || n < 1) n = 1;
+    return n * ROWS;
+  }
+
+  // Partir lo que se ve en páginas. Se cierra página cuando ya se llegó al tamaño y **lo que viene es
+  // una letra**: así un tramo no se parte entre dos páginas y cada página empieza por su cabecera.
+  // (Un tramo larguísimo podría no caber nunca; a partir del doble se corta donde toque, por si acaso.)
+  function paginate(vis, size) {
+    var pages = [];
+    var cur = [];
+    for (var i = 0; i < vis.length; i++) {
+      if (cur.length >= size && vis[i].classList.contains("hf-al-letter")) {
+        pages.push(cur);
+        cur = [];
+      }
+      cur.push(vis[i]);
+      if (cur.length >= size * 2) {
+        pages.push(cur);
+        cur = [];
+      }
+    }
+    if (cur.length) pages.push(cur);
+    return pages.length ? pages : [[]];
+  }
+
+  // Enseñar una página: todo lo que no esté en ella se marca `hf-apg` (el CSS lo esconde). Las
+  // casillas llevan su índice (`hfIdx`, puesto al leer la lista), así que esto es una pasada y ya.
+  function show(s) {
+    var on = {};
+    (s.pages[s.page] || []).forEach(function (c) {
+      on[c.hfIdx] = true;
+    });
+    s.cells.forEach(function (c) {
+      c.classList.toggle("hf-apg", !on[c.hfIdx]);
+    });
+  }
+
+  // El pie de página: «‹ 1 2 3 4 5 ›», con la página en la que se está en acento. Con muchas páginas
+  // (pantalla estrecha) se enseñan la primera, la última y las de alrededor, con puntos suspensivos.
+  function paint(s) {
+    var p = s.pager;
+    var n = s.pages.length;
+    p.innerHTML = "";
+    if (n < 2) {
+      p.hidden = true;
+      return;
+    }
+    p.hidden = false;
+
+    function button(text, page, cls) {
+      var b = hf.el("button", { type: "button", cls: cls || "" });
+      b.textContent = text;
+      b.disabled = page < 0 || page > n - 1;
+      if (b.disabled) {
+        b.setAttribute("aria-disabled", "true");
+      } else {
+        b.addEventListener("click", function () {
+          goto(s, page);
+        });
+      }
+      return b;
+    }
+
+    p.appendChild(button("‹", s.page - 1, "hf-apage-prev"));
+    var nums = [];
+    if (n <= 9) {
+      for (var i = 0; i < n; i++) nums.push(i);
+    } else {
+      nums.push(0);
+      if (s.page > 2) nums.push(-1);
+      for (var m = Math.max(1, s.page - 1); m <= Math.min(n - 2, s.page + 1); m++) nums.push(m);
+      if (s.page < n - 3) nums.push(-1);
+      nums.push(n - 1);
+    }
+    nums.forEach(function (i) {
+      if (i < 0) {
+        p.appendChild(hf.el("span", { cls: "hf-apage-info", text: "…" }));
+        return;
+      }
+      p.appendChild(button(String(i + 1), i, i === s.page ? "hf-apage-on" : ""));
+    });
+    p.appendChild(button("›", s.page + 1, "hf-apage-next"));
+  }
+
+  // Ir a una página: repinta las casillas, el pie, y sube a la lista (que es lo que ha cambiado) si
+  // se estaba más abajo. El buscador se queda donde está, que no se ha tocado.
+  function goto(s, i) {
+    if (i < 0 || i > s.pages.length - 1 || i === s.page) return;
+    s.page = i;
+    show(s);
+    paint(s);
+    var r = s.l.getBoundingClientRect();
+    if (r.top < 0 || r.bottom > window.innerHeight) window.scrollTo(0, window.scrollY + r.top - 70);
+  }
+
+  // La pasada completa: filtrar (si hay algo escrito) y repartir en páginas. `resetPage` cuando el
+  // buscador cambia, que entonces lo que se enseña es otra lista y se empieza por el principio.
+  function apply(s, resetPage) {
     var tokens = fold(s.input.value).split(" ").filter(Boolean);
     var lit = [];
     var shown = 0;
@@ -4961,6 +5100,15 @@
       el.classList.toggle("hf-aout", !lit[i]);
     });
 
+    if (resetPage) s.page = 0;
+    var vis = s.cells.filter(function (c) {
+      return !c.classList.contains("hf-aout");
+    });
+    s.pages = paginate(vis, pageSize(s.l));
+    if (s.page > s.pages.length - 1) s.page = s.pages.length - 1;
+    show(s);
+    paint(s);
+
     var total = s.items.length;
     s.count.textContent = tokens.length ? shown + " de " + total : total + " autores";
     s.none.hidden = !(tokens.length && !shown);
@@ -4968,8 +5116,8 @@
     s.clear.hidden = !s.input.value;
 
     // Si se estaba mirando la lista mucho más abajo, se sube hasta el buscador para ver lo que ha
-    // quedado (sólo cuando ya hay algo escrito, para no dar tirones mientras se baja la página).
-    if (tokens.length) {
+    // quedado (sólo cuando se está buscando, para no dar tirones mientras se baja la página).
+    if (resetPage && tokens.length) {
       var r = s.bar.getBoundingClientRect();
       if (r.top < 0 || r.bottom > window.innerHeight) window.scrollTo(0, window.scrollY + r.top - 16);
     }
@@ -4980,7 +5128,7 @@
     if (!l) return;
     l.classList.add("hf-authorlist");
 
-    // La letra de cada tramo (la «=», la «4», la «A»…): pasa a ser la cabecera de su fila.
+    // La letra de cada tramo (la «=», la «4», la «A»…): pasa a ser su etiqueta dentro de la columna.
     hf.qa(".tline", l).forEach(function (t) {
       t.classList.add("hf-al-letter");
       var h = hf.q("h2, .dhead", t);
@@ -4995,9 +5143,9 @@
       if (last && last.tagName === "BR") last.remove();
     });
 
-    // En una ficha tan corta hay nombres que no caben y salen cortados con puntos suspensivos: a ésos
-    // —y sólo a ésos, para no llenar de bocadillos las que ya se leen enteras— se les pone el nombre
-    // completo en el `title`, que es el bocadillo del navegador.
+    // En una ficha de cuatro columnas hay nombres que no caben y salen cortados con puntos
+    // suspensivos: a ésos —y sólo a ésos, para no llenar de bocadillos los que ya se leen enteros— se
+    // les pone el nombre completo en el `title`, que es el bocadillo del navegador.
     hf.qa(".hf-al-card", l).forEach(function (a) {
       var t = hf.q(".title", a);
       if (t && !a.title && t.scrollWidth > t.clientWidth + 1) a.title = t.textContent.trim();
@@ -5007,8 +5155,19 @@
     var data = read(l);
     st.items = data.items;
     st.letters = data.letters;
-    apply(st);
+    st.cells = data.cells;
+    apply(st, false);
   }
+
+  // Al cambiar el ancho de la ventana cambian las columnas (y con ellas las casillas que caben en una
+  // página), así que se rearma: la página actual se queda donde estaba, recortada si hiciera falta.
+  var rt = 0;
+  window.addEventListener("resize", function () {
+    clearTimeout(rt);
+    rt = setTimeout(function () {
+      if (st && st.l.isConnected) apply(st, false);
+    }, 250);
+  });
 
   hf.author = { init: init, page: page };
 })();
