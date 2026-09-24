@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.265
+// @version      0.1.266
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -4788,10 +4788,13 @@
 //
 // Aquí no se mueve ni un enlace ni se reescribe una línea de la lista: sólo se **marcan** la lista,
 // la letra de cada tramo y cada ficha —el aspecto va entero en el bloque 17 del CSS—, y el CSS las
-// pone en una **rejilla que llena el ancho** (las fichas se reparten el hueco que la web dejaba
-// muerto) con la letra de cada tramo como cabecera de su fila. El `<br>` de relleno se va, que el
-// alto de la tarjeta lo pone su avatar. Todo es idempotente (cada paso se busca a sí mismo), así
-// que el vigilante del DOM puede volver a llamarlo sin duplicar nada.
+// pone en una **rejilla densa que llena el ancho**: la ficha es una tarjeta de dos renglones (avatar,
+// nombre y, debajo, el nombre japonés con las marcas a la derecha) y la letra del tramo es una
+// etiqueta más de la rejilla, del tamaño de una ficha, que va delante de los suyos. Así las 218
+// casillas —190 fichas y 28 letras— se reparten en 28 filas en vez de gastar una fila entera por
+// letra, la página baja de 5.266 px a ~1.950 y no queda ni un hueco al final de las filas. El `<br>`
+// de relleno se va, que el alto de la tarjeta lo pone su avatar. Todo es idempotente (cada paso se
+// busca a sí mismo), así que el vigilante del DOM puede volver a llamarlo sin duplicar nada.
 //
 // Y encima, el **buscador**: la fila del título (`AUTORES`) tenía media pantalla vacía a su derecha,
 // así que ahí vive un campo que va acotando la lista mientras se escribe —por el nombre y por el
