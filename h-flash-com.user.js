@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.205
+// @version      0.1.206
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -3698,6 +3698,9 @@
     if (!input) return;
     var row = input.closest("p") || input.parentElement;
     row.classList.add("hf-pathrow");
+    // El `div` con el `margin:20px` que envuelve la ruta y el enlace: es la tarjeta del formulario.
+    var card = row.parentElement;
+    if (card && card !== b) card.classList.add("hf-form");
     var span = row.querySelector("span");
     if (span) span.classList.add("hf-label");
     var btn = row.querySelector("input[type=button]");
