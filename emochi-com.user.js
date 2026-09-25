@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.28
+// @version      0.9.29
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -18,7 +18,7 @@
 
 (function () {
   "use strict";
-  var css = "/* =============================================================================================\n   emochi.com — el CSS del panel de roles (🎭). Todo vive bajo #em-root, así que no toca nada de la\n   web: ni sus clases, ni su Tailwind, ni su Chakra. El único cuidado es que su reset global\n   (`* { margin: 0; padding: 0; font: inherit }`) no se coma lo nuestro, así que aquí se declara\n   todo lo que hace falta, sin dar por hecho nada.\n   ============================================================================================= */\n#em-root {\n  --em-bg: #141416;\n  --em-bg2: #1d1d21;\n  --em-bg3: #26262c;\n  --em-line: #34343c;\n  --em-text: #f2f2f5;\n  --em-dim: #b8b8c4;\n  --em-accent: #f7c948;\n  --em-accent-ink: #241c03;\n  --em-bad: #ff6b6b;\n  --em-good: #5ad18a;\n  --em-radius: 14px;\n  color: var(--em-text);\n  font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif;\n  font-size: 14px;\n  line-height: 1.45;\n  text-align: left;\n  box-sizing: border-box;\n}\n#em-root *,\n#em-root *::before,\n#em-root *::after {\n  box-sizing: border-box;\n  font-family: inherit;\n}\n\n/* --- el botón flotante (abajo a la izquierda: abajo a la derecha está su asistente) --------- */\n#em-fab {\n  position: fixed;\n  left: 18px;\n  bottom: 18px;\n  z-index: 2147483000;\n  width: 52px;\n  height: 52px;\n  border: 1px solid var(--em-line);\n  border-radius: 50%;\n  background: var(--em-bg);\n  color: var(--em-text);\n  font-size: 24px;\n  line-height: 1;\n  cursor: pointer;\n  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);\n  transition: transform 0.15s ease, box-shadow 0.15s ease;\n}\n#em-fab:hover {\n  transform: translateY(-2px);\n  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);\n}\n#em-fab[aria-expanded=\"true\"] {\n  background: var(--em-accent);\n  color: var(--em-accent-ink);\n  border-color: var(--em-accent);\n}\n\n/* --- el panel ------------------------------------------------------------------------------- */\n#em-panel {\n  position: fixed;\n  left: 18px;\n  top: 18px;\n  bottom: 84px;\n  z-index: 2147483000;\n  width: 400px;\n  max-width: calc(100vw - 36px);\n  display: flex;\n  flex-direction: column;\n  background: var(--em-bg);\n  border: 1px solid var(--em-line);\n  border-radius: var(--em-radius);\n  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);\n  overflow: hidden;\n}\n#em-panel[hidden] {\n  display: none;\n}\n#em-fab,\n#em-panel,\n#em-panel * {\n  text-align: left;\n}\n#em-panel img {\n  max-width: 100%;\n}\n\n.em-head {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  padding: 12px 14px;\n  background: var(--em-bg2);\n  border-bottom: 1px solid var(--em-line);\n}\n.em-title {\n  font-size: 15px;\n  font-weight: 700;\n}\n.em-count {\n  font-size: 12px;\n  color: var(--em-dim);\n}\n.em-grow {\n  flex: 1 1 auto;\n}\n.em-icon {\n  background: transparent;\n  border: 0;\n  color: var(--em-dim);\n  font-size: 15px;\n  padding: 4px 6px;\n  border-radius: 8px;\n  cursor: pointer;\n}\n.em-icon:hover {\n  background: var(--em-bg3);\n  color: var(--em-text);\n}\n\n.em-body {\n  flex: 1 1 auto;\n  overflow-y: auto;\n  padding: 12px;\n  display: flex;\n  flex-direction: column;\n  gap: 10px;\n}\n.em-foot {\n  padding: 10px 12px;\n  border-top: 1px solid var(--em-line);\n  background: var(--em-bg2);\n  display: flex;\n  gap: 8px;\n}\n\n.em-msg {\n  margin: 10px 12px 0;\n  padding: 8px 10px;\n  border-radius: 10px;\n  background: rgba(90, 209, 138, 0.12);\n  border: 1px solid rgba(90, 209, 138, 0.35);\n  font-size: 13px;\n}\n.em-msg-bad {\n  background: rgba(255, 107, 107, 0.12);\n  border-color: rgba(255, 107, 107, 0.4);\n}\n\n.em-note {\n  background: var(--em-bg2);\n  border: 1px solid var(--em-line);\n  border-radius: 12px;\n  padding: 12px;\n  color: var(--em-dim);\n  font-size: 13px;\n  display: flex;\n  flex-direction: column;\n  gap: 10px;\n  align-items: flex-start;\n}\n.em-note-bad {\n  border-color: rgba(255, 107, 107, 0.4);\n  color: #ffd9d9;\n}\n.em-note-small {\n  padding: 8px 10px;\n  font-size: 12px;\n}\n\n/* --- el bot en el que estás ----------------------------------------------------------------- */\n.em-bot {\n  background: var(--em-bg2);\n  border: 1px solid var(--em-line);\n  border-radius: 12px;\n  padding: 10px 12px;\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n}\n.em-bot-title {\n  font-size: 13px;\n  color: var(--em-dim);\n}\n.em-bot-title b {\n  color: var(--em-text);\n}\n.em-bot-note {\n  font-size: 12px;\n  color: var(--em-dim);\n}\n\n/* --- las tarjetas de rol -------------------------------------------------------------------- */\n.em-card {\n  background: var(--em-bg2);\n  border: 1px solid var(--em-line);\n  border-radius: 12px;\n  padding: 10px 12px;\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n}\n.em-card-primary {\n  border-color: rgba(247, 201, 72, 0.55);\n  box-shadow: inset 3px 0 0 var(--em-accent);\n}\n.em-card-top {\n  display: flex;\n  gap: 10px;\n  align-items: center;\n}\n.em-avatar {\n  width: 42px;\n  height: 42px;\n  border-radius: 50%;\n  object-fit: cover;\n  flex: 0 0 auto;\n  background: var(--em-bg3);\n}\n.em-avatar-empty {\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-weight: 700;\n  color: var(--em-dim);\n}\n.em-card-head {\n  min-width: 0;\n}\n.em-name {\n  font-weight: 700;\n  font-size: 15px;\n}\n.em-meta {\n  font-size: 12px;\n  color: var(--em-dim);\n}\n.em-story {\n  font-size: 13px;\n  color: #e4e4ea;\n  margin: 0;\n  white-space: pre-wrap;\n}\n.em-chips {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px;\n}\n.em-chip {\n  font-size: 11px;\n  padding: 2px 8px;\n  border-radius: 999px;\n  background: #2f2f36;\n  color: #cfcfd8;\n  border: 1px solid #43434d;\n}\n\n/* --- botones e inputs ----------------------------------------------------------------------- */\n.em-acts {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px;\n}\n.em-acts-end {\n  justify-content: flex-end;\n  margin-top: 4px;\n}\n/* Los botones del formulario y del selector van pegados abajo, siempre a la vista. */\n.em-acts-sticky {\n  position: sticky;\n  bottom: 0;\n  z-index: 2;\n  margin-top: 8px;\n  padding: 8px 0 2px;\n  background: var(--em-bg);\n  border-top: 1px solid var(--em-line);\n}\n.em-btn {\n  font-size: 12.5px;\n  padding: 6px 10px;\n  border-radius: 9px;\n  border: 1px solid var(--em-line);\n  background: var(--em-bg3);\n  color: var(--em-text);\n  cursor: pointer;\n}\n.em-btn:hover {\n  border-color: #4a4a55;\n}\n.em-btn:disabled {\n  opacity: 0.55;\n  cursor: default;\n}\n.em-btn-main {\n  background: var(--em-accent);\n  border-color: var(--em-accent);\n  color: var(--em-accent-ink);\n  font-weight: 600;\n}\n.em-btn-bad {\n  color: #ffc9c9;\n  border-color: rgba(255, 107, 107, 0.35);\n}\n.em-btn-on {\n  background: rgba(90, 209, 138, 0.16);\n  border-color: rgba(90, 209, 138, 0.5);\n  color: #c9f5dc;\n}\n\n.em-form {\n  display: flex;\n  flex-direction: column;\n  gap: 10px;\n}\n.em-row {\n  display: flex;\n  gap: 10px;\n}\n.em-row > * {\n  flex: 1 1 0;\n  min-width: 0;\n}\n.em-field {\n  display: flex;\n  flex-direction: column;\n  gap: 4px;\n}\n.em-field-label {\n  font-size: 12px;\n  color: var(--em-dim);\n}\n.em-field small {\n  font-size: 11px;\n  color: var(--em-dim);\n}\n.em-input {\n  width: 100%;\n  background: var(--em-bg3);\n  color: var(--em-text);\n  border: 1px solid var(--em-line);\n  border-radius: 9px;\n  padding: 7px 9px;\n  font-size: 13px;\n  resize: vertical;\n}\n.em-input:focus {\n  outline: none;\n  border-color: var(--em-accent);\n}\n.em-input::placeholder {\n  color: #74747f;\n}\n\n/* --- el formulario del rol (igual que su editor: contadores, géneros, etiquetas) ------------- */\n.em-req {\n  color: #ff8f6b;\n  font-style: normal;\n  margin-left: 3px;\n}\n.em-counted {\n  display: flex;\n  align-items: flex-start;\n  gap: 6px;\n}\n.em-counted > .em-input {\n  flex: 1 1 auto;\n  min-width: 0;\n}\n.em-count-num {\n  font-size: 11px;\n  color: var(--em-dim);\n  padding-top: 8px;\n  font-variant-numeric: tabular-nums;\n  white-space: nowrap;\n}\n.em-count-on {\n  color: var(--em-accent);\n}\n.em-hint {\n  font-size: 11.5px;\n  color: #8f8f9c;\n}\n.em-tip {\n  font-size: 11.5px;\n  color: #8f8f9c;\n  border-top: 1px dashed var(--em-line);\n  padding-top: 8px;\n}\n.em-radios {\n  display: flex;\n  gap: 6px;\n  flex-wrap: wrap;\n}\n.em-radio {\n  display: inline-flex;\n  align-items: center;\n  gap: 6px;\n  font-size: 12.5px;\n  padding: 6px 12px 6px 6px;\n  border-radius: 999px;\n  border: 1px solid var(--em-line);\n  background: var(--em-bg3);\n  color: var(--em-text);\n  cursor: pointer;\n}\n.em-radio:hover {\n  border-color: #4a4a55;\n}\n.em-radio-dot {\n  width: 18px;\n  height: 18px;\n  border-radius: 50%;\n  border: 1px solid var(--em-line);\n  background: var(--em-bg);\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 11px;\n  font-style: normal;\n  color: var(--em-accent-ink);\n}\n.em-radio-on {\n  border-color: var(--em-accent);\n  background: rgba(247, 201, 72, 0.12);\n}\n.em-radio-on .em-radio-dot {\n  background: var(--em-accent);\n  border-color: var(--em-accent);\n}\n.em-avatar-wrap {\n  display: flex;\n  gap: 10px;\n  align-items: flex-start;\n}\n.em-avatar-big {\n  width: 72px;\n  height: 72px;\n  border-radius: 12px;\n  object-fit: cover;\n  flex: 0 0 auto;\n  background: var(--em-bg3);\n  font-size: 26px;\n}\n.em-avatar-fields {\n  flex: 1 1 auto;\n  min-width: 0;\n  display: flex;\n  flex-direction: column;\n  gap: 6px;\n  align-items: flex-start;\n}\n.em-btn-mini {\n  font-size: 11.5px;\n  padding: 4px 8px;\n}\n.em-chip-del {\n  background: transparent;\n  border: 0;\n  color: inherit;\n  font: inherit;\n  cursor: pointer;\n  padding: 0 0 0 6px;\n  opacity: 0.75;\n}\n.em-chip-del:hover {\n  opacity: 1;\n}\n\n/* --- el selector de etiquetas --------------------------------------------------------------- */\n.em-picker {\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n}\n.em-tag-list {\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n}\n.em-tag-group {\n  font-size: 12px;\n  color: var(--em-accent);\n  margin-top: 2px;\n}\n.em-tag-grid {\n  display: grid;\n  grid-template-columns: repeat(3, minmax(0, 1fr));\n  gap: 6px;\n}\n.em-tag {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 4px;\n  font-size: 11.5px;\n  padding: 6px 8px;\n  border-radius: 9px;\n  border: 1px solid var(--em-line);\n  background: var(--em-bg3);\n  color: var(--em-text);\n  cursor: pointer;\n  text-align: left;\n  min-width: 0;\n}\n.em-tag span {\n  overflow-wrap: anywhere;\n  line-height: 1.25;\n}\n.em-tag:hover {\n  border-color: #4a4a55;\n}\n.em-tag-mark {\n  font-style: normal;\n  color: var(--em-dim);\n  flex: 0 0 auto;\n}\n.em-tag-on {\n  background: rgba(247, 201, 72, 0.16);\n  border-color: var(--em-accent);\n  color: #fff;\n}\n.em-tag-on .em-tag-mark {\n  color: var(--em-accent);\n}\n.em-tag-full {\n  border-color: var(--em-bad);\n  color: #ffd9d9;\n}\n\n.em-spin {\n  width: 12px;\n  height: 12px;\n  border-radius: 50%;\n  border: 2px solid var(--em-line);\n  border-top-color: var(--em-accent);\n  display: inline-block;\n  animation: em-spin 0.8s linear infinite;\n}\n@keyframes em-spin {\n  to {\n    transform: rotate(360deg);\n  }\n}\n\n@media (max-width: 520px) {\n  #em-panel {\n    left: 8px;\n    right: 8px;\n    width: auto;\n    max-width: none;\n    top: 8px;\n    bottom: 76px;\n  }\n  #em-fab {\n    left: 12px;\n    bottom: 12px;\n  }\n}\n\n/* =============================================================================================\n   🎲 la partida (rpg.js): pestañas, ficha de estadísticas, acciones y registro\n   ============================================================================================= */\n\n.em-tabs {\n  display: flex;\n  gap: 6px;\n  padding: 8px 10px 0;\n  background: var(--em-bg2);\n}\n.em-tab {\n  flex: 1 1 0;\n  padding: 7px 8px;\n  border: 1px solid var(--em-line);\n  border-bottom: 0;\n  border-radius: 10px 10px 0 0;\n  background: var(--em-bg3);\n  color: var(--em-dim);\n  font-size: 12px;\n  font-weight: 600;\n  cursor: pointer;\n}\n.em-tab:hover {\n  color: var(--em-text);\n}\n.em-tab-on {\n  background: var(--em-bg);\n  color: var(--em-text);\n  border-color: var(--em-line);\n}\n.em-tabs + .em-head {\n  border-top: 0;\n}\n\n.em-rpg-host {\n  display: flex;\n  flex-direction: column;\n  gap: 10px;\n  min-width: 0;\n  max-width: 100%;\n}\n.em-rpg {\n  display: flex;\n  flex-direction: column;\n  gap: 10px;\n  min-width: 0;\n  max-width: 100%;\n}\n.em-h {\n  margin: 4px 0 0;\n  font-size: 12px;\n  font-weight: 700;\n  color: var(--em-dim);\n  text-transform: uppercase;\n  letter-spacing: 0.03em;\n}\n.em-rpg-head {\n  display: flex;\n  flex-direction: column;\n  gap: 2px;\n}\n.em-rpg-bot {\n  font-size: 15px;\n  font-weight: 700;\n}\n.em-rpg-note {\n  font-size: 11px;\n  color: var(--em-dim);\n}\n.em-rpg-msg {\n  padding: 8px 10px;\n  border-radius: 10px;\n  background: rgba(90, 209, 138, 0.12);\n  border: 1px solid rgba(90, 209, 138, 0.35);\n  font-size: 12px;\n}\n.em-rpg-msg-bad {\n  background: rgba(255, 107, 107, 0.12);\n  border-color: rgba(255, 107, 107, 0.4);\n}\n.em-rpg-msg .em-hint {\n  display: block;\n  margin-top: 4px;\n}\n\n.em-ficha {\n  display: flex;\n  flex-direction: column;\n  gap: 6px;\n  padding: 10px;\n  border: 1px solid var(--em-line);\n  border-radius: 12px;\n  background: var(--em-bg2);\n}\n.em-stat {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  font-size: 12px;\n}\n.em-stat-ico {\n  width: 16px;\n  text-align: center;\n}\n.em-stat-name {\n  flex: 0 0 96px;\n  color: var(--em-dim);\n}\n.em-bar {\n  position: relative;\n  flex: 1 1 auto;\n  min-width: 0;\n  height: 9px;\n  border-radius: 999px;\n  background: #0d0d10;\n  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);\n  overflow: hidden;\n}\n.em-bar-fill {\n  display: block;\n  height: 100%;\n  min-width: 2px;\n  border-radius: 999px;\n  background: linear-gradient(90deg, #f7c948, #ff8fb1);\n  box-shadow: 0 0 8px rgba(247, 201, 72, 0.35);\n}\n.em-stat-num {\n  flex: 0 0 30px;\n  text-align: right;\n  font-variant-numeric: tabular-nums;\n}\n.em-etapa {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  margin-top: 2px;\n  padding-top: 8px;\n  border-top: 1px dashed var(--em-line);\n}\n.em-etapa-badge {\n  padding: 3px 9px;\n  border-radius: 999px;\n  background: var(--em-accent);\n  color: var(--em-accent-ink);\n  font-size: 11px;\n  font-weight: 700;\n}\n.em-etapa-tip {\n  font-size: 11px;\n  color: var(--em-dim);\n}\n\n.em-roll {\n  padding: 8px 10px;\n  border-radius: 10px;\n  border: 1px solid var(--em-line);\n  background: var(--em-bg2);\n  font-size: 12px;\n}\n.em-roll-crítico {\n  border-color: rgba(90, 209, 138, 0.55);\n  background: rgba(90, 209, 138, 0.12);\n}\n.em-roll-pifia {\n  border-color: rgba(255, 107, 107, 0.5);\n  background: rgba(255, 107, 107, 0.12);\n}\n.em-roll b {\n  margin-right: 6px;\n}\n\n.em-accs {\n  display: grid;\n  grid-template-columns: 1fr 1fr;\n  gap: 6px;\n  min-width: 0;\n}\n.em-acc {\n  display: flex;\n  align-items: center;\n  flex-wrap: wrap;\n  gap: 6px;\n  min-width: 0;\n  padding: 8px 9px;\n  border: 1px solid #3d3d46;\n  border-radius: 10px;\n  background: var(--em-bg3);\n  color: var(--em-text);\n  font-size: 12px;\n  text-align: left;\n  cursor: pointer;\n  transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;\n}\n.em-acc:hover {\n  background: #2f2f36;\n  border-color: var(--em-accent);\n  transform: translateY(-1px);\n}\n.em-acc-ico {\n  font-size: 15px;\n}\n.em-acc-name {\n  flex: 1 1 auto;\n  min-width: 0;\n  font-weight: 600;\n}\n.em-acc-meta {\n  flex: 0 0 100%;\n  margin-left: 0;\n  font-size: 10px;\n  color: var(--em-dim);\n  white-space: normal;\n}\n.em-acc-lock {\n  opacity: 0.62;\n}\n.em-acc-lock .em-acc-meta::after {\n  content: \" ⚠\";\n}\n\n.em-mem {\n  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  gap: 6px;\n  font-size: 11px;\n  color: var(--em-dim);\n}\n.em-mem-state {\n  padding: 2px 7px;\n  border-radius: 999px;\n  border: 1px solid var(--em-line);\n}\n.em-mem-len {\n  font-variant-numeric: tabular-nums;\n}\n.em-mem-over {\n  color: var(--em-bad);\n  font-weight: 700;\n}\n.em-toggles {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px;\n}\n.em-toggle {\n  padding: 6px 9px;\n  border: 1px solid var(--em-line);\n  border-radius: 999px;\n  background: var(--em-bg2);\n  color: var(--em-dim);\n  font-size: 11px;\n  cursor: pointer;\n}\n.em-toggle-on {\n  color: var(--em-text);\n  border-color: var(--em-accent);\n  background: rgba(247, 201, 72, 0.14);\n}\n.em-det {\n  border: 1px solid var(--em-line);\n  border-radius: 10px;\n  background: var(--em-bg2);\n  padding: 8px 10px;\n  font-size: 12px;\n}\n.em-det summary {\n  cursor: pointer;\n  color: var(--em-dim);\n}\n.em-pre {\n  margin: 8px 0 0;\n  max-height: 220px;\n  overflow: auto;\n  padding: 8px;\n  border-radius: 8px;\n  background: #0f0f11;\n  color: #d8d8e0;\n  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;\n  font-size: 11px;\n  line-height: 1.4;\n  white-space: pre-wrap;\n  word-break: break-word;\n}\n.em-log {\n  display: flex;\n  flex-direction: column;\n  gap: 5px;\n}\n.em-log-item {\n  display: flex;\n  gap: 7px;\n  align-items: flex-start;\n  font-size: 11px;\n  color: var(--em-dim);\n  border-left: 2px solid var(--em-line);\n  padding-left: 7px;\n}\n.em-log-ico {\n  flex: 0 0 auto;\n}\n.em-log-txt {\n  flex: 1 1 auto;\n}\n\n@media (max-width: 430px) {\n  .em-accs {\n    grid-template-columns: 1fr;\n  }\n  .em-stat-name {\n    flex: 0 0 76px;\n  }\n}\n";
+  var css = "/* =============================================================================================\n   emochi.com — el CSS del panel de roles (🎭). Todo vive bajo #em-root, así que no toca nada de la\n   web: ni sus clases, ni su Tailwind, ni su Chakra. El único cuidado es que su reset global\n   (`* { margin: 0; padding: 0; font: inherit }`) no se coma lo nuestro, así que aquí se declara\n   todo lo que hace falta, sin dar por hecho nada.\n   ============================================================================================= */\n#em-root {\n  --em-bg: #141416;\n  --em-bg2: #1d1d21;\n  --em-bg3: #26262c;\n  --em-line: #34343c;\n  --em-text: #f2f2f5;\n  --em-dim: #b8b8c4;\n  --em-accent: #f7c948;\n  --em-accent-ink: #241c03;\n  --em-bad: #ff6b6b;\n  --em-good: #5ad18a;\n  --em-radius: 14px;\n  color: var(--em-text);\n  font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif;\n  font-size: 14px;\n  line-height: 1.45;\n  text-align: left;\n  box-sizing: border-box;\n}\n#em-root *,\n#em-root *::before,\n#em-root *::after {\n  box-sizing: border-box;\n  font-family: inherit;\n}\n\n/* --- el botón flotante (abajo a la izquierda: abajo a la derecha está su asistente) --------- */\n#em-fab {\n  position: fixed;\n  left: 18px;\n  bottom: 18px;\n  z-index: 2147483000;\n  width: 52px;\n  height: 52px;\n  border: 1px solid var(--em-line);\n  border-radius: 50%;\n  background: var(--em-bg);\n  color: var(--em-text);\n  font-size: 24px;\n  line-height: 1;\n  cursor: pointer;\n  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);\n  transition: transform 0.15s ease, box-shadow 0.15s ease;\n}\n#em-fab:hover {\n  transform: translateY(-2px);\n  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);\n}\n#em-fab[aria-expanded=\"true\"] {\n  background: var(--em-accent);\n  color: var(--em-accent-ink);\n  border-color: var(--em-accent);\n}\n\n/* --- el panel ------------------------------------------------------------------------------- */\n#em-panel {\n  position: fixed;\n  left: 18px;\n  top: 18px;\n  bottom: 84px;\n  z-index: 2147483000;\n  width: 400px;\n  max-width: calc(100vw - 36px);\n  display: flex;\n  flex-direction: column;\n  background: var(--em-bg);\n  border: 1px solid var(--em-line);\n  border-radius: var(--em-radius);\n  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);\n  overflow: hidden;\n}\n#em-panel[hidden] {\n  display: none;\n}\n#em-fab,\n#em-panel,\n#em-panel *,\n#em-dock,\n#em-dock * {\n  text-align: left;\n}\n#em-panel img {\n  max-width: 100%;\n}\n\n.em-head {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  padding: 12px 14px;\n  background: var(--em-bg2);\n  border-bottom: 1px solid var(--em-line);\n}\n.em-title {\n  font-size: 15px;\n  font-weight: 700;\n}\n.em-count {\n  font-size: 12px;\n  color: var(--em-dim);\n}\n.em-grow {\n  flex: 1 1 auto;\n}\n.em-icon {\n  background: transparent;\n  border: 0;\n  color: var(--em-dim);\n  font-size: 15px;\n  padding: 4px 6px;\n  border-radius: 8px;\n  cursor: pointer;\n}\n.em-icon:hover {\n  background: var(--em-bg3);\n  color: var(--em-text);\n}\n\n.em-body {\n  flex: 1 1 auto;\n  overflow-y: auto;\n  padding: 12px;\n  display: flex;\n  flex-direction: column;\n  gap: 10px;\n}\n.em-foot {\n  padding: 10px 12px;\n  border-top: 1px solid var(--em-line);\n  background: var(--em-bg2);\n  display: flex;\n  gap: 8px;\n}\n\n.em-msg {\n  margin: 10px 12px 0;\n  padding: 8px 10px;\n  border-radius: 10px;\n  background: rgba(90, 209, 138, 0.12);\n  border: 1px solid rgba(90, 209, 138, 0.35);\n  font-size: 13px;\n}\n.em-msg-bad {\n  background: rgba(255, 107, 107, 0.12);\n  border-color: rgba(255, 107, 107, 0.4);\n}\n\n.em-note {\n  background: var(--em-bg2);\n  border: 1px solid var(--em-line);\n  border-radius: 12px;\n  padding: 12px;\n  color: var(--em-dim);\n  font-size: 13px;\n  display: flex;\n  flex-direction: column;\n  gap: 10px;\n  align-items: flex-start;\n}\n.em-note-bad {\n  border-color: rgba(255, 107, 107, 0.4);\n  color: #ffd9d9;\n}\n.em-note-small {\n  padding: 8px 10px;\n  font-size: 12px;\n}\n\n/* --- el bot en el que estás ----------------------------------------------------------------- */\n.em-bot {\n  background: var(--em-bg2);\n  border: 1px solid var(--em-line);\n  border-radius: 12px;\n  padding: 10px 12px;\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n}\n.em-bot-title {\n  font-size: 13px;\n  color: var(--em-dim);\n}\n.em-bot-title b {\n  color: var(--em-text);\n}\n.em-bot-note {\n  font-size: 12px;\n  color: var(--em-dim);\n}\n\n/* --- las tarjetas de rol -------------------------------------------------------------------- */\n.em-card {\n  background: var(--em-bg2);\n  border: 1px solid var(--em-line);\n  border-radius: 12px;\n  padding: 10px 12px;\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n}\n.em-card-primary {\n  border-color: rgba(247, 201, 72, 0.55);\n  box-shadow: inset 3px 0 0 var(--em-accent);\n}\n.em-card-top {\n  display: flex;\n  gap: 10px;\n  align-items: center;\n}\n.em-avatar {\n  width: 42px;\n  height: 42px;\n  border-radius: 50%;\n  object-fit: cover;\n  flex: 0 0 auto;\n  background: var(--em-bg3);\n}\n.em-avatar-empty {\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-weight: 700;\n  color: var(--em-dim);\n}\n.em-card-head {\n  min-width: 0;\n}\n.em-name {\n  font-weight: 700;\n  font-size: 15px;\n}\n.em-meta {\n  font-size: 12px;\n  color: var(--em-dim);\n}\n.em-story {\n  font-size: 13px;\n  color: #e4e4ea;\n  margin: 0;\n  white-space: pre-wrap;\n}\n.em-chips {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px;\n}\n.em-chip {\n  font-size: 11px;\n  padding: 2px 8px;\n  border-radius: 999px;\n  background: #2f2f36;\n  color: #cfcfd8;\n  border: 1px solid #43434d;\n}\n\n/* --- botones e inputs ----------------------------------------------------------------------- */\n.em-acts {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px;\n}\n.em-acts-end {\n  justify-content: flex-end;\n  margin-top: 4px;\n}\n/* Los botones del formulario y del selector van pegados abajo, siempre a la vista. */\n.em-acts-sticky {\n  position: sticky;\n  bottom: 0;\n  z-index: 2;\n  margin-top: 8px;\n  padding: 8px 0 2px;\n  background: var(--em-bg);\n  border-top: 1px solid var(--em-line);\n}\n.em-btn {\n  font-size: 12.5px;\n  padding: 6px 10px;\n  border-radius: 9px;\n  border: 1px solid var(--em-line);\n  background: var(--em-bg3);\n  color: var(--em-text);\n  cursor: pointer;\n}\n.em-btn:hover {\n  border-color: #4a4a55;\n}\n.em-btn:disabled {\n  opacity: 0.55;\n  cursor: default;\n}\n.em-btn-main {\n  background: var(--em-accent);\n  border-color: var(--em-accent);\n  color: var(--em-accent-ink);\n  font-weight: 600;\n}\n.em-btn-bad {\n  color: #ffc9c9;\n  border-color: rgba(255, 107, 107, 0.35);\n}\n.em-btn-on {\n  background: rgba(90, 209, 138, 0.16);\n  border-color: rgba(90, 209, 138, 0.5);\n  color: #c9f5dc;\n}\n\n.em-form {\n  display: flex;\n  flex-direction: column;\n  gap: 10px;\n}\n.em-row {\n  display: flex;\n  gap: 10px;\n}\n.em-row > * {\n  flex: 1 1 0;\n  min-width: 0;\n}\n.em-field {\n  display: flex;\n  flex-direction: column;\n  gap: 4px;\n}\n.em-field-label {\n  font-size: 12px;\n  color: var(--em-dim);\n}\n.em-field small {\n  font-size: 11px;\n  color: var(--em-dim);\n}\n.em-input {\n  width: 100%;\n  background: var(--em-bg3);\n  color: var(--em-text);\n  border: 1px solid var(--em-line);\n  border-radius: 9px;\n  padding: 7px 9px;\n  font-size: 13px;\n  resize: vertical;\n}\n.em-input:focus {\n  outline: none;\n  border-color: var(--em-accent);\n}\n.em-input::placeholder {\n  color: #74747f;\n}\n\n/* --- el formulario del rol (igual que su editor: contadores, géneros, etiquetas) ------------- */\n.em-req {\n  color: #ff8f6b;\n  font-style: normal;\n  margin-left: 3px;\n}\n.em-counted {\n  display: flex;\n  align-items: flex-start;\n  gap: 6px;\n}\n.em-counted > .em-input {\n  flex: 1 1 auto;\n  min-width: 0;\n}\n.em-count-num {\n  font-size: 11px;\n  color: var(--em-dim);\n  padding-top: 8px;\n  font-variant-numeric: tabular-nums;\n  white-space: nowrap;\n}\n.em-count-on {\n  color: var(--em-accent);\n}\n.em-hint {\n  font-size: 11.5px;\n  color: #8f8f9c;\n}\n.em-tip {\n  font-size: 11.5px;\n  color: #8f8f9c;\n  border-top: 1px dashed var(--em-line);\n  padding-top: 8px;\n}\n.em-radios {\n  display: flex;\n  gap: 6px;\n  flex-wrap: wrap;\n}\n.em-radio {\n  display: inline-flex;\n  align-items: center;\n  gap: 6px;\n  font-size: 12.5px;\n  padding: 6px 12px 6px 6px;\n  border-radius: 999px;\n  border: 1px solid var(--em-line);\n  background: var(--em-bg3);\n  color: var(--em-text);\n  cursor: pointer;\n}\n.em-radio:hover {\n  border-color: #4a4a55;\n}\n.em-radio-dot {\n  width: 18px;\n  height: 18px;\n  border-radius: 50%;\n  border: 1px solid var(--em-line);\n  background: var(--em-bg);\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 11px;\n  font-style: normal;\n  color: var(--em-accent-ink);\n}\n.em-radio-on {\n  border-color: var(--em-accent);\n  background: rgba(247, 201, 72, 0.12);\n}\n.em-radio-on .em-radio-dot {\n  background: var(--em-accent);\n  border-color: var(--em-accent);\n}\n.em-avatar-wrap {\n  display: flex;\n  gap: 10px;\n  align-items: flex-start;\n}\n.em-avatar-big {\n  width: 72px;\n  height: 72px;\n  border-radius: 12px;\n  object-fit: cover;\n  flex: 0 0 auto;\n  background: var(--em-bg3);\n  font-size: 26px;\n}\n.em-avatar-fields {\n  flex: 1 1 auto;\n  min-width: 0;\n  display: flex;\n  flex-direction: column;\n  gap: 6px;\n  align-items: flex-start;\n}\n.em-btn-mini {\n  font-size: 11.5px;\n  padding: 4px 8px;\n}\n.em-chip-del {\n  background: transparent;\n  border: 0;\n  color: inherit;\n  font: inherit;\n  cursor: pointer;\n  padding: 0 0 0 6px;\n  opacity: 0.75;\n}\n.em-chip-del:hover {\n  opacity: 1;\n}\n\n/* --- el selector de etiquetas --------------------------------------------------------------- */\n.em-picker {\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n}\n.em-tag-list {\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n}\n.em-tag-group {\n  font-size: 12px;\n  color: var(--em-accent);\n  margin-top: 2px;\n}\n.em-tag-grid {\n  display: grid;\n  grid-template-columns: repeat(3, minmax(0, 1fr));\n  gap: 6px;\n}\n.em-tag {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 4px;\n  font-size: 11.5px;\n  padding: 6px 8px;\n  border-radius: 9px;\n  border: 1px solid var(--em-line);\n  background: var(--em-bg3);\n  color: var(--em-text);\n  cursor: pointer;\n  text-align: left;\n  min-width: 0;\n}\n.em-tag span {\n  overflow-wrap: anywhere;\n  line-height: 1.25;\n}\n.em-tag:hover {\n  border-color: #4a4a55;\n}\n.em-tag-mark {\n  font-style: normal;\n  color: var(--em-dim);\n  flex: 0 0 auto;\n}\n.em-tag-on {\n  background: rgba(247, 201, 72, 0.16);\n  border-color: var(--em-accent);\n  color: #fff;\n}\n.em-tag-on .em-tag-mark {\n  color: var(--em-accent);\n}\n.em-tag-full {\n  border-color: var(--em-bad);\n  color: #ffd9d9;\n}\n\n.em-spin {\n  width: 12px;\n  height: 12px;\n  border-radius: 50%;\n  border: 2px solid var(--em-line);\n  border-top-color: var(--em-accent);\n  display: inline-block;\n  animation: em-spin 0.8s linear infinite;\n}\n@keyframes em-spin {\n  to {\n    transform: rotate(360deg);\n  }\n}\n\n@media (max-width: 520px) {\n  #em-panel {\n    left: 8px;\n    right: 8px;\n    width: auto;\n    max-width: none;\n    top: 8px;\n    bottom: 76px;\n  }\n  #em-fab {\n    left: 12px;\n    bottom: 12px;\n  }\n}\n\n/* =============================================================================================\n   🎲 la partida (rpg.js): pestañas, ficha de estadísticas, acciones y registro\n   ============================================================================================= */\n\n.em-tabs {\n  display: flex;\n  gap: 6px;\n  padding: 8px 10px 0;\n  background: var(--em-bg2);\n}\n.em-tab {\n  flex: 1 1 0;\n  padding: 7px 8px;\n  border: 1px solid var(--em-line);\n  border-bottom: 0;\n  border-radius: 10px 10px 0 0;\n  background: var(--em-bg3);\n  color: var(--em-dim);\n  font-size: 12px;\n  font-weight: 600;\n  cursor: pointer;\n}\n.em-tab:hover {\n  color: var(--em-text);\n}\n.em-tab-on {\n  background: var(--em-bg);\n  color: var(--em-text);\n  border-color: var(--em-line);\n}\n.em-tabs + .em-head {\n  border-top: 0;\n}\n\n.em-rpg-host {\n  display: flex;\n  flex-direction: column;\n  gap: 10px;\n  min-width: 0;\n  max-width: 100%;\n}\n.em-rpg {\n  display: flex;\n  flex-direction: column;\n  gap: 10px;\n  min-width: 0;\n  max-width: 100%;\n}\n.em-h {\n  margin: 4px 0 0;\n  font-size: 12px;\n  font-weight: 700;\n  color: var(--em-dim);\n  text-transform: uppercase;\n  letter-spacing: 0.03em;\n}\n.em-rpg-head {\n  display: flex;\n  flex-direction: column;\n  gap: 2px;\n}\n.em-rpg-bot {\n  font-size: 15px;\n  font-weight: 700;\n}\n.em-rpg-note {\n  font-size: 11px;\n  color: var(--em-dim);\n}\n.em-rpg-msg {\n  padding: 8px 10px;\n  border-radius: 10px;\n  background: rgba(90, 209, 138, 0.12);\n  border: 1px solid rgba(90, 209, 138, 0.35);\n  font-size: 12px;\n}\n.em-rpg-msg-bad {\n  background: rgba(255, 107, 107, 0.12);\n  border-color: rgba(255, 107, 107, 0.4);\n}\n.em-rpg-msg .em-hint {\n  display: block;\n  margin-top: 4px;\n}\n\n.em-ficha {\n  display: flex;\n  flex-direction: column;\n  gap: 6px;\n  padding: 10px;\n  border: 1px solid var(--em-line);\n  border-radius: 12px;\n  background: var(--em-bg2);\n}\n.em-stat {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  font-size: 12px;\n}\n.em-stat-ico {\n  width: 16px;\n  text-align: center;\n}\n.em-stat-name {\n  flex: 0 0 96px;\n  color: var(--em-dim);\n}\n.em-bar {\n  position: relative;\n  flex: 1 1 auto;\n  min-width: 0;\n  height: 9px;\n  border-radius: 999px;\n  background: #0d0d10;\n  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);\n  overflow: hidden;\n}\n.em-bar-fill {\n  display: block;\n  height: 100%;\n  min-width: 2px;\n  border-radius: 999px;\n  background: linear-gradient(90deg, #f7c948, #ff8fb1);\n  box-shadow: 0 0 8px rgba(247, 201, 72, 0.35);\n}\n.em-stat-num {\n  flex: 0 0 30px;\n  text-align: right;\n  font-variant-numeric: tabular-nums;\n}\n.em-etapa {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  margin-top: 2px;\n  padding-top: 8px;\n  border-top: 1px dashed var(--em-line);\n}\n.em-etapa-badge {\n  padding: 3px 9px;\n  border-radius: 999px;\n  background: var(--em-accent);\n  color: var(--em-accent-ink);\n  font-size: 11px;\n  font-weight: 700;\n}\n.em-etapa-tip {\n  font-size: 11px;\n  color: var(--em-dim);\n}\n\n.em-roll {\n  padding: 8px 10px;\n  border-radius: 10px;\n  border: 1px solid var(--em-line);\n  background: var(--em-bg2);\n  font-size: 12px;\n}\n.em-roll-crítico {\n  border-color: rgba(90, 209, 138, 0.55);\n  background: rgba(90, 209, 138, 0.12);\n}\n.em-roll-pifia {\n  border-color: rgba(255, 107, 107, 0.5);\n  background: rgba(255, 107, 107, 0.12);\n}\n.em-roll b {\n  margin-right: 6px;\n}\n\n.em-accs {\n  display: grid;\n  grid-template-columns: 1fr 1fr;\n  gap: 6px;\n  min-width: 0;\n}\n.em-acc {\n  display: flex;\n  align-items: center;\n  flex-wrap: wrap;\n  gap: 6px;\n  min-width: 0;\n  padding: 8px 9px;\n  border: 1px solid #3d3d46;\n  border-radius: 10px;\n  background: var(--em-bg3);\n  color: var(--em-text);\n  font-size: 12px;\n  text-align: left;\n  cursor: pointer;\n  transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;\n}\n.em-acc:hover {\n  background: #2f2f36;\n  border-color: var(--em-accent);\n  transform: translateY(-1px);\n}\n.em-acc-ico {\n  font-size: 15px;\n}\n.em-acc-name {\n  flex: 1 1 auto;\n  min-width: 0;\n  font-weight: 600;\n}\n.em-acc-meta {\n  flex: 0 0 100%;\n  margin-left: 0;\n  font-size: 10px;\n  color: var(--em-dim);\n  white-space: normal;\n}\n.em-acc-lock {\n  opacity: 0.62;\n}\n.em-acc-lock .em-acc-meta::after {\n  content: \" ⚠\";\n}\n\n.em-mem {\n  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  gap: 6px;\n  font-size: 11px;\n  color: var(--em-dim);\n}\n.em-mem-state {\n  padding: 2px 7px;\n  border-radius: 999px;\n  border: 1px solid var(--em-line);\n}\n.em-mem-len {\n  font-variant-numeric: tabular-nums;\n}\n.em-mem-over {\n  color: var(--em-bad);\n  font-weight: 700;\n}\n.em-toggles {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px;\n}\n.em-toggle {\n  padding: 6px 9px;\n  border: 1px solid var(--em-line);\n  border-radius: 999px;\n  background: var(--em-bg2);\n  color: var(--em-dim);\n  font-size: 11px;\n  cursor: pointer;\n}\n.em-toggle-on {\n  color: var(--em-text);\n  border-color: var(--em-accent);\n  background: rgba(247, 201, 72, 0.14);\n}\n.em-det {\n  border: 1px solid var(--em-line);\n  border-radius: 10px;\n  background: var(--em-bg2);\n  padding: 8px 10px;\n  font-size: 12px;\n}\n.em-det summary {\n  cursor: pointer;\n  color: var(--em-dim);\n}\n.em-pre {\n  margin: 8px 0 0;\n  max-height: 220px;\n  overflow: auto;\n  padding: 8px;\n  border-radius: 8px;\n  background: #0f0f11;\n  color: #d8d8e0;\n  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;\n  font-size: 11px;\n  line-height: 1.4;\n  white-space: pre-wrap;\n  word-break: break-word;\n}\n.em-log {\n  display: flex;\n  flex-direction: column;\n  gap: 5px;\n}\n.em-log-item {\n  display: flex;\n  gap: 7px;\n  align-items: flex-start;\n  font-size: 11px;\n  color: var(--em-dim);\n  border-left: 2px solid var(--em-line);\n  padding-left: 7px;\n}\n.em-log-ico {\n  flex: 0 0 auto;\n}\n.em-log-txt {\n  flex: 1 1 auto;\n}\n\n@media (max-width: 430px) {\n  .em-accs {\n    grid-template-columns: 1fr;\n  }\n  .em-stat-name {\n    flex: 0 0 76px;\n  }\n}\n\n/* =============================================================================================\n   💗 la ficha de la partida (rpg.js): va pegada al lado IZQUIERDO de la columna del chat.\n   Es `position: fixed` (lo clava rpg.js), y se pliega con la flechita: plegada queda una tira\n   de 34 px con el corazón y la etapa. Todo dentro de #em-root, así que no toca nada de la web.\n   ============================================================================================= */\n#em-dock {\n  position: fixed;\n  left: 8px;\n  top: 72px;\n  width: 250px;\n  display: flex;\n  flex-direction: column;\n  background: var(--em-bg);\n  border: 1px solid var(--em-line);\n  border-radius: 12px;\n  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);\n  overflow: hidden;\n  color: var(--em-text);\n}\n#em-dock[hidden] {\n  display: none !important;\n}\n.em-dock-in {\n  display: flex;\n  flex-direction: column;\n  min-height: 0;\n  max-height: inherit;\n}\n.em-dock-min .em-dock-in {\n  height: 100%;\n}\n.em-dock-head {\n  display: flex;\n  align-items: center;\n  gap: 4px;\n  padding: 7px 8px;\n  background: var(--em-bg2);\n  border-bottom: 1px solid var(--em-line);\n}\n.em-dock-id {\n  flex: 1 1 auto;\n  min-width: 0;\n  display: flex;\n  flex-direction: column;\n  gap: 1px;\n}\n.em-dock-bot {\n  font-size: 12.5px;\n  font-weight: 700;\n  white-space: nowrap;\n  overflow: hidden;\n  text-overflow: ellipsis;\n}\n.em-dock-note {\n  font-size: 10.5px;\n  color: var(--em-dim);\n  white-space: nowrap;\n  overflow: hidden;\n  text-overflow: ellipsis;\n}\n.em-dock-fold {\n  font-size: 12px !important;\n  padding: 2px 5px !important;\n}\n.em-dock-body {\n  flex: 1 1 auto;\n  min-height: 0;\n  overflow-y: auto;\n  padding: 9px;\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n}\n.em-dock-last {\n  display: flex;\n  flex-direction: column;\n  gap: 1px;\n  padding: 6px 8px;\n  border-radius: 9px;\n  border: 1px solid rgba(247, 201, 72, 0.4);\n  background: rgba(247, 201, 72, 0.1);\n  font-size: 11px;\n}\n.em-dock-last b {\n  font-size: 11.5px;\n}\n.em-dock-last span {\n  color: var(--em-dim);\n}\n.em-acts-dock {\n  gap: 4px;\n}\n.em-acts-dock .em-btn-mini {\n  flex: 1 1 auto;\n}\n.em-btn-mini {\n  font-size: 11.5px;\n  padding: 5px 8px;\n}\n.em-ficha-dock {\n  padding: 8px;\n  gap: 5px;\n}\n.em-ficha-dock .em-stat-name {\n  flex: 0 0 62px;\n  font-size: 11px;\n}\n.em-ficha-dock .em-stat {\n  gap: 6px;\n  font-size: 11px;\n}\n.em-ficha-dock .em-stat-num {\n  flex: 0 0 26px;\n}\n.em-stat-bump .em-bar-fill {\n  animation: em-bump 0.9s ease-out;\n}\n.em-stat-bump .em-stat-num {\n  color: var(--em-accent);\n}\n@keyframes em-bump {\n  0% { filter: brightness(2.2); }\n  100% { filter: none; }\n}\n.em-pal-edit {\n  width: 100%;\n  margin-top: 6px;\n  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;\n  font-size: 10.5px;\n  line-height: 1.45;\n  white-space: pre;\n  overflow: auto;\n}\n.em-pal-out {\n  margin-top: 4px;\n  color: var(--em-accent);\n}\n.em-dock-min .em-dock-head {\n  padding: 5px 4px;\n  justify-content: center;\n}\n.em-dock-min .em-dock-id,\n.em-dock-min .em-dock-head .em-icon:last-child {\n  display: none;\n}\n.em-dock-mini {\n  flex: 1 1 auto;\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  gap: 8px;\n  padding: 8px 0 10px;\n  cursor: pointer;\n  min-height: 120px;\n}\n.em-dock-mini-ico {\n  font-size: 15px;\n}\n.em-dock-mini-txt {\n  writing-mode: vertical-rl;\n  font-size: 10.5px;\n  color: var(--em-dim);\n  letter-spacing: 0.02em;\n  white-space: nowrap;\n}\n";
   if (!css) return;
   var style = document.createElement("style");
   style.id = "r34g-styles";
@@ -765,26 +765,25 @@
 })();
 
 /* =============================================================================================
-   emochi.com — la capa de juego (🎲): estadísticas de relación, tiradas y acciones.
+   emochi.com — la ficha de la partida (💗): la relación con el bot medida por PALABRAS CLAVE.
 
-   Idea: el bot no sabe nada de números, así que se le da un reglamento (que se escribe en SU
-   MEMORIA, que es lo único que el modelo lee desde el primer mensaje) y se le pide una sola cosa:
-   que al final de cada respuesta escriba una línea de marcador, por ejemplo
+   La idea, en una frase: **no hace falta pedirle nada al modelo**. Todo lo que el bot necesita
+   saber es cómo de cerca está la relación, y eso se puede medir aquí, en el navegador, mirando lo
+   que escribe el jugador. Así que:
 
-       [RPG afecto+2 confianza0 deseo+1 tension+2 etapa=Cercanía]
+     · el JUGADOR escribe en el chat (`*beso en los labios*`, `"te quiero"`, un pensamiento suelto…)
+     · esta ficha lee ese mensaje, busca las palabras clave de su tabla y mueve las barras
+     · y al bot solo se le deja una nota corta en SU MEMORIA (la única cosa que el modelo lee en
+       todos los mensajes, desde el primero): cuatro números, la etapa y en qué tono tiene que
+       actuar. Sin dados, sin marcadores que el bot tenga que escribir, sin pedirle nada.
 
-   Nosotros llevamos la cuenta de verdad (los números viven aquí, en el navegador, por bot): se
-   leen esos deltas -recortados a lo que el reglamento permite-, se aplican, y la memoria del bot
-   se reescribe con el estado nuevo. El jugador, por su parte, tira el dado con los botones de
-   acciones: la tirada se manda al chat dentro del mensaje, así que el bot narra el resultado.
-
-   Nada de esto toca la partida del sitio: es una capa nuestra encima.
+   La ficha vive pegada al lado IZQUIERDO de la columna del chat (a la derecha está la suya), se
+   pliega con una flechita y todo el estado es por bot. Nada de esto toca la partida del sitio: es
+   una capa nuestra encima.
 
    OJO — el tope de su servidor: la memoria del bot solo acepta 300 caracteres (su propio error lo
-   dice: "Memory input is too long, max length is 300"), así que ese reglamento se arma por piezas
-   y se escribe en versión reducida: estado, formato del marcador y etapas. Lo que se cae por el
-   camino (el detalle de cada etapa, las reglas de narración) se recupera con «✍ Poner en el chat»,
-   que no tiene tope, y el panel lleva la cuenta igual.
+   dice: "Memory input is too long, max length is 300"), así que la nota se arma por piezas y se
+   va recortando sola. Lo que se cae por el camino se recupera con «✍ Poner en el chat».
    ============================================================================================= */
 (function () {
   "use strict";
@@ -792,12 +791,20 @@
   if (!EM) return;
 
   var el = EM.el;
-  var KEY = "emochi-lab:rpg:v1";
-  var LIMITE_MEM = 300;   // lo que deja SU servidor en la memoria del bot (lo dice su error)
-  var LIMITE_CHAT = 2000; // el tope que me pongo para el reglamento que se manda al chat con ✍
-  var TICK = 6000;        // cada cuánto se mira el chat si el modo "leer solo" está encendido
 
-  // --- el juego ---------------------------------------------------------------------------------
+  var KEY = "emochi-lab:rpg:v1";          // las fichas (una por bot)
+  var PAL_KEY = "emochi-lab:palabras:v1"; // la tabla de palabras clave, si la has editado
+  var CLAVE_LOCAL = "__local__";          // la ficha de cuando todavía no sé con qué bot juegas
+  var LIMITE_MEM = 300;                   // lo que deja SU servidor en la memoria del bot
+  var LIMITE_CHAT = 2000;                 // el tope que me pongo para el texto que va con ✍
+  var TICK = 1500;                        // cada cuánto se recoloca la ficha (es barato)
+  var DECAIMIENTO = 0.5;                  // la tensión se enfría sola si no la alimentas
+  var TOPE_MOV = 10;                      // ningún mensaje mueve una barra más de esto
+  var ANCHO = 250;                        // el ancho de la ficha (plegada son 34)
+  var ANCHO_GRANDE = 400;                 // y el ancho cuando la estiras (⤢) para editar cómodo
+  var MAX_LOG = 120;
+
+  // --- las etapas y las barras ------------------------------------------------------------------
   var ETAPAS = ["Desconocidos", "Conocidos", "Amistad", "Cercanía", "Tensión", "Amantes"];
   var ETAPA_TIP = {
     "Desconocidos": "frío y cortés, con distancia",
@@ -807,7 +814,7 @@
     "Tensión": "provocador: se acerca y se aleja, te deja con ganas",
     "Amantes": "íntimo; el deseo ya no se esconde"
   };
-  // La misma idea, en tres palabras, para cuando el espacio es el que es (la memoria del bot).
+  // La misma idea, en tres palabras: es lo que cabe en la memoria del bot.
   var TIP_CORTO = {
     "Desconocidos": "frío y cortés",
     "Conocidos": "amable",
@@ -819,75 +826,87 @@
   var STATS = [
     { id: "afecto", label: "Afecto", icon: "💗" },
     { id: "confianza", label: "Confianza", icon: "🤝" },
-    { id: "deseo", label: "Deseo (lujuria)", icon: "🔥" },
+    { id: "deseo", label: "Deseo", icon: "🔥" },
     { id: "tension", label: "Tensión", icon: "⚡" }
   ];
-  // Cada acción: con qué estadística se tira, su dificultad, lo que mueve si sale bien (`gain`) o
-  // si sale mal (`miss`), la etapa mínima razonable (`min`: tirar antes de tiempo cuesta -3) y el
-  // texto que se manda al chat. `{u}` es el jugador.
-  var ACCIONES = [
-    { id: "charla", name: "Charlar", icon: "💬", stat: "afecto", dc: 8,
-      gain: { afecto: 1 }, miss: {},
-      text: "*{u} le busca la conversación y le pregunta por su día.*",
-      hint: "narra cómo reacciona y qué contesta" },
-    { id: "broma", name: "Bromear", icon: "😄", stat: "afecto", dc: 10,
-      gain: { afecto: 2, confianza: 1 }, miss: { afecto: -1 },
-      text: "*{u} suelta una broma y se queda mirando para ver si le hace gracia.*",
-      hint: "narra si le hace gracia de verdad o le sienta mal" },
-    { id: "escucha", name: "Interesarse", icon: "👂", stat: "confianza", dc: 9,
-      gain: { confianza: 2, afecto: 1 }, miss: { confianza: -1 },
-      text: "*{u} le pregunta en serio cómo está y le escucha sin prisa.*",
-      hint: "narra qué le cuenta (o si se cierra en banda)" },
-    { id: "ayuda", name: "Ayudar", icon: "🛠", stat: "confianza", dc: 11,
-      gain: { confianza: 2, afecto: 1 }, miss: { confianza: -1 },
-      text: "*{u} se ofrece a echarle una mano con lo que le preocupa.*",
-      hint: "narra si acepta la ayuda y cómo se siente al respecto" },
-    { id: "detalle", name: "Detalle", icon: "🎁", stat: "afecto", dc: 10,
-      gain: { afecto: 2, deseo: 1 }, miss: {},
-      text: "*{u} le trae un detalle pequeño, algo que mencionó de pasada.*",
-      hint: "narra su sorpresa y lo que significa para él/ella" },
-    { id: "roce", name: "Acercarse", icon: "🫱", stat: "deseo", dc: 12, min: 3,
-      gain: { deseo: 2, tension: 1 }, miss: { tension: 1 },
-      text: "*{u} se acerca, le roza el brazo y sostiene la mirada un segundo de más.*",
-      hint: "narra el cosquilleo (o el rechazo) del contacto" },
-    { id: "coqueteo", name: "Coquetear", icon: "😏", stat: "deseo", dc: 13, min: 2,
-      gain: { deseo: 2, tension: 2, afecto: 1 }, miss: { tension: -1 },
-      text: "*{u} le mira de arriba abajo y le suelta algo con doble sentido.*",
-      hint: "narra si entra al trapo o le quita hierro al asunto" },
-    { id: "provocar", name: "Provocar", icon: "🔺", stat: "tension", dc: 14, min: 3,
-      gain: { tension: 3, deseo: 1 }, miss: { tension: 1, deseo: -1 },
-      text: "*{u} juega a acercarse y alejarse, dejándole con las ganas.*",
-      hint: "narra su nerviosismo y cómo lo disimula" },
-    { id: "beso", name: "Besar", icon: "💋", stat: "deseo", dc: 15, min: 3,
-      gain: { deseo: 3, tension: 2, afecto: 1 }, miss: { deseo: -1, tension: 1 },
-      text: "*{u} le coge la cara con las dos manos y le besa.*",
-      hint: "narra el beso con detalle y lo que pasa por su cabeza después" },
-    { id: "confesar", name: "Confesar", icon: "💗", stat: "afecto", dc: 16, min: 3,
-      gain: { afecto: 4, confianza: 2 }, miss: { afecto: -1, confianza: -1 },
-      text: "*{u} respira hondo y le dice lo que siente, sin adornos.*",
-      hint: "narra su reacción: sorpresa, ternura o huida" },
-    { id: "intimar", name: "Escena íntima", icon: "🍓", stat: "deseo", dc: 17, min: 4,
-      gain: { deseo: 4, tension: 3, afecto: 2, confianza: 1 }, miss: { tension: -2, deseo: -1 },
-      text: "*{u} apaga las luces y tira de él/ella hacia la cama.*",
-      hint: "narra la escena con el nivel de detalle que tengas permitido" },
-    { id: "dormir", name: "Dormir juntos", icon: "🌙", stat: "confianza", dc: 14, min: 4,
-      gain: { confianza: 3, afecto: 2, tension: -2 }, miss: {},
-      text: "*{u} se tumba a su lado y se queda dormido con la cabeza en su hombro.*",
-      hint: "narra la calma que queda después" }
-  ];
+  var MOV_ALIAS = { lujuria: "deseo", deseo: "deseo", afecto: "afecto", cariño: "afecto", confianza: "confianza", tension: "tension", tensión: "tension" };
+
+  // --- la tabla de palabras clave ----------------------------------------------------------------
+  // Una entrada por línea, en un formato que se lee y se edita a mano (esto es lo que sale en el
+  // editor de la ficha):
+  //
+  //     nombre : palabras : movimientos
+  //
+  //   · `palabras`: grupos separados por `|` (basta con que cuadre UNO).
+  //      Dentro de un grupo, las palabras van con `+` (tienen que estar TODAS, en cualquier orden).
+  //      Dentro de una palabra, las alternativas van con `/` (vale cualquiera de ellas).
+  //   · `movimientos`: `estadística cuánto`, separados por comas. Admite decimales y negativos.
+  //
+  // Gana la entrada MÁS ESPECÍFICA (la que pide más palabras) y solo cuenta UNA por mensaje. Y el
+  // número se ajusta por dónde está la frase: dentro de `*…*` (acción) o `"…"` (lo que dices)
+  // cuenta entero; en texto llano (pensamiento o narración) cuenta la mitad; y dentro de `( … )`
+  // (OOC: hablas tú, no el personaje) no cuenta nada.
+  var TABLA_TEXTO = [
+    "# Una entrada por línea:  nombre : palabras : movimientos",
+    "#   palabras → grupos con |  ·  todas las palabras del grupo con +  ·  alternativas con /",
+    "#   movimientos → afecto / confianza / deseo / tension y cuánto (admite 2.5 y negativos)",
+    "",
+    "Beso con lengua : lengua+beso/besar/besito | frances | morreo : deseo 5, afecto 1, tension 2",
+    "Beso en los labios : labio + beso/besar/besito : deseo 2, afecto 1",
+    "Beso en el cuello : cuello + beso/besar/besito : deseo 2, tension 1",
+    "Beso en la mejilla : mejilla/cachete + beso/besar/besito : deseo 1, afecto 1.5",
+    "Beso : beso/besar/besito/muac : deseo 1, afecto 0.5",
+    "Lamer la aureola : aureola + lamer/chupar/lengua : deseo 1, tension 1",
+    "Lamer el pezón : pezon/teton + lamer/chupar : deseo 2, tension 1",
+    "Caricia en la mejilla : mejilla/cachete + acariciar/caricia/rozar : deseo 2.5, afecto 1",
+    "Caricia : acariciar/caricia/rozar/tocar : deseo 1, tension 1",
+    "Desnudar : desnudar/desnuda/desnudo | quitar+ropa : deseo 3, tension 2",
+    "Pechos : pecho/pechos/senos/tetas/busto : deseo 2, tension 1",
+    "Culo : culo/nalgas/trasero : deseo 2, tension 1",
+    "Muslos : muslo/muslos/pierna/piernas : deseo 1.5",
+    "Gemir : gemir/gemido/gemidos : deseo 2, tension 1",
+    "Abrazo : abrazo/abrazar : afecto 1.5, confianza 0.5",
+    "Coger de la mano : mano + coger/tomar/agarrar/sujetar : afecto 1.5, confianza 1",
+    "Te quiero : te+quiero | te+amo | te+adoro | enamorad : afecto 3, confianza 1",
+    "Me encantas : encantas/gustas : afecto 1.5, tension 0.5",
+    "Halago : guapa/guapo/hermosa/hermoso/preciosa/precioso/bella/bello/linda/lindo : afecto 1, tension 0.5",
+    "Dormir juntos : dormir+cama | dormir+abrazo : afecto 2, confianza 1, deseo 1",
+    "Celos : celos/celosa/celoso : tension 2, confianza -1",
+    "Disculpa : perdon/perdona/disculpa/siento : afecto 0.5, confianza 1, tension -1",
+    "Gracias : gracias : afecto 0.5, confianza 0.5",
+    "Preguntar por él : como+estas | que+tal : afecto 0.5, confianza 1",
+    "Insulto : idiota/imbecil/estupida/estupido/tonta/tonto/gilipollas : afecto -2, confianza -1, tension 1.5",
+    "Adiós : adios | me+voy | hasta+luego : afecto -0.5, tension 1"
+  ].join("\n");
 
   var FLAGS_POR_DEFECTO = {
-    lujuria: true,     // el deseo cuenta en las tiradas (si se apaga, -2 a las de deseo)
-    explicito: false,  // el reglamento pide escenas íntimas detalladas
-    larga: true,       // intenta el reglamento entero primero, por si su plan deja más de 300
-    resumen: true,     // añade los últimos sucesos a la memoria (continuidad)
-    autoenviar: true,  // además de escribir la acción en el chat, pulsa enviar
-    autoleer: false    // mira el chat cada pocos segundos y aplica lo que ponga el bot
+    medir: true,       // mover las barras con lo que escribes en el chat
+    memAut: true,      // refrescar la memoria del bot sola cuando cambia la etapa
+    explicito: false,  // la nota pide escenas íntimas con detalle
+    larga: true,       // prueba antes el bloque completo, por si su plan deja más de 300
+    autoenviar: true   // (✍) pulsa enviar por ti
   };
 
   // --- estado -----------------------------------------------------------------------------------
   var store = { v: 1, bots: {} };
-  var state = { sheet: null, msg: null, busy: false, roll: null, raw: "", visible: false, auto: false, jugador: "" };
+  var state = {
+    sheet: null,
+    host: null,
+    dock: null,
+    visible: false,
+    forzado: false,
+    panelAbierto: false,
+    colapsado: false,
+    ancho: ANCHO,
+    seccion: "",       // qué <details> está abierto (para no perderlo al repintar)
+    msg: null,
+    busy: false,
+    ultimo: null,      // el último movimiento medido
+    brinco: {},        // barras que acaban de moverse (para el destello)
+    prueba: "",        // el texto de la cajita de pruebas
+    edicion: null,     // el borrador de la tabla mientras la editas
+    raw: ""            // lo último que contestó su API
+  };
   var cola = false;
 
   function cargar() {
@@ -910,7 +929,7 @@
     var stats = {};
     var log = [];
     return {
-      v: 1,
+      v: 2,
       promptId: promptId || "",
       bot: nombre || "",
       player: "",
@@ -920,44 +939,61 @@
       vinculo: 0,
       flags: flags,
       log: log,
-      memoria: { original: null, campo: "", texto: "", at: 0, error: "", tope: 0, rico: 0 },
+      vistos: [],
+      memoria: { original: null, campo: "", texto: "", at: 0, error: "", tope: 0, rico: 0, etapa: -1, turno: 0 },
       visto: ""
     };
   }
-  // La ficha del bot en el que estamos. Se guarda por `promptId`, que es lo que identifica al bot.
+  // La ficha del bot en el que estamos (por `promptId`, que es lo que identifica al bot). Si
+  // todavía no lo sé, se trabaja sobre una ficha local: así la ficha funciona igual (y se puede
+  // probar) desde el primer segundo.
   function ficha() {
-    var id = (EM.bot && EM.bot.promptId) || "";
-    if (!id) return state.sheet || null;
+    var id = (EM.bot && EM.bot.promptId) || CLAVE_LOCAL;
     var s = store.bots[id];
     if (!s) {
-      s = nuevaFicha(id, EM.bot.title || "");
+      s = nuevaFicha(EM.bot && EM.bot.promptId ? id : "", EM.bot.title || "");
       store.bots[id] = s;
       guardar();
     }
     if (!s.stats) s.stats = {};
     STATS.forEach(function (st) { if (typeof s.stats[st.id] !== "number") s.stats[st.id] = 0; });
     if (!s.flags) s.flags = Object.assign({}, FLAGS_POR_DEFECTO);
+    Object.keys(FLAGS_POR_DEFECTO).forEach(function (k) { if (typeof s.flags[k] !== "boolean") s.flags[k] = FLAGS_POR_DEFECTO[k]; });
     if (!s.log) s.log = [];
-    if (!s.memoria) s.memoria = { original: null, campo: "", texto: "", at: 0, error: "", tope: 0, rico: 0 };
+    if (!s.vistos) s.vistos = [];
+    if (!s.memoria) s.memoria = { original: null, campo: "", texto: "", at: 0, error: "", tope: 0, rico: 0, etapa: -1, turno: 0 };
     if (typeof s.memoria.tope !== "number") s.memoria.tope = 0;
     if (typeof s.memoria.rico !== "number") s.memoria.rico = 0;
+    if (typeof s.memoria.etapa !== "number") s.memoria.etapa = -1;
+    if (typeof s.memoria.turno !== "number") s.memoria.turno = 0;
     if (!s.memoria.tope && store.tope) s.memoria.tope = store.tope;
-    if (EM.bot.title) s.bot = EM.bot.title;
+    if (EM.bot && EM.bot.title) s.bot = EM.bot.title;
     return s;
-  }
-  function conFicha(fn) {
-    var s = ficha();
-    if (!s || !s.promptId) return null;
-    return fn(s);
   }
   function apuntar(s, kind, text, extra) {
     s.log.unshift({ at: Date.now(), kind: kind, text: text, extra: extra || null });
-    if (s.log.length > 120) s.log.length = 120;
+    if (s.log.length > MAX_LOG) s.log.length = MAX_LOG;
+  }
+  function aviso(text, bad, extra) {
+    state.msg = text ? { text: text, bad: !!bad, extra: extra || null } : null;
+    if (state.dock) {
+      clearTimeout(aviso._t);
+      if (text && !bad) {
+        aviso._t = setTimeout(function () {
+          if (state.msg && state.msg.text === text) {
+            state.msg = null;
+            render();
+          }
+        }, 6000);
+      }
+    }
   }
 
-  // --- las cuentas ------------------------------------------------------------------------------
-  function recorta(n) { return Math.max(-5, Math.min(5, n | 0)); }
-  function entreCeroCien(n) { return Math.max(0, Math.min(100, n | 0)); }
+  // --- números -----------------------------------------------------------------------------------
+  function red1(n) { return Math.round((n || 0) * 10) / 10; }
+  function fmt(n) { var v = red1(n); return v % 1 === 0 ? String(v) : v.toFixed(1); }
+  function entreCeroCien(n) { return red1(Math.max(0, Math.min(100, n))); }
+  function tope(n, max) { return Math.max(-max, Math.min(max, n)); }
   // La etapa sale de la media de afecto/confianza y del deseo. Nunca se retrocede por su cuenta.
   function etapaQue(stats) {
     var v = (stats.afecto + stats.confianza) / 2;
@@ -970,55 +1006,33 @@
     if (v >= 60 && d >= 60) e = 5;
     return e;
   }
-  // La tirada: 1d20 + modificador. 20 natural es crítico (dobla lo bueno) y 1 es pifia.
-  function modificador(s, a) {
-    var v = s.stats[a.stat] || 0;
-    var m = Math.floor(v / 10) - 3;                    // 0 → -3 … 50 → +2 … 100 → +7
-    m += Math.max(0, s.etapa - 2);                     // una relación ya hecha ayuda
-    if (a.min != null && s.etapa < a.min) m -= 3;      // forzar antes de tiempo cuesta
-    if (a.stat === "deseo" && !s.flags.lujuria) m -= 2;
-    return m;
+  function nombreEtapa(s) { return ETAPAS[Math.max(0, Math.min(ETAPAS.length - 1, s.etapa))]; }
+  function etiqueta(k) {
+    var st = null;
+    STATS.forEach(function (x) { if (x.id === k) st = x; });
+    return st ? st.label : k;
   }
-  function escala(obj, mul) {
-    var out = {};
-    Object.keys(obj || {}).forEach(function (k) {
-      var v = recorta(Math.round((obj[k] || 0) * mul));
-      if (v) out[k] = v;
-    });
-    return out;
+  function resumen(cambios) {
+    return Object.keys(cambios || {}).map(function (k) {
+      if (k === "etapa") return "etapa → " + cambios[k];
+      var v = cambios[k];
+      return etiqueta(k) + " " + (v > 0 ? "+" : "") + fmt(v);
+    }).join(" · ");
   }
-  function tirada(s, a) {
-    var d = 1 + Math.floor(Math.random() * 20);
-    var mod = modificador(s, a);
-    var total = d + mod;
-    var t = { id: a.id, name: a.name, d: d, mod: mod, total: total, dc: a.dc, kind: "fallo", cambios: {} };
-    if (d === 20) {
-      t.kind = "crítico";
-      t.cambios = escala(a.gain, 2);
-      t.cambios.confianza = recorta((t.cambios.confianza || 0) + 1);
-    } else if (d === 1) {
-      t.kind = "pifia";
-      t.cambios = escala(a.miss, 2);
-      if (!Object.keys(t.cambios).length) t.cambios = { tension: 1, afecto: -1 };
-    } else if (total >= a.dc) {
-      t.kind = "éxito";
-      t.cambios = escala(a.gain, 1);
-    } else {
-      t.kind = "fallo";
-      t.cambios = escala(a.miss, 1);
-    }
-    return t;
-  }
+  function jugador(s) { return (s && s.player) || "el jugador"; }
   // Aplica deltas a la ficha y devuelve lo que de verdad ha cambiado (con topes).
   function aplicar(s, deltas, motivo) {
     var hechos = {};
     Object.keys(deltas || {}).forEach(function (k) {
       if (typeof s.stats[k] !== "number") return;
       var antes = s.stats[k];
-      var despues = entreCeroCien(antes + recorta(deltas[k]));
-      if (despues !== antes) hechos[k] = despues - antes;
-      s.stats[k] = despues;
-      s.vinculo += Math.max(0, despues - antes);
+      var nuevo = entreCeroCien(antes + tope(deltas[k], TOPE_MOV));
+      if (nuevo !== antes) {
+        hechos[k] = red1(nuevo - antes);
+        state.brinco[k] = Date.now() + 900;
+      }
+      s.stats[k] = nuevo;
+      s.vinculo = red1(s.vinculo + Math.max(0, nuevo - antes));
     });
     var antesEtapa = s.etapa;
     s.etapa = Math.max(s.etapa, etapaQue(s.stats));
@@ -1030,205 +1044,252 @@
     guardar();
     return hechos;
   }
-  function resumen(cambios) {
-    return Object.keys(cambios).map(function (k) {
-      if (k === "etapa") return "etapa → " + cambios[k];
-      var v = cambios[k];
-      return etiqueta(k) + " " + (v > 0 ? "+" : "") + v;
-    }).join(" · ");
-  }
-  function etiqueta(k) {
-    var st = null;
-    STATS.forEach(function (x) { if (x.id === k) st = x; });
-    return st ? st.label : k;
-  }
-  function nombreEtapa(s) { return ETAPAS[Math.max(0, Math.min(ETAPAS.length - 1, s.etapa))]; }
-  function jugador(s) {
-    return (s && s.player) || (state.jugador || "") || "el jugador";
-  }
 
-  // --- lo que se le escribe al bot (reglamento + estado) ----------------------------------------
-  function estadoLinea(s) {
-    return "[Partida · afecto " + s.stats.afecto + "/100 · confianza " + s.stats.confianza +
-      "/100 · deseo " + s.stats.deseo + "/100 · tensión " + s.stats.tension + "/100 · etapa " +
-      nombreEtapa(s) + " · " + s.turnos + " turnos]";
-  }
-  function ultimos(s, n) {
-    var out = [];
-    s.log.forEach(function (e) {
-      if (out.length >= n) return;
-      if (e.kind === "suceso" || e.kind === "tirada") out.push(e.text);
-    });
-    return out.join(" · ").slice(0, 320);
-  }
-  function reglas(s) {
-    var lista = ETAPAS.join(", ");
-    return [
-      "[SISTEMA DE PARTIDA — esto es para ti; nunca lo menciones ni lo cites]",
-      "Esta conversación lleva un juego de rol con un marcador invisible. Cuatro valores de 0 a 100:",
-      "· afecto: cuánto te gusta " + jugador(s) + " · confianza: cuánto te fías de él/ella",
-      "· deseo: cuánto te atrae ahora mismo (lujuria) · tensión: la carga que hay en el aire",
-      "Etapa de la relación: " + nombreEtapa(s) + " → te comportas " + (ETAPA_TIP[nombreEtapa(s)] || "") + ".",
-      "Al FINAL de CADA respuesta añade una sola línea, exactamente con este formato:",
-      "[RPG afecto+2 confianza0 deseo+1 tension+2 etapa=Cercanía]",
-      "· deltas entre -3 y +3 según lo que acaba de pasar; pon 0 (o quita el campo) si no cambia nada.",
-      "· escribe etapa= solo si la relación cambia de etapa (" + lista + ").",
-      "· no expliques esa línea, no la comentes y no la trates como parte de la historia.",
-      "Si el mensaje de " + jugador(s) + " trae una línea [Partida · … · tirada … · ÉXITO/FALLO/CRÍTICO/PIFIA],",
-      "narra la escena según ese resultado: un fallo no rompe la historia, la complica.",
-      s.flags.explicito
-        ? "El contenido adulto está permitido: cuando el deseo y la tensión estén altos, describe la escena íntima con detalle y sin cortarte."
-        : "Las escenas íntimas se insinúan: sin descripción explícita.",
-      "No decidas por " + jugador(s) + " ni escribas sus actos, pensamientos o diálogos: solo los tuyos."
-    ].join("\n");
-  }
-  function reglasCortas(s) {
-    return "[PARTIDA · marcador invisible · no lo menciones] afecto " + s.stats.afecto +
-      " · confianza " + s.stats.confianza + " · deseo " + s.stats.deseo + " · tensión " + s.stats.tension +
-      " · etapa " + nombreEtapa(s) + ". Al final de CADA respuesta añade una línea" +
-      " [RPG afecto+2 confianza0 deseo+1 tension+2 etapa=Cercanía] con deltas de -3 a +3 (0 si no cambia);" +
-      " etapa solo si cambia (" + ETAPAS.join(", ") + "). No la comentes. Comportamiento según la etapa: " +
-      (ETAPA_TIP[nombreEtapa(s)] || "") + ".";
-  }
-  // El reglamento completo (el que se manda al chat con ✍, que no tiene tope) y el reducido.
-  function memoriaTexto(s) {
-    var out = estadoLinea(s) + "\n" + reglas(s);
-    if (s.flags.resumen) {
-      var u = ultimos(s, 3);
-      if (u) out += "\nÚltimos sucesos: " + u;
+  // --- el motor de palabras clave ----------------------------------------------------------------
+  var ACENTOS = { "á": "a", "à": "a", "ä": "a", "â": "a", "ã": "a", "é": "e", "è": "e", "ë": "e", "ê": "e", "í": "i", "ì": "i", "ï": "i", "î": "i", "ó": "o", "ò": "o", "ö": "o", "ô": "o", "õ": "o", "ú": "u", "ù": "u", "ü": "u", "û": "u", "ñ": "n", "ç": "c" };
+  function norm(t) {
+    var s = String(t == null ? "" : t).toLowerCase();
+    var out = "";
+    for (var i = 0; i < s.length; i++) {
+      var c = s.charAt(i);
+      out += ACENTOS[c] || c;
     }
     return out;
   }
-  function memoriaMedia(s) {
-    return estadoLinea(s) + "\n" + reglasCortas(s);
+  // La raíz de una palabra: quita terminaciones (plurales, gerundios, participios, diminutivos) y
+  // la vocal final. Así `beso`, `besos`, `besar` y `besito` caen todos en `bes`.
+  function clave(w) {
+    w = norm(w).replace(/[^a-z0-9]/g, "");
+    w = w.replace(/(andose|iendose|ando|iendo)$/, "");
+    w = w.replace(/(ados|adas|idos|idas|ado|ada|ido|ida)$/, "");
+    w = w.replace(/(arse|erse|irme|arte|arlo|arla|arme|arnos|arlos|arlas)$/, "");
+    w = w.replace(/(ar|er|ir)$/, "");
+    w = w.replace(/(itos|itas|ito|ita|icos|icas|ico|ica)$/, "");
+    w = w.replace(/(ones|os|as|es|s)$/, "");
+    if (w.length > 3 && /[aeo]$/.test(w)) w = w.slice(0, -1);
+    return w;
   }
-  // El bloque de la memoria del bot tiene un tope duro (300 en su plan): se arma por piezas y se
-  // van cayendo las menos importantes (el último detalle, la regla de narración, el aviso de
-  // explícito) hasta que quepa. El estado y el formato del marcador nunca se caen.
-  function minimo(s, tope) {
-    tope = tope || LIMITE_MEM;
-    var st = s.stats;
-    var cab = "[PARTIDA · afecto " + st.afecto + " · confianza " + st.confianza + " · deseo " + st.deseo +
-      " · tensión " + st.tension + " · etapa " + nombreEtapa(s) + "]";
-    var nucleo = "\nAl final de CADA respuesta: [RPG afecto+2 confianza0 deseo+1 tension+2 etapa=Cercanía]" +
-      " (deltas -3..+3, 0 si no cambia).";
-    var extras = [
-      { p: 1, t: "\nSi trae [Partida · tirada · ÉXITO/FALLO], narra el resultado." },
-      { p: 2, t: "\nEres " + (TIP_CORTO[nombreEtapa(s)] || ETAPA_TIP[nombreEtapa(s)] || "") + "." },
-      { p: 3, t: "\nEtapas: " + ETAPAS.join("→") + "." },
-      { p: 4, t: s.flags.explicito ? "\nContenido adulto explícito permitido." : "\nÍntimas: solo insinuadas." },
-      { p: 5, t: "\nNo decidas por " + jugador(s) + ": solo narras lo tuyo." }
-    ].sort(function (a, b) { return a.p - b.p; });
-    var usados = extras.slice();
-    function largo() {
-      var t = cab + nucleo;
-      usados.forEach(function (e) { t += e.t; });
-      return t.length;
+  // ¿Son la misma palabra? Iguales, o una es el principio de la otra (y no se van mucho).
+  function mismaPalabra(a, b) {
+    if (!a || !b) return false;
+    if (a === b) return true;
+    var n = 0;
+    while (n < a.length && n < b.length && a.charAt(n) === b.charAt(n)) n++;
+    return n >= 4 && n >= Math.min(a.length, b.length) - 3 && Math.abs(a.length - b.length) <= 6;
+  }
+  // Trocea el mensaje conservando la posición de cada letra, para saber después si una palabra cae
+  // dentro de `*…*` (acción), de `"…"` (lo que dices), de `( … )` (OOC) o en texto llano.
+  function analizar(texto) {
+    var s = String(texto == null ? "" : texto);
+    var tipo = new Array(s.length);
+    var modo = "llano";
+    var ooc = 0;
+    for (var i = 0; i < s.length; i++) {
+      var c = s.charAt(i);
+      if (c === "(") { tipo[i] = "ooc"; ooc++; continue; }
+      if (c === ")") { tipo[i] = "ooc"; ooc = Math.max(0, ooc - 1); continue; }
+      if (ooc > 0) { tipo[i] = "ooc"; continue; }
+      if (c === "*") { tipo[i] = "signo"; modo = modo === "accion" ? "llano" : "accion"; continue; }
+      if (c === '"') { tipo[i] = "signo"; modo = modo === "dicho" ? "llano" : "dicho"; continue; }
+      tipo[i] = modo;
     }
-    while (usados.length && largo() > tope) usados.pop();
-    var out = cab + nucleo;
-    usados.forEach(function (e) { out += e.t; });
-    return out.length > tope ? recortaA(out, tope) : out;
-  }
-  function recortaA(t, tope) {
-    t = String(t || "");
-    if (!tope || t.length <= tope) return t;
-    var corte = t.slice(0, tope - 1);
-    var esp = corte.lastIndexOf(" ");
-    if (esp > tope * 0.6) corte = corte.slice(0, esp);
-    return corte.replace(/[\s,;·:]+$/, "") + "…";
-  }
-  // Los textos que se intentan, de más rico a más corto. Si ya sabemos su tope, no se prueba lo
-  // que no cabe (y así no se le manda al servidor una petición condenada).
-  function candidatos(s) {
-    var real = s.memoria.tope || 0;
-    var corto = minimo(s, real || LIMITE_MEM);
-    // ¿merece la pena intentar el largo? si su servidor ya nos dijo cuánto deja, solo si cabe; si no
-    // lo sabemos, cuando su plan ya aceptó antes un texto largo o cuando el interruptor lo permite.
-    var probarLargo = real ? real > LIMITE_MEM : (s.memoria.rico > LIMITE_MEM || s.flags.larga);
-    var out = [];
-    if (probarLargo) {
-      [memoriaTexto(s), memoriaMedia(s)].forEach(function (t) {
-        if (!real || t.length <= real) out.push(t);
+    var plano = norm(s).replace(/[^a-z0-9]/g, " ");
+    var tokens = [];
+    var re = /[a-z0-9]{2,}/g;
+    var m;
+    while ((m = re.exec(plano))) {
+      var t = tipo[m.index] || "llano";
+      tokens.push({
+        w: m[0],
+        clave: clave(m[0]),
+        pos: m.index,
+        tipo: t,
+        peso: t === "ooc" ? 0 : (t === "llano" ? 0.5 : 1)
       });
     }
-    out.push(corto);
-    return out.filter(function (t, i) { return out.indexOf(t) === i; });
+    return { texto: s, tokens: tokens };
   }
-  // Lo que se le va a escribir en la memoria si se pulsa «Inyectar».
-  function memoriaBot(s) { return candidatos(s)[0]; }
-  // ¿Su plan deja más de lo mínimo? (lo sabemos por el error del servidor o porque ya aceptó un
-  // texto largo alguna vez).
-  function esGrande(s) { return (s.memoria.tope || s.memoria.rico || 0) > LIMITE_MEM; }
-  function textoAccion(s, a, t) {
-    var cuerpo = a.text.replace(/\{u\}/g, jugador(s));
-    var marca = "[Partida · " + a.name + " · tirada " + t.d + (t.mod >= 0 ? "+" : "") + t.mod +
-      " = " + t.total + " vs " + t.dc + " · " + t.kind.toUpperCase();
-    var mov = resumen(t.cambios);
-    if (mov) marca += " · " + mov;
-    marca += " — " + (a.hint || "narra la respuesta") + "]";
-    return cuerpo + "\n" + marca;
-  }
-
-  // --- leer la línea del marcador que escribe el bot ---------------------------------------------
-  function sinAcentos(t) {
-    return String(t || "").toLowerCase()
-      .replace(/[áàäâ]/g, "a").replace(/[éèëê]/g, "e").replace(/[íìïî]/g, "i")
-      .replace(/[óòöô]/g, "o").replace(/[úùüû]/g, "u").replace(/ñ/g, "n");
-  }
-  function extraerTag(texto) {
-    var m = /\[\s*RPG\b([^\]]*)\]/i.exec(String(texto || ""));
-    if (!m) return null;
-    var cuerpo = m[1];
-    var plano = sinAcentos(cuerpo);
-    var d = {};
-    ["afecto", "confianza", "deseo", "tension", "tensión"].forEach(function (k) {
-      var clave = sinAcentos(k);
-      var re = new RegExp(clave + "\\s*[:=]?\\s*([+-]?\\d+)", "g");
-      var r = re.exec(plano);
-      if (r) d[k === "tensión" ? "tension" : k] = recorta(parseInt(r[1], 10) || 0);
-    });
-    var e = /etapa\s*[:=]?\s*([a-z]+)/.exec(plano);
-    var etapa = "";
-    if (e) {
-      ETAPAS.forEach(function (nombre) {
-        if (sinAcentos(nombre) === e[1]) etapa = nombre;
-        else if (sinAcentos(nombre).slice(0, 4) === e[1].slice(0, 4) && !etapa) etapa = nombre;
-      });
+  // Busca una alternativa (`beso`) entre los tokens que cuentan (los de OOC no).
+  function busca(tokens, alt) {
+    var c = clave(alt);
+    for (var i = 0; i < tokens.length; i++) {
+      var t = tokens[i];
+      if (!t.peso) continue;
+      if (t.clave === c || mismaPalabra(t.clave, c)) return t;
     }
-    return { raw: m[0], d: d, etapa: etapa };
+    return null;
   }
-  // Aplica la línea del bot (lo que él propone, recortado por el reglamento).
-  function aplicarTag(s, tag) {
-    if (!tag) return null;
-    var deltas = tag.d || {};
-    // la tensión se enfría sola si el bot no la movió
-    if (!deltas.tension) deltas.tension = -1;
-    var hechos = aplicar(s, deltas, null);
-    s.turnos++;
-    if (tag.etapa) {
-      var idx = ETAPAS.indexOf(tag.etapa);
-      if (idx > s.etapa) {
-        s.etapa = idx;
-        hechos.etapa = ETAPAS[idx];
+  // ¿Cuadra esta entrada? Devuelve su mejor grupo (el de más palabras) o null.
+  function cuadra(entrada, tokens) {
+    var mejor = null;
+    (entrada.grupos || []).forEach(function (grupo) {
+      var total = 0;
+      var peso = 1;
+      for (var i = 0; i < grupo.length; i++) {
+        var hit = null;
+        for (var j = 0; j < grupo[i].length && !hit; j++) hit = busca(tokens, grupo[i][j]);
+        if (!hit) return;
+        if (i === 0) peso = hit.peso;
+        total++;
       }
+      if (!mejor || total > mejor.slots) mejor = { slots: total, peso: peso };
+    });
+    return mejor;
+  }
+  // Lo que mide un mensaje: la entrada que gana (la más específica), con cuánto y con qué peso.
+  function medir(texto) {
+    var an = analizar(texto);
+    if (!an.tokens.length) return { vacio: true, mov: {} };
+    var mejor = null;
+    tabla().forEach(function (e) {
+      var r = cuadra(e, an.tokens);
+      if (r && (!mejor || r.slots > mejor.slots)) mejor = { entrada: e, slots: r.slots, peso: r.peso };
+    });
+    if (!mejor) return { mov: {}, an: an };
+    var mov = {};
+    Object.keys(mejor.entrada.mov).forEach(function (k) {
+      var v = red1(mejor.entrada.mov[k] * mejor.peso);
+      if (v) mov[k] = v;
+    });
+    return { entrada: mejor.entrada, slots: mejor.slots, peso: mejor.peso, mov: mov, an: an };
+  }
+  function probar(texto) {
+    var r = medir(texto);
+    if (r.entrada) {
+      return "«" + r.entrada.nombre + "» · " + (resumen(r.mov) || "nada") + " · " +
+        (r.peso === 1 ? "cuenta entero (acción o diálogo)" : "cuenta la mitad (pensamiento)");
     }
-    var mov = resumen(hechos);
-    apuntar(s, "suceso", (mov ? mov + " — " : "") + "el bot marcó " + (tag.raw || "").slice(0, 60), { tag: tag.raw });
-    guardar();
-    return hechos;
+    if (r.vacio || !String(texto || "").trim()) return "escribe una frase…";
+    return "ninguna palabra clave conocida";
   }
 
-  // --- hablar con la página: escribir la acción en su caja de texto ------------------------------
+  // --- la tabla: texto <-> entradas --------------------------------------------------------------
+  function deTexto(txt) {
+    var out = [];
+    String(txt || "").split(/\r?\n/).forEach(function (linea, idx) {
+      var l = linea.replace(/^\s+|\s+$/g, "");
+      if (!l || l.charAt(0) === "#") return;
+      var partes = l.split(":");
+      if (partes.length < 2) return;
+      var nombre = partes[0].replace(/^\s+|\s+$/g, "");
+      var palabras = partes[1];
+      var movs = partes.slice(2).join(":");
+      var grupos = [];
+      palabras.split("|").forEach(function (g) {
+        var slots = [];
+        g.split("+").forEach(function (sl) {
+          var alts = sl.split("/").map(function (a) { return norm(a).replace(/[^a-z0-9]/g, ""); }).filter(Boolean);
+          if (alts.length) slots.push(alts);
+        });
+        if (slots.length) grupos.push(slots);
+      });
+      var mov = {};
+      movs.split(",").forEach(function (m) {
+        var r = /^\s*([a-z]+)\s*([+-]?\d+(?:\.\d+)?)\s*$/.exec(norm(m));
+        if (!r) return;
+        var stat = MOV_ALIAS[r[1]];
+        if (!stat) return;
+        var v = parseFloat(r[2]);
+        if (v) mov[stat] = red1((mov[stat] || 0) + v);
+      });
+      if (!nombre || !grupos.length || !Object.keys(mov).length) return;
+      out.push({ id: "e" + idx, nombre: nombre, grupos: grupos, mov: mov });
+    });
+    return out;
+  }
+  function aTexto(tabla) {
+    return (tabla || []).map(function (e) {
+      var palabras = e.grupos.map(function (g) {
+        return g.map(function (sl) { return sl.join("/"); }).join("+");
+      }).join(" | ");
+      var movs = Object.keys(e.mov).map(function (k) { return k + " " + fmt(e.mov[k]); }).join(", ");
+      return e.nombre + " : " + palabras + " : " + movs;
+    }).join("\n");
+  }
+  var tablaCache = null;
+  function tabla() {
+    if (!tablaCache) {
+      var guardada = null;
+      try { guardada = localStorage.getItem(PAL_KEY); } catch (e) {}
+      tablaCache = deTexto(guardada != null && guardada !== "" ? guardada : TABLA_TEXTO);
+      if (!tablaCache.length) tablaCache = deTexto(TABLA_TEXTO);
+    }
+    return tablaCache;
+  }
+  function tablaTexto() {
+    var guardada = null;
+    try { guardada = localStorage.getItem(PAL_KEY); } catch (e) {}
+    return guardada != null && guardada !== "" ? guardada : TABLA_TEXTO;
+  }
+  function setTablaTexto(txt) {
+    try { localStorage.setItem(PAL_KEY, String(txt || "")); } catch (e) {}
+    tablaCache = null;
+  }
+  function resetTabla() {
+    try { localStorage.removeItem(PAL_KEY); } catch (e) {}
+    tablaCache = null;
+  }
+  function esTablaBase() {
+    try { return localStorage.getItem(PAL_KEY) == null; } catch (e) { return true; }
+  }
+
+  // --- medir lo que escribe el jugador ------------------------------------------------------------
+  function huella(t) { return norm(t).replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "").slice(0, 140); }
+  function yaVisto(s, h) {
+    if (s.vistos.indexOf(h) >= 0) return true;
+    s.vistos.unshift(h);
+    if (s.vistos.length > 30) s.vistos.length = 30;
+    return false;
+  }
+  // Procesa un mensaje del jugador: mide, aplica y apunta. Devuelve lo que ha pasado (para el
+  // registro y para la ficha).
+  function procesar(texto, opts) {
+    opts = opts || {};
+    var s = ficha();
+    if (!s) return null;
+    var txt = String(texto == null ? "" : texto);
+    var h = huella(txt);
+    if (!h) return null;
+    if (opts.dedup !== false && yaVisto(s, h)) return { repetido: true, mov: {} };
+    var r = medir(txt);
+    s.turnos++;
+    var hechos = {};
+    if (r.entrada && Object.keys(r.mov).length) {
+      hechos = aplicar(s, r.mov, null);
+      state.ultimo = { nombre: r.entrada.nombre, mov: r.mov, peso: r.peso, at: Date.now() };
+      apuntar(s, "palabra", "💗 " + r.entrada.nombre + " — " + resumen(r.mov) +
+        (r.peso < 1 ? " (un pensamiento: cuenta la mitad)" : "") +
+        (opts.fuente ? " · " + opts.fuente : ""));
+    } else if (r.mov && Object.keys(r.mov).length) {
+      hechos = aplicar(s, r.mov, null);
+      state.ultimo = { nombre: r.entrada ? r.entrada.nombre : "lo que has escrito", mov: r.mov, peso: r.peso || 1, at: Date.now() };
+    }
+    // la tensión se enfría sola: lo que no se alimenta, se apaga
+    if (!r.mov || !r.mov.tension) {
+      var antes = s.stats.tension;
+      s.stats.tension = entreCeroCien(antes - DECAIMIENTO);
+    }
+    var antesEtapa = s.etapa;
+    s.etapa = Math.max(s.etapa, etapaQue(s.stats));
+    if (s.etapa !== antesEtapa) hechos.etapa = ETAPAS[s.etapa];
+    guardar();
+    if (hechos.etapa) {
+      apuntar(s, "etapa", "✨ La relación pasa a «" + hechos.etapa + "»");
+      if (s.flags.memAut) refrescarMemoria(s);
+    }
+    if (s.flags.memAut && !hechos.etapa && s.memoria.texto && s.turnos - (s.memoria.turno || 0) >= 15) refrescarMemoria(s);
+    return { entrada: r.entrada, mov: r.mov, hechos: hechos, peso: r.peso, slots: r.slots };
+  }
+
+  // --- el enganche con la caja del chat -----------------------------------------------------------
   // La caja del chat no lleva id ni clase estable, así que se busca por forma: el campo de texto
-  // visible más grande que esté más abajo de la pantalla (su chat la tiene abajo). Si no aparece,
-  // se copia al portapapeles y se avisa: nunca se pierde la tirada.
+  // visible más grande que esté más abajo de la pantalla (su chat la tiene abajo).
   function cajaDeTexto() {
     var cands = [];
     var nodos = document.querySelectorAll("textarea, input[type=text], [contenteditable='true']");
     var alto = window.innerHeight || 0;
     Array.prototype.forEach.call(nodos, function (n) {
-      if (n.id === "em-root" || n.closest("#em-root")) return;
+      if (n.closest && n.closest("#em-root")) return;
       if (n.disabled || n.readOnly) return;
       var r = n.getBoundingClientRect();
       if (r.width < 70 || r.height < 14) return;
@@ -1237,12 +1298,15 @@
       cands.push({ n: n, area: r.width * r.height, abajo: r.bottom > alto * 0.55 ? 1 : 0, bottom: r.bottom });
     });
     if (!cands.length) return null;
-    // su chat tiene la caja abajo: se prefiere lo que esté en la mitad de abajo, y de eso lo más
-    // grande (y si hay empate, lo más bajo). Así no se coge un buscador de la cabecera.
     cands.sort(function (a, b) {
       return (b.abajo - a.abajo) || (b.area - a.area) || (b.bottom - a.bottom);
     });
     return cands[0].n;
+  }
+  function valorDe(n) {
+    if (!n) return "";
+    if (n.tagName === "TEXTAREA" || n.tagName === "INPUT") return n.value || "";
+    return n.textContent || "";
   }
   function escribirEn(n, texto) {
     n.focus();
@@ -1301,7 +1365,7 @@
   }
   function alPortapapeles(texto) {
     // `writeText` devuelve una promesa que se rechaza si la pestaña no tiene el foco: hay que
-    // atraparla, o el rechazo se escapa como error de la página (y nos lo apunta el motor).
+    // atraparla, o el rechazo se escapa como error de la página.
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         try {
@@ -1325,19 +1389,58 @@
       return false;
     }
   }
-  function mandarAlChat(texto) {
+  // Al enviar, se mide lo que iba en la caja. Se engancha UNA vez a la página entera (en captura,
+  // así da igual cómo sea su formulario) y se compara el objetivo con la caja del chat.
+  var ultimoEnvio = { txt: "", at: 0 };
+  function capturar(txt, fuente) {
+    var t = String(txt || "").trim();
+    if (!t) return null;
+    if (ultimoEnvio.txt === t && Date.now() - ultimoEnvio.at < 5000) return null;
+    ultimoEnvio.txt = t;
+    ultimoEnvio.at = Date.now();
+    return procesar(t, { fuente: fuente || "del chat" });
+  }
+  function alTeclear(e) {
+    if (e.key !== "Enter" || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+    var s = ficha();
+    if (!s || !s.flags.medir) return;
     var caja = cajaDeTexto();
-    if (!caja) {
-      var copiado = alPortapapeles(texto);
-      return { ok: false, why: copiado ? "no encontré la caja del chat; te lo he copiado al portapapeles para que lo pegues" : "no encontré la caja del chat" };
-    }
-    escribirEn(caja, texto);
-    if (!state.sheet || !state.sheet.flags.autoenviar) return { ok: true, why: "escrito en el chat (pulsa enviar tú)" };
-    var via = pulsarEnviar(caja);
-    return { ok: true, why: via ? "enviado al chat (" + via + ")" : "escrito, pero no encontré cómo enviarlo" };
+    if (!caja) return;
+    if (!(e.target === caja || (caja.contains && caja.contains(e.target)))) return;
+    var txt = valorDe(caja);
+    if (!txt.trim()) return;
+    setTimeout(function () {
+      var r = capturar(txt, "del chat");
+      if (r && !r.repetido) gancho();
+    }, 0);
+  }
+  function alClicar(e) {
+    var s = ficha();
+    if (!s || !s.flags.medir) return;
+    var caja = cajaDeTexto();
+    if (!caja) return;
+    var b = e.target && e.target.closest ? e.target.closest("button, [role='button']") : null;
+    if (!b || b.closest("#em-root")) return;
+    var form = b.closest("form");
+    if (!form || !(form === (caja.closest ? caja.closest("form") : null))) return;
+    var txt = valorDe(caja);
+    if (!txt.trim()) return;
+    setTimeout(function () {
+      var r = capturar(txt, "del chat");
+      if (r && !r.repetido) gancho();
+    }, 0);
+  }
+  function gancho() {
+    aviso("", false);
+    render();
+    colocar();
+  }
+  function ganchos() {
+    document.addEventListener("keydown", alTeclear, true);
+    document.addEventListener("click", alClicar, true);
   }
 
-  // --- leer el marcador del bot sin tocar la pantalla -------------------------------------------
+  // --- leer el chat por la API (red de seguridad, cuando el enganche no basta) --------------------
   // Se busca en el JSON del historial cualquier lista de mensajes (objetos con `role` y `content`),
   // porque la forma exacta de la respuesta no la conocemos: así da igual cómo venga envuelto.
   function sacarMensajes(obj, out, hondo) {
@@ -1360,7 +1463,7 @@
   }
   function leer() {
     var s = ficha();
-    if (!s || !s.promptId) return Promise.resolve({ ok: false, why: "todavía no sé con qué bot juegas" });
+    if (!s || !s.promptId) return Promise.resolve({ ok: false, why: "todavía no sé con qué bot juegas (abre su chat un momento)" });
     if (cola) return Promise.resolve({ ok: false, why: "ya estaba leyendo" });
     cola = true;
     return EM.api.historial(s.promptId)
@@ -1370,24 +1473,40 @@
         cola = false;
         state.raw = JSON.stringify(res).slice(0, 6000);
         var msgs = sacarMensajes(res);
-        var elegido = null;
-        for (var i = msgs.length - 1; i >= 0; i--) {
-          var m = msgs[i];
+        var mios = msgs.filter(function (m) {
+          return /user|human/i.test(String((m && m.role) || ""));
+        });
+        if (!mios.length) {
+          return { ok: false, why: "no he visto tus mensajes en el historial (" + msgs.length + " mensajes leídos)", n: msgs.length };
+        }
+        var nuevos = 0;
+        var movidos = {};
+        var ultimos = mios.slice(-12);
+        ultimos.forEach(function (m) {
           var txt = String((m && (m.content || m.displayContent)) || "");
-          if (/\[\s*RPG/i.test(txt)) {
-            elegido = { m: m, i: i, txt: txt, tag: extraerTag(txt) };
-            break;
+          if (!txt.trim()) return;
+          var h = huella(txt);
+          if (yaVisto(s, h)) return;
+          var r = medir(txt);
+          s.turnos++;
+          if (r.entrada && Object.keys(r.mov).length) {
+            var hechos = aplicar(s, r.mov, null);
+            Object.keys(hechos).forEach(function (k) { movidos[k] = red1((movidos[k] || 0) + hechos[k]); });
+            apuntar(s, "palabra", "💗 " + r.entrada.nombre + " — " + resumen(r.mov) + " · del historial");
           }
+          nuevos++;
+        });
+        if (!nuevos) return { ok: false, why: "sin mensajes nuevos tuyos", n: msgs.length };
+        var antesEtapa = s.etapa;
+        s.etapa = Math.max(s.etapa, etapaQue(s.stats));
+        if (s.etapa !== antesEtapa) {
+          movidos.etapa = ETAPAS[s.etapa];
+          apuntar(s, "etapa", "✨ La relación pasa a «" + ETAPAS[s.etapa] + "»");
+          if (s.flags.memAut) refrescarMemoria(s);
         }
-        if (!elegido) {
-          return { ok: false, why: "no he visto ninguna línea [RPG …] en los últimos " + msgs.length + " mensajes", n: msgs.length };
-        }
-        var clave = String(elegido.m.id || "") + "@" + elegido.i;
-        if (clave === s.visto) return { ok: false, why: "sin novedades desde la última vez", n: msgs.length };
-        s.visto = clave;
-        var hechos = aplicarTag(s, elegido.tag);
+        guardar();
         render();
-        return { ok: true, cambios: hechos, tag: elegido.tag.raw, n: msgs.length };
+        return { ok: true, n: nuevos, cambios: movidos, vistos: msgs.length };
       })
       .catch(function (e) {
         cola = false;
@@ -1395,11 +1514,89 @@
       });
   }
 
-  // --- escribir el reglamento en la memoria del bot ----------------------------------------------
+  // --- la nota que se le deja al bot en SU memoria ------------------------------------------------
+  // Nada de marcadores: una nota OOC entre paréntesis con el estado, la etapa y el tono. Es lo
+  // único que el modelo lee en *todos* los mensajes, así que aquí va lo que de verdad importa.
+  function estadoLinea(s) {
+    var st = s.stats;
+    return "(OOC · partida de rol) afecto " + fmt(st.afecto) + "/100 · confianza " + fmt(st.confianza) +
+      "/100 · deseo " + fmt(st.deseo) + "/100 · tensión " + fmt(st.tension) + "/100 · etapa " +
+      nombreEtapa(s) + " · " + s.turnos + " mensajes";
+  }
+  function reglas(s) {
+    var jug = jugador(s);
+    var lista = ETAPAS.join(" → ");
+    return [
+      "(Nota OOC — esto es para ti: no lo menciones, no lo cites y no lo trates como parte de la historia.)",
+      "Esta conversación lleva una partida de rol de amor/odio. Cuatro valores de 0 a 100:",
+      "· afecto: cuánto te gusta " + jug + " · confianza: cuánto te fías de él/ella",
+      "· deseo: cuánto te atrae ahora mismo · tensión: la carga que hay en el aire.",
+      "Ahora mismo: afecto " + fmt(s.stats.afecto) + ", confianza " + fmt(s.stats.confianza) + ", deseo " +
+        fmt(s.stats.deseo) + ", tensión " + fmt(s.stats.tension) + ". Etapa: " + nombreEtapa(s) + ".",
+      "Escribe SIEMPRE en ese tono: " + (ETAPA_TIP[nombreEtapa(s)] || "") + ".",
+      "La etapa sube sola cuando la relación madura (" + lista + "); cuando suba, cambia el tono poco a poco.",
+      s.flags.explicito
+        ? "El contenido adulto está permitido: cuando el deseo y la tensión estén altos, describe la escena íntima con detalle y sin cortarte."
+        : "Las escenas íntimas se insinúan: sin descripción explícita.",
+      "No decidas por " + jug + " ni escribas sus actos, pensamientos o diálogos: solo los tuyos."
+    ].join("\n");
+  }
+  // El texto completo (el que se manda al chat con ✍, que no tiene tope) y el reducido.
+  function memoriaTexto(s) {
+    return estadoLinea(s) + "\n" + reglas(s);
+  }
+  // La nota que cabe en la memoria del bot: se arma por piezas y se van cayendo las menos
+  // importantes hasta que cabe. El estado y el tono nunca se caen.
+  function minimo(s, topeMax) {
+    topeMax = topeMax || LIMITE_MEM;
+    var st = s.stats;
+    var cab = "(Nota OOC, no la menciones: partida · afecto " + fmt(st.afecto) + " · confianza " +
+      fmt(st.confianza) + " · deseo " + fmt(st.deseo) + " · tensión " + fmt(st.tension) +
+      " · etapa " + nombreEtapa(s) + ".";
+    var nucleo = " Tu tono: " + (TIP_CORTO[nombreEtapa(s)] || ETAPA_TIP[nombreEtapa(s)] || "") + ".)";
+    var extras = [
+      { p: 1, t: " No decidas por " + jugador(s) + "." },
+      { p: 2, t: " Íntimas: " + (s.flags.explicito ? "explícitas" : "solo insinuadas") + "." },
+      { p: 3, t: " Etapas: " + ETAPAS.join("→") + "." }
+    ].sort(function (a, b) { return a.p - b.p; });
+    var usados = extras.slice();
+    function largo() {
+      var t = cab + nucleo;
+      usados.forEach(function (e) { t += e.t; });
+      return t.length;
+    }
+    while (usados.length && largo() > topeMax) usados.pop();
+    var out = cab + nucleo;
+    usados.forEach(function (e) { out += e.t; });
+    return out.length > topeMax ? recortaA(out, topeMax) : out;
+  }
+  function recortaA(t, topeMax) {
+    t = String(t || "");
+    if (!topeMax || t.length <= topeMax) return t;
+    var corte = t.slice(0, topeMax - 1);
+    var esp = corte.lastIndexOf(" ");
+    if (esp > topeMax * 0.6) corte = corte.slice(0, esp);
+    return corte.replace(/[\s,;·:]+$/, "") + "…";
+  }
+  // Los textos que se intentan, de más rico a más corto. Si ya sabemos su tope, no se prueba lo
+  // que no cabe (y así no se le manda al servidor una petición condenada).
+  function candidatos(s) {
+    var real = s.memoria.tope || 0;
+    var corto = minimo(s, real || LIMITE_MEM);
+    var probarLargo = real ? real > LIMITE_MEM : (s.memoria.rico > LIMITE_MEM || s.flags.larga);
+    var out = [];
+    if (probarLargo && (!real || memoriaTexto(s).length <= real)) out.push(memoriaTexto(s));
+    out.push(corto);
+    return out.filter(function (t, i) { return out.indexOf(t) === i; });
+  }
+  function memoriaBot(s) { return candidatos(s)[0]; }
+  function esGrande(s) { return (s.memoria.tope || s.memoria.rico || 0) > LIMITE_MEM; }
+
+  // --- escribir en la memoria del bot -------------------------------------------------------------
   // Se guarda antes lo que había (para poder devolverlo) y se prueba el campo `memory` (el suyo:
   // su error de validación pedía `memory` por su nombre); si el servidor contesta que ese campo no
   // existe, se prueban otros nombres. Si contesta que el texto es largo, se APRENDE el tope (viene
-  // en su propio mensaje: "max length is 300") y se reintenta más corto, sin volver a pasarse.
+  // en su propio mensaje: "max length is 300") y se reintenta más corto.
   var CAMPOS = ["memory", "content", "text", "memoryText", "remark"];
   function topeDelError(msg) {
     var m = /max(?:imum)?\s*length\s*is\s*(\d+)/i.exec(String(msg || ""));
@@ -1415,25 +1612,24 @@
       s.memoria.campo = CAMPOS[i];
       s.memoria.texto = texto;
       s.memoria.at = Date.now();
+      s.memoria.etapa = s.etapa;
+      s.memoria.turno = s.turnos;
       s.memoria.error = "";
-      apuntar(s, "memoria", "reglamento escrito en la memoria de " + (s.bot || "el bot") + " (" + texto.length + " caracteres, campo `" + CAMPOS[i] + "`)");
+      apuntar(s, "memoria", "nota escrita en la memoria de " + (s.bot || "el bot") + " (" + texto.length + " caracteres, campo `" + CAMPOS[i] + "`)");
       guardar();
       render();
       return { ok: true, campo: CAMPOS[i], res: res, length: texto.length };
     }).catch(function (e) {
       var msg = (e && e.message) || "";
-      // sin sesión no tiene sentido probar más nombres de campo: el problema no es el nombre
       if (/sin sesi[oó]n|\(401\)|\(403\)/.test(msg)) {
         return { ok: false, why: "necesitas entrar en emochi.com con tu cuenta: sin sesión no puedo tocar la memoria del bot", sesion: true, errores: errores };
       }
-      var tope = topeDelError(msg);
-      if (tope) return { ok: false, largo: true, tope: tope, why: msg, errores: errores };
+      var topeAprendido = topeDelError(msg);
+      if (topeAprendido) return { ok: false, largo: true, tope: topeAprendido, why: msg, errores: errores };
       errores.push(CAMPOS[i] + " → " + msg);
       return escribir(s, texto, i + 1, errores);
     });
   }
-  // Prueba el texto más rico que quepa. Si su servidor dice que es largo, guarda el tope, arma el
-  // bloque reducido a esa medida y lo reintenta (una sola vez: ya sabe cuánto deja).
   function escribirConAjuste(s) {
     var cands = candidatos(s);
     var errores = [];
@@ -1446,7 +1642,6 @@
       return escribir(s, texto, 0, errores).then(function (r) {
         if (r.ok) {
           r.ajustado = bajo;
-          // lo que su plan ha aceptado de verdad: la próxima vez no hace falta adivinar
           if (r.length > (s.memoria.rico || 0)) { s.memoria.rico = r.length; guardar(); }
           return r;
         }
@@ -1455,7 +1650,6 @@
           s.memoria.tope = r.tope || LIMITE_MEM;
           store.tope = s.memoria.tope;   // el tope es de su cuenta: vale para todos sus bots
           guardar();
-          // de aquí en adelante, solo lo que de verdad cabe en lo que ha dicho su servidor
           var cabe = cands.slice(i + 1).filter(function (t) { return t.length <= s.memoria.tope; });
           if (!cabe.length) cabe = [minimo(s, s.memoria.tope)];
           cands = cabe;
@@ -1483,7 +1677,6 @@
       if (/sin sesi[oó]n|\(401\)|\(403\)/.test(msg)) {
         return { ok: false, why: "necesitas entrar en emochi.com con tu cuenta: sin sesión no puedo ni leer ni escribir la memoria del bot", sesion: true };
       }
-      // si no se puede ni leer, se intenta escribir igual (a lo mejor solo falla la lectura)
       return escribirConAjuste(s).then(function (r) {
         if (r.ok) return r;
         return { ok: false, why: "leer la memoria falló (" + msg + ") y escribir tampoco: " + r.why, errores: r.errores };
@@ -1491,12 +1684,28 @@
     }).then(function (r) {
       state.busy = false;
       aviso(r.ok
-        ? (r.ajustado
-          ? "🧠 Reglamento dentro, en versión reducida (" + r.length + " caracteres): su memoria solo deja " + (s.memoria.tope || LIMITE_MEM) + ", así que el bot recibe el estado, las etapas y el formato del marcador. El texto completo está en «Ver el reglamento completo»."
-          : "🧠 Reglamento dentro (campo `" + r.campo + "`, " + r.length + " caracteres).")
+        ? "🧠 Nota dentro de su memoria (campo `" + r.campo + "`, " + r.length + " caracteres" +
+          (r.ajustado ? " · versión reducida: su servidor deja " + (s.memoria.tope || LIMITE_MEM) + ", así que lo demás va con ✍" : "") + ")."
         : "No pude inyectar: " + r.why, !r.ok, r.errores);
       render();
       return r;
+    });
+  }
+  // Refresco silencioso (el que se hace solo cuando cambia la etapa): no toca el aviso.
+  function refrescarMemoria(s) {
+    if (!s || !s.promptId || state.busy) return;
+    state.busy = true;
+    EM.api.memoriaDeBot(s.promptId).then(function (res) {
+      if (s.memoria.original == null) s.memoria.original = textoDeMemoria(res) || "";
+      return escribirConAjuste(s);
+    }).catch(function () {
+      return null;
+    }).then(function (r) {
+      state.busy = false;
+      if (r && r.ok) {
+        aviso("🔄 La nota del bot se ha puesto al día sola (" + r.length + " caracteres).", false);
+      }
+      render();
     });
   }
   function quitar() {
@@ -1508,6 +1717,7 @@
     return EM.api.ponMemoriaDeBot(s.promptId, s.memoria.campo || "memory", s.memoria.original).then(function () {
       s.memoria.texto = "";
       s.memoria.at = 0;
+      s.memoria.etapa = -1;
       apuntar(s, "memoria", "memoria del bot devuelta a como estaba");
       guardar();
       state.busy = false;
@@ -1536,40 +1746,12 @@
     if (!s || !s.promptId) return Promise.resolve(null);
     return EM.api.memoriaTokens(s.promptId, "").catch(function () { return null; });
   }
-
-  // --- la partida: tirar una acción ---------------------------------------------------------------
-  function hacerAccion(a) {
-    var s = ficha();
-    if (!s || !s.promptId) {
-      aviso("Abre el chat de un bot y espera un segundo: necesito su id para apuntar la partida.", true);
-      render();
-      return null;
-    }
-    var t = tirada(s, a);
-    var antes = { etapa: s.etapa };
-    aplicar(s, t.cambios, null);
-    if (s.etapa !== antes.etapa) t.cambios.etapa = ETAPAS[s.etapa];
-    apuntar(s, "tirada", "🎲 " + a.name + " · " + t.d + (t.mod >= 0 ? "+" : "") + t.mod + " = " + t.total +
-      " vs " + t.dc + " · " + t.kind + (resumen(t.cambios) ? " · " + resumen(t.cambios) : ""), { accion: a.id });
-    guardar();
-    state.roll = t;
-    var texto = textoAccion(s, a, t);
-    var r = mandarAlChat(texto);
-    aviso((t.kind === "crítico" ? "✨ " : t.kind === "pifia" ? "💥 " : "🎲 ") + a.name + ": " +
-      t.d + (t.mod >= 0 ? "+" : "") + t.mod + " = " + t.total + " vs " + t.dc + " · " + t.kind.toUpperCase() +
-      (resumen(t.cambios) ? " — " + resumen(t.cambios) : "") + (r && r.why ? " · " + r.why : ""), !r || !r.ok);
-    render();
-    return t;
-  }
-  function aviso(text, bad, extra) {
-    state.msg = { text: text, bad: !!bad, extra: extra || null };
-  }
-  // Plan B para inyectar: si su memoria no deja escribir (planes, permisos, campos distintos), el
-  // reglamento se deja escrito en la caja del chat para mandarlo como primer mensaje de la charla.
+  // Plan B: el texto completo se deja escrito en la caja del chat, para mandarlo como primer
+  // mensaje (esa nota no tiene el tope de 300).
   function ponerEnElChat() {
     var s = ficha();
-    if (!s || !s.promptId) {
-      aviso("Abre el chat de un bot y espera un segundo: necesito su id.", true);
+    if (!s) {
+      aviso("Abre el chat de un bot y espera un segundo.", true);
       render();
       return { ok: false, why: "sin bot" };
     }
@@ -1582,43 +1764,88 @@
       return { ok: false, why: "sin caja" };
     }
     escribirEn(caja, texto);
-    apuntar(s, "memoria", "reglamento puesto en la caja del chat para mandarlo como primer mensaje");
+    if (s.flags.autoenviar) pulsarEnviar(caja);
+    apuntar(s, "memoria", "nota completa puesta en la caja del chat");
     guardar();
-    aviso("✍ Reglamento escrito en el chat: mándalo como primer mensaje. (Quedará en el historial; si puedes, mejor inyéctalo en su memoria.)", false);
+    aviso("✍ Nota completa en el chat. (Quedará en el historial; si puedes, mejor inyéctala en su memoria.)", false);
     render();
     return { ok: true };
   }
 
-  // --- la interfaz -------------------------------------------------------------------------------
+  // --- dónde vive la ficha: pegada a la izquierda de la columna del chat --------------------------
+  // La columna del chat se saca de la caja de texto (que ya sabemos encontrar): se sube por sus
+  // antepasados hasta dar con el que es de verdad más alto que ella. Así no hace falta conocer
+  // ninguna clase de su web. Se guarda un segundo de memoria, que esto se repite a menudo.
+  var colCache = { at: 0, col: null };
+  function columnaChat() {
+    if (Date.now() - colCache.at < 1000) return colCache.col;
+    colCache.at = Date.now();
+    colCache.col = calcularColumna();
+    return colCache.col;
+  }
+  function calcularColumna() {
+    var caja = cajaDeTexto();
+    if (!caja) return null;
+    var rc = caja.getBoundingClientRect();
+    if (rc.width < 80) return null;
+    var vw = window.innerWidth || 1200;
+    var n = caja.parentElement;
+    for (var i = 0; n && n !== document.body && i < 10; i++, n = n.parentElement) {
+      var r = n.getBoundingClientRect();
+      if (r.height > rc.height + 120 && r.width < vw * 0.94 && r.width >= rc.width) {
+        return { left: r.left, right: r.right, top: r.top, bottom: Math.max(rc.bottom, r.bottom - 8), caja: caja };
+      }
+    }
+    // sin columna clara: se toma la caja y se sube un trecho hacia arriba (queda bien igual)
+    return { left: rc.left, right: rc.right, top: Math.max(8, rc.top - 340), bottom: rc.bottom, caja: caja };
+  }
+  // Coloca la ficha: a la izquierda de la columna del chat, con su misma altura, y si no hay sitio
+  // (o no encuentro el chat) se queda a la izquierda de la pantalla. Es `position: fixed`, así que
+  // no depende de dónde nos cuelgue su React.
+  function colocar() {
+    var d = state.dock;
+    if (!d) return;
+    var vh = window.innerHeight || 800;
+    var ancho = state.colapsado ? 34 : (state.ancho || ANCHO);
+    var col = columnaChat();
+    var left, top, alto;
+    if (col) {
+      left = Math.round(col.left - 12 - ancho);
+      if (left < 8) {
+        left = 8;
+        if (!state.colapsado) ancho = Math.max(150, Math.min(ancho, Math.round(col.left - 20)));
+      }
+      top = Math.round(Math.max(8, col.top));
+      alto = Math.round(Math.min(vh - top - 16, Math.max(240, col.bottom - top)));
+    } else {
+      left = 8;
+      top = 72;
+      alto = Math.round(Math.min(vh - 168, 460));
+    }
+    if (left < 110) alto = Math.min(alto, vh - top - 92);   // no pisar el botón flotante
+    d.style.left = left + "px";
+    d.style.top = top + "px";
+    d.style.width = ancho + "px";
+    d.style.maxHeight = Math.max(140, alto) + "px";
+  }
+
+  // --- la interfaz de la ficha --------------------------------------------------------------------
   function btn(text, cls, onclick, extra) {
     return el("button", Object.assign({ type: "button", class: cls || "em-btn", text: text, onclick: onclick }, extra || {}));
   }
   function barra(id) {
     var s = state.sheet;
-    var v = s ? s.stats[id] || 0 : 0;
     var st = null;
     STATS.forEach(function (x) { if (x.id === id) st = x; });
-    return el("div", { class: "em-stat" }, [
+    var v = s ? s.stats[id] || 0 : 0;
+    var brinco = state.brinco[id] && state.brinco[id] > Date.now();
+    var fila = el("div", { class: "em-stat" + (brinco ? " em-stat-bump" : "") }, [
       el("span", { class: "em-stat-ico", text: (st && st.icon) || "" }),
       el("span", { class: "em-stat-name", text: (st && st.label) || id }),
       el("span", { class: "em-bar" }, [el("i", { class: "em-bar-fill", style: { width: Math.max(0, Math.min(100, v)) + "%" } })]),
-      el("b", { class: "em-stat-num", text: String(v) })
+      el("b", { class: "em-stat-num", text: fmt(v) })
     ]);
-  }
-  function accionBtn(a) {
-    var s = state.sheet;
-    var mod = s ? modificador(s, a) : 0;
-    var bloqueada = !!(a.min != null && s && s.etapa < a.min);
-    return el("button", {
-      type: "button",
-      class: "em-acc" + (bloqueada ? " em-acc-lock" : ""),
-      title: etiqueta(a.stat) + " · dificultad " + a.dc + (bloqueada ? " · antes de tiempo cuesta -3" : ""),
-      onclick: function () { hacerAccion(a); }
-    }, [
-      el("span", { class: "em-acc-ico", text: a.icon }),
-      el("span", { class: "em-acc-name", text: a.name }),
-      el("span", { class: "em-acc-meta", text: etiqueta(a.stat).split(" ")[0] + " " + (mod >= 0 ? "+" : "") + mod + " · DC " + a.dc })
-    ]);
+    return fila;
   }
   function interruptor(id, text, titulo) {
     var s = state.sheet;
@@ -1631,38 +1858,66 @@
       render();
     }, { title: titulo || text });
   }
+  function details(titulo, abierto) {
+    var d = el("details", { class: "em-det" });
+    if (abierto) d.setAttribute("open", "");
+    d.appendChild(el("summary", { text: titulo }));
+    return d;
+  }
+
   function vista() {
-    var out = el("div", { class: "em-rpg" });
+    var out = el("div", { class: "em-dock-in" });
     var s = state.sheet;
-    if (!s || !s.promptId) {
-      out.appendChild(el("div", { class: "em-note em-note-bad" }, [
-        el("p", { text: "Todavía no sé con qué bot juegas." }),
-        el("small", { class: "em-hint", text: "Abre el chat de un personaje (o manda un mensaje) y en un segundo lo sabré: su app manda su id en sus peticiones y yo lo copio." })
+
+    // cabecera: plegar, el bot, y atajos
+    out.appendChild(el("div", { class: "em-dock-head" }, [
+      btn(state.colapsado ? "▶" : "◀", "em-icon em-dock-fold", function () {
+        state.colapsado = !state.colapsado;
+        render();
+        colocar();
+      }, { title: state.colapsado ? "Desplegar la ficha" : "Plegar la ficha" }),
+      el("div", { class: "em-dock-id" }, [
+        el("b", { class: "em-dock-bot", text: (s && s.bot) || (EM.bot.uri ? EM.bot.uri : "la partida") }),
+        el("span", { class: "em-dock-note", text: s ? (nombreEtapa(s) + " · " + s.turnos + " mensajes") : "…" })
+      ]),
+      btn("🎭", "em-icon", function () { if (EM.panel) EM.panel.open(); }, { title: "Abrir el panel de roles" })
+    ]));
+
+    if (state.colapsado) {
+      out.appendChild(el("div", { class: "em-dock-mini", onclick: function () { state.colapsado = false; render(); colocar(); } }, [
+        el("span", { class: "em-dock-mini-ico", text: "💗" }),
+        el("span", { class: "em-dock-mini-txt", text: s ? nombreEtapa(s) : "partida" })
       ]));
       return out;
     }
-    // quién juega
-    out.appendChild(el("div", { class: "em-rpg-head" }, [
-      el("span", { class: "em-rpg-bot", text: s.bot || "este bot" }),
-      el("span", { class: "em-rpg-note", text: (s.player ? "tú: " + s.player : "tú: el jugador") + " · " + s.turnos + " turnos · " + s.vinculo + " de vínculo" })
-    ]));
-    // el marcador
-    var ficha6 = el("div", { class: "em-ficha" });
+
+    var cuerpo = el("div", { class: "em-dock-body" });
+
+    if (!s) {
+      cuerpo.appendChild(el("div", { class: "em-note em-note-small", text: "Todavía no sé con qué bot juegas." }));
+      out.appendChild(cuerpo);
+      return out;
+    }
+
+    // las barras
+    var ficha6 = el("div", { class: "em-ficha em-ficha-dock" });
     STATS.forEach(function (st) { ficha6.appendChild(barra(st.id)); });
     ficha6.appendChild(el("div", { class: "em-etapa" }, [
       el("span", { class: "em-etapa-badge", text: nombreEtapa(s) }),
       el("span", { class: "em-etapa-tip", text: ETAPA_TIP[nombreEtapa(s)] || "" })
     ]));
-    out.appendChild(ficha6);
-    // la tirada de antes
-    if (state.roll) {
-      var t = state.roll;
-      out.appendChild(el("div", { class: "em-roll em-roll-" + t.kind }, [
-        el("b", { text: "🎲 " + t.name + ": " + t.d + (t.mod >= 0 ? "+" : "") + t.mod + " = " + t.total }),
-        el("span", { text: " vs " + t.dc + " · " + t.kind.toUpperCase() + (resumen(t.cambios) ? " — " + resumen(t.cambios) : "") })
+    cuerpo.appendChild(ficha6);
+
+    // lo último que ha movido
+    if (state.ultimo && Date.now() - state.ultimo.at < 120000) {
+      cuerpo.appendChild(el("div", { class: "em-dock-last" }, [
+        el("b", { text: state.ultimo.nombre }),
+        el("span", { text: resumen(state.ultimo.mov) })
       ]));
     }
-    if (state.msg) {
+
+    // aviso
+    if (state.msg && state.msg.text) {
       var caja = el("div", { class: "em-rpg-msg" + (state.msg.bad ? " em-rpg-msg-bad" : "") });
       caja.appendChild(el("span", { text: state.msg.text }));
       if (state.msg.extra && state.msg.extra.length) {
@@ -1671,43 +1926,107 @@
           el("pre", { class: "em-pre", text: state.msg.extra.join("\n") })
         ]));
       }
-      out.appendChild(caja);
+      cuerpo.appendChild(caja);
     }
-    // las acciones
-    out.appendChild(el("h4", { class: "em-h", text: "Acciones — tira el dado y se lo manda al chat" }));
-    var rej = el("div", { class: "em-accs" });
-    ACCIONES.forEach(function (a) { rej.appendChild(accionBtn(a)); });
-    out.appendChild(rej);
-    // la memoria
-    out.appendChild(el("h4", { class: "em-h", text: "El reglamento dentro del bot" }));
-    var txt = esGrande(s) ? memoriaBot(s) : minimo(s, s.memoria.tope || LIMITE_MEM);  // lo que va dentro
-    var txtChat = recortaA(memoriaTexto(s), LIMITE_CHAT);   // el completo, el que va con ✍ al chat
-    var tope = s.memoria.tope || LIMITE_MEM;
-    var dentro = !!s.memoria.texto;
-    out.appendChild(el("div", { class: "em-mem" }, [
-      el("span", { class: "em-mem-state", text: dentro ? (s.memoria.campo && s.memoria.campo !== "memory" ? "🧠 inyectado (campo `" + s.memoria.campo + "`)" : "🧠 inyectado") : "sin inyectar" }),
-      el("span", { class: "em-mem-len" + (txt.length > tope ? " em-mem-over" : ""), text: esGrande(s) ? txt.length + " caracteres · caben" : txt.length + " / " + tope + " caracteres" })
-    ]));
-    out.appendChild(el("div", { class: "em-hint", text: "Su servidor deja " + tope + " caracteres en la memoria del bot, así que ahí va la versión reducida: el estado, las etapas y el formato del marcador. El bot lo lee en todos los mensajes, también en el primero; el reglamento completo (con el detalle de cada etapa) se manda al chat con ✍." }));
-    if (!esGrande(s) && s.flags.larga) {
-      out.appendChild(el("div", { class: "em-hint", text: "Con «📚 memoria larga» se prueba antes el reglamento completo, por si tu plan deja más de " + tope + ": si su servidor lo rechaza (lo normal), se queda este bloque y ya no se vuelve a intentar." }));
-    }
-    if (dentro && s.memoria.texto !== txt) {
-      out.appendChild(el("div", { class: "em-hint", text: "⚠ Dentro tiene el estado de cuando la inyectaste. Pulsa «🧠 Inyectar en el bot» para ponerlo al día: el bloque se recorta solo a lo que deja su servidor." }));
-    }
-    var acts = el("div", { class: "em-acts" }, [
-      btn(state.busy ? "…" : "🧠 Inyectar en el bot", "em-btn em-btn-main", function () { inyectar(); }, { disabled: state.busy }),
-      btn("🧹 Devolver su memoria", "em-btn", function () { quitar(); }, { disabled: state.busy }),
-      btn("✍ Poner en el chat", "em-btn", function () { ponerEnElChat(); }, { title: "Deja el reglamento COMPLETO (el que no cabe en su memoria) en la caja del chat, para mandarlo como primer mensaje de la charla" }),
-      btn("📖 Leer del chat", "em-btn", function () {
-        aviso("Leyendo el chat…", false);
+
+    // los botones de la partida
+    cuerpo.appendChild(el("div", { class: "em-acts em-acts-dock" }, [
+      btn(state.busy ? "…" : (s.memoria.texto && s.memoria.etapa === s.etapa ? "🧠 Al día" : "🧠 Poner en su memoria"),
+        "em-btn em-btn-main em-btn-mini", function () { inyectar(); }, { disabled: state.busy, title: "Escribe la nota en la memoria del bot (lo único que lee en todos los mensajes)" }),
+      btn("📖 Leer del chat", "em-btn em-btn-mini", function () {
+        aviso("Leyendo tus mensajes del chat…", false);
         render();
         leer().then(function (r) {
-          aviso(r.ok ? "📖 Aplicado: " + (resumen(r.cambios) || "nada que cambiar") + " (línea del bot: " + r.tag + ")" : "📖 " + r.why, !r.ok);
+          aviso(r.ok ? "📖 Medidos " + r.n + " mensajes: " + (resumen(r.cambios) || "nada que cambiar") : "📖 " + r.why, !r.ok);
           render();
         });
-      }),
-      btn("♻ Reiniciar partida", "em-btn em-btn-bad", function () {
+      }, { title: "Repasa el historial y mide los mensajes que se le hayan escapado al enganche" }),
+      btn("⤢", "em-btn em-btn-mini", function () {
+        state.ancho = state.ancho === ANCHO ? ANCHO_GRANDE : ANCHO;
+        render();
+        colocar();
+      }, { title: "Estirar la ficha (para editar cómodo)" })
+    ]));
+
+    // la tabla de palabras clave
+    var pal = details("🔑 Palabras clave (" + tabla().length + ")", state.seccion === "palabras");
+    pal.addEventListener("toggle", function () { state.seccion = pal.open ? "palabras" : ""; });
+    if (state.seccion === "palabras" || pal.open) {
+      var ta = el("textarea", { class: "em-input em-pal-edit", rows: 14, spellcheck: "false" });
+      ta.value = state.edicion != null ? state.edicion : tablaTexto();
+      ta.addEventListener("input", function () { state.edicion = ta.value; });
+      pal.appendChild(el("div", { class: "em-hint", text: "Una línea por entrada:  nombre : palabras : movimientos ·  los grupos van con |, las palabras de un grupo con +, las alternativas con /, y lo que mueve con «deseo 2, afecto 1»." }));
+      pal.appendChild(ta);
+      pal.appendChild(el("div", { class: "em-acts" }, [
+        btn("💾 Guardar", "em-btn em-btn-main em-btn-mini", function () {
+          var t = state.edicion != null ? state.edicion : tablaTexto();
+          if (!deTexto(t).length) {
+            aviso("Eso no tiene ni una entrada que se pueda leer: revisa el formato.", true);
+            render();
+            return;
+          }
+          setTablaTexto(t);
+          state.edicion = null;
+          aviso("🔑 Tabla guardada (" + tabla().length + " entradas).", false);
+          render();
+        }),
+        btn("↩ Tabla base", "em-btn em-btn-mini", function () {
+          resetTabla();
+          state.edicion = null;
+          aviso("🔑 Vuelta a la tabla de serie.", false);
+          render();
+        }, { disabled: esTablaBase() })
+      ]));
+      var prueba = el("input", { class: "em-input", type: "text", placeholder: "Prueba: «le doy un beso con lengua»" });
+      prueba.value = state.prueba || "";
+      var salida = el("div", { class: "em-hint em-pal-out", text: probar(state.prueba || "") });
+      prueba.addEventListener("input", function () {
+        state.prueba = prueba.value;
+        salida.textContent = probar(prueba.value);
+      });
+      pal.appendChild(el("div", { class: "em-field" }, [prueba, salida]));
+    }
+    cuerpo.appendChild(pal);
+
+    // la nota que se le deja al bot
+    var mem = details("🧠 Lo que recibe el bot", state.seccion === "memoria");
+    mem.addEventListener("toggle", function () { state.seccion = mem.open ? "memoria" : ""; });
+    var txt = esGrande(s) ? memoriaBot(s) : minimo(s, s.memoria.tope || LIMITE_MEM);
+    var txtChat = recortaA(memoriaTexto(s), LIMITE_CHAT);
+    var topeMax = s.memoria.tope || LIMITE_MEM;
+    var dentro = !!s.memoria.texto;
+    mem.appendChild(el("div", { class: "em-mem" }, [
+      el("span", { class: "em-mem-state", text: dentro ? "🧠 inyectada" : "sin inyectar" }),
+      el("span", { class: "em-mem-len" + (txt.length > topeMax ? " em-mem-over" : ""), text: esGrande(s) ? txt.length + " caracteres · caben" : txt.length + " / " + topeMax + " caracteres" })
+    ]));
+    mem.appendChild(el("div", { class: "em-hint", text: "Su servidor deja " + topeMax + " caracteres en la memoria del bot: ahí va la nota reducida (estado + tono). Con ✍ se manda la completa al chat, que sí cabe entera." }));
+    if (dentro && (s.memoria.etapa !== s.etapa || s.memoria.texto !== txt)) {
+      mem.appendChild(el("div", { class: "em-hint", text: "⚠ Dentro está el estado de cuando la inyectaste: pulsa «🧠 Poner en su memoria» para ponerlo al día." }));
+    }
+    mem.appendChild(el("pre", { class: "em-pre", text: txt }));
+    mem.appendChild(el("details", { class: "em-det" }, [
+      el("summary", { text: "La nota completa (" + txtChat.length + " caracteres, la de ✍)" }),
+      el("pre", { class: "em-pre", text: txtChat })
+    ]));
+    mem.appendChild(el("div", { class: "em-acts" }, [
+      btn("✍ Al chat", "em-btn em-btn-mini", function () { ponerEnElChat(); }, { title: "Deja la nota completa en la caja del chat, para mandarla como primer mensaje" }),
+      btn("🧹 Devolver la suya", "em-btn em-btn-mini em-btn-bad", function () { quitar(); }, { disabled: state.busy || s.memoria.original == null })
+    ]));
+    cuerpo.appendChild(mem);
+
+    // ajustes
+    var aj = details("⚙ Ajustes", state.seccion === "ajustes");
+    aj.addEventListener("toggle", function () { state.seccion = aj.open ? "ajustes" : ""; });
+    aj.appendChild(el("div", { class: "em-toggles" }, [
+      interruptor("medir", "💗 medir lo que escribo", "Mueve las barras leyendo las palabras clave de tus mensajes"),
+      interruptor("memAut", "🔄 memoria sola", "Pone al día la nota del bot cuando la relación cambia de etapa"),
+      interruptor("explicito", "🍓 explícito", "La nota pide escenas íntimas con detalle"),
+      interruptor("larga", "📚 nota larga", "Prueba antes la nota completa, por si tu plan deja más de 300 caracteres"),
+      interruptor("autoenviar", "✍ enviar solo", "Al usar ✍, pulsa enviar por ti")
+    ]));
+    aj.appendChild(el("div", { class: "em-acts" }, [
+      btn("💗 A cero", "em-btn em-btn-mini em-btn-bad", function () {
+        if (!window.confirm("¿Empezar la partida de cero con este bot?")) return;
         var f = ficha();
         if (!f) return;
         f.stats = { afecto: 0, confianza: 0, deseo: 0, tension: 0 };
@@ -1715,122 +2034,161 @@
         f.turnos = 0;
         f.vinculo = 0;
         f.log = [];
-        f.visto = "";
-        state.roll = null;
+        f.vistos = [];
+        state.ultimo = null;
         apuntar(f, "nota", "partida reiniciada a cero");
         guardar();
-        aviso("♻ Partida a cero.", false);
+        aviso("💗 Partida a cero.", false);
         render();
       })
-    ]);
-    out.appendChild(acts);
-    // ajustes
-    out.appendChild(el("h4", { class: "em-h", text: "Ajustes de la partida" }));
-    out.appendChild(el("div", { class: "em-toggles" }, [
-      interruptor("lujuria", "🔥 lujuria", "El deseo cuenta en las tiradas; si lo apagas, cuesta -2"),
-      interruptor("explicito", "🍓 explícito", "El reglamento pide escenas íntimas con detalle"),
-      interruptor("larga", "📚 memoria larga", "Primero prueba el reglamento entero, por si tu plan deja más de 300 caracteres; si su servidor lo rechaza, baja al reducido y lo apunta"),
-      interruptor("resumen", "📜 continuidad", "Añade los últimos sucesos a la memoria"),
-      interruptor("autoenviar", "✍ enviar solo", "Pulsa enviar por ti; apágalo si prefieres revisarlo antes"),
-      interruptor("autoleer", "🔁 leer solo", "Mira el chat cada pocos segundos y aplica la línea del bot")
     ]));
-    // lo que se le escribe, a la vista (las dos versiones: la de su memoria y la del chat)
-    out.appendChild(el("details", { class: "em-det" }, [
-      el("summary", { text: "Ver exactamente lo que se le escribe en su memoria (" + txt.length + " caracteres)" }),
-      el("pre", { class: "em-pre", text: txt })
-    ]));
-    out.appendChild(el("details", { class: "em-det" }, [
-      el("summary", { text: "Ver el reglamento completo (" + txtChat.length + " caracteres, el que va con ✍)" }),
-      el("pre", { class: "em-pre", text: txtChat })
-    ]));
-    out.appendChild(el("details", { class: "em-det" }, [
-      el("summary", { text: "¿Cómo funciona esto?" }),
-      el("div", {
-        class: "em-hint",
-        html: "El bot no sabe nada de números: se le escribe un reglamento en <b>su memoria</b> (lo lee en todos los mensajes, desde el primero) y se le pide que cierre cada respuesta con una línea de marcador, por ejemplo <code>[RPG afecto+2 deseo+1]</code>. La cuenta de verdad la lleva el panel, por bot: lee esa línea, la recorta a lo que permite el reglamento (deltas de -3 a +3) y reescribe su memoria con el estado nuevo. Al pulsar una acción se tira 1d20 + lo que hayas ganado: 20 natural es crítico (dobla lo bueno), 1 es pifia (dobla lo malo), y la tirada va dentro del mensaje para que el bot narre el resultado.<br><br><b>El tope de 300:</b> el servidor de emochi no deja más de 300 caracteres en la memoria del bot, así que ahí va la versión reducida (estado + etapas + formato del marcador). El reglamento completo se queda en «✍ Poner en el chat» —que no tiene tope— y queda en el historial, así que el bot también lo lee. Si tu plan permite más memoria (en su web venden tramos de 600, 1000 y 2000), enciende «📚 memoria larga»: el panel prueba primero el texto completo, aprende el tope real del mensaje de error del servidor y se adapta solo."
-      })
-    ]));
-    if (state.raw) {
-      out.appendChild(el("details", { class: "em-det" }, [
-        el("summary", { text: "Ver lo último que contestó su API" }),
-        el("pre", { class: "em-pre", text: state.raw })
-      ]));
-    }
+    cuerpo.appendChild(aj);
+
     // el registro
-    out.appendChild(el("h4", { class: "em-h", text: "Registro" }));
+    var reg = details("📜 Registro (" + s.log.length + ")", state.seccion === "registro");
+    reg.addEventListener("toggle", function () { state.seccion = reg.open ? "registro" : ""; });
     var log = el("div", { class: "em-log" });
-    if (!s.log.length) log.appendChild(el("div", { class: "em-hint", text: "Nada todavía. Tira una acción o inyecta el reglamento." }));
-    s.log.slice(0, 16).forEach(function (e) {
+    if (!s.log.length) log.appendChild(el("div", { class: "em-hint", text: "Nada todavía. Escribe en el chat y mira cómo se mueven las barras." }));
+    s.log.slice(0, 24).forEach(function (e) {
       log.appendChild(el("div", { class: "em-log-item" }, [
-        el("span", { class: "em-log-ico", text: e.kind === "tirada" ? "🎲" : e.kind === "suceso" ? "📈" : e.kind === "memoria" ? "🧠" : "•" }),
+        el("span", { class: "em-log-ico", text: e.kind === "palabra" ? "💗" : e.kind === "etapa" ? "✨" : e.kind === "memoria" ? "🧠" : "•" }),
         el("span", { class: "em-log-txt", text: e.text })
       ]));
     });
-    out.appendChild(log);
+    reg.appendChild(log);
+    cuerpo.appendChild(reg);
+
+    out.appendChild(cuerpo);
     return out;
   }
+
   function render() {
     state.sheet = ficha();
-    var host = state.host;
-    if (!host) return;
-    EM.clear(host);
-    host.appendChild(vista());
+    var d = state.dock;
+    if (!d) return;
+    var cuerpo = d.querySelector(".em-dock-body");
+    var scroll = cuerpo ? cuerpo.scrollTop : 0;
+    d.className = "em-dock" + (state.colapsado ? " em-dock-min" : "");
+    EM.clear(d);
+    d.appendChild(vista());
+    var nuevo = d.querySelector(".em-dock-body");
+    if (nuevo) nuevo.scrollTop = scroll;
   }
 
-  // --- enganche con el resto del panel ------------------------------------------------------------
-  EM.rpg = {
-    render: function (host) {
-      state.host = host;
-      state.visible = true;
-      state.sheet = ficha();
-      render();
+  // --- montar y seguir la ficha -------------------------------------------------------------------
+  function raiz() { return document.getElementById("em-root"); }
+  function colgar() {
+    var r = raiz();
+    if (!r || !state.dock) return false;
+    if (state.dock.parentNode !== r) r.appendChild(state.dock);
+    return true;
+  }
+  function clavado() {
+    var d = state.dock;
+    if (!d) return;
+    d.style.setProperty("position", "fixed", "important");
+    d.style.setProperty("z-index", "2147483646", "important");
+  }
+  function montar(rootEl) {
+    if (state.dock && state.dock.parentNode) {
+      clavado();
       return true;
-    },
-    setVisible: function (v) { state.visible = !!v; },
-    // para probar desde la consola / el laboratorio
+    }
+    var d = el("div", { id: "em-dock", class: "em-dock", hidden: true, "aria-label": "Ficha de la partida" });
+    state.dock = d;
+    clavado();
+    if (rootEl) rootEl.appendChild(d);
+    else colgar();
+    ganchos();
+    setTimeout(function () { auto(true); render(); colocar(); }, 300);
+    return true;
+  }
+  function keep() {
+    if (!state.dock) return false;
+    clavado();
+    if (!colgar()) return false;
+    colocar();
+    return true;
+  }
+  // La ficha sale sola cuando estás en el chat de un bot (o si me lo piden a mano).
+  function auto(silencioso) {
+    var deberia = state.forzado || !!EM.bot.uri || !!cajaDeTexto();
+    if (deberia !== state.visible) {
+      state.visible = deberia;
+      if (!silencioso) render();
+    }
+    var visible = state.visible && !state.panelAbierto;
+    if (state.dock) state.dock.hidden = !visible;
+    return visible;
+  }
+  function mostrar(v) {
+    state.forzado = !!v;
+    state.visible = !!v;
+    if (!v) state.panelAbierto = false;
+    auto(true);
+    render();
+    colocar();
+    return state.visible;
+  }
+  function panelAbierto(v) {
+    state.panelAbierto = !!v;
+    auto(true);
+    colocar();
+  }
+  function plegada() { return state.colapsado; }
+
+  EM.rpg = {
+    montar: montar,
+    keep: keep,
+    render: render,
+    colocar: colocar,
+    mostrar: mostrar,
+    forzar: mostrar,
+    auto: auto,
+    panelAbierto: panelAbierto,
+    raiz: raiz,
+    // el motor, para probarlo desde la consola o desde el banco de pruebas
     ficha: ficha,
-    acciones: ACCIONES,
-    etapas: ETAPAS,
     stats: STATS,
-    tirada: function (id) {
-      var s = ficha();
-      var a = null;
-      ACCIONES.forEach(function (x) { if (x.id === id) a = x; });
-      if (!s || !a) return null;
-      return tirada(s, a);
-    },
-    hacerAccion: function (id) {
-      var a = null;
-      ACCIONES.forEach(function (x) { if (x.id === id) a = x; });
-      return a ? hacerAccion(a) : null;
-    },
-    extraerTag: extraerTag,
-    reglas: reglas,
-    reglasCortas: reglasCortas,
-    memoriaTexto: memoriaTexto,
-    memoriaMedia: memoriaMedia,
-    memoriaBot: memoriaBot,
-    minimo: minimo,
-    esGrande: esGrande,
-    recortaA: recortaA,
-    candidatos: candidatos,
-    LIMITE_MEM: LIMITE_MEM,
-    LIMITE_CHAT: LIMITE_CHAT,
-    textoAccion: textoAccion,
+    etapas: ETAPAS,
     etapaQue: etapaQue,
     aplicar: aplicar,
-    aplicarTag: aplicarTag,
+    medir: medir,
+    probar: probar,
+    analizar: analizar,
+    procesar: procesar,
+    tabla: tabla,
+    tablaTexto: tablaTexto,
+    setTablaTexto: setTablaTexto,
+    resetTabla: resetTabla,
+    deTexto: deTexto,
+    aTexto: aTexto,
+    clave: clave,
+    // la nota del bot
+    minimo: minimo,
+    esGrande: esGrande,
+    memoriaTexto: memoriaTexto,
+    memoriaBot: memoriaBot,
+    candidatos: candidatos,
+    recortaA: recortaA,
+    LIMITE_MEM: LIMITE_MEM,
+    LIMITE_CHAT: LIMITE_CHAT,
     inyectar: inyectar,
     quitar: quitar,
     ponerEnElChat: ponerEnElChat,
     leer: leer,
     tokens: tokens,
-    estado: function () { return state.sheet; },
+    // las piezas del sitio
+    cajaDeTexto: cajaDeTexto,
+    columnaChat: columnaChat,
+    capturar: capturar,
+    estado: function () { return state; },
     log: function () { return state.sheet ? state.sheet.log.slice() : []; }
   };
 
   cargar();
-  // el nombre del jugador (su rol principal) para que los mensajes no digan "el jugador"
+
+  // El nombre del jugador (su rol principal) para que la nota no diga "el jugador".
   function buscarJugador() {
     return EM.api.personas().then(function (res) {
       var lista = [];
@@ -1840,7 +2198,6 @@
         if (!elegido && p && (p.isPrimary || p.personaEnabled) && p.name) elegido = p;
       });
       if (elegido) {
-        state.jugador = elegido.name;
         Object.keys(store.bots).forEach(function (k) {
           if (!store.bots[k].player) store.bots[k].player = elegido.name;
         });
@@ -1861,21 +2218,21 @@
     Object.keys(obj).forEach(function (k) { sacarLista(obj[k], out); });
     return out;
   }
+
   EM.onBot.push(function () {
     state.sheet = ficha();
-    if (state.visible) render();
+    auto(true);
+    if (state.dock) {
+      render();
+      colocar();
+    }
   });
   setInterval(function () {
-    if (!state.visible) return;
-    var s = ficha();
-    if (!s || !s.promptId || !s.flags.autoleer) return;
-    leer().then(function (r) {
-      if (r.ok) {
-        aviso("📖 Aplicado: " + (resumen(r.cambios) || "nada que cambiar"), false);
-        render();
-      }
-    });
+    if (!state.dock) return;
+    auto(true);
+    colocar();
   }, TICK);
+
   try { buscarJugador(); } catch (e) {}
 })();
 
@@ -1908,7 +2265,6 @@
 
   var state = {
     open: false,
-    tab: "roles",     // roles | rpg (las dos caras del panel)
     view: "list",     // list | form | tags
     list: null,       // null = cargando
     draft: null,      // la ficha que se está editando
@@ -1921,7 +2277,7 @@
     tagQuery: ""      // el filtro del selector
   };
 
-  var root, fab, panel, bodyEl, statusEl, msgEl, titleEl, footEl, tabsEl, tabRolesEl, tabRpgEl;
+  var root, fab, panel, bodyEl, statusEl, msgEl, titleEl, footEl;
 
   // --- el borrador: lo que estás escribiendo no se pierde si cierras ---------------------------
   function draftKey() {
@@ -2537,23 +2893,6 @@
 
   function render() {
     if (!panel) return;
-    if (state.tab === "rpg") {
-      titleEl.textContent = "Juego de rol";
-      statusEl.textContent = "";
-      msgEl.hidden = true;
-      if (footEl) footEl.hidden = true;
-      var keepScroll = bodyEl.scrollTop;
-      EM.clear(bodyEl);
-      if (!EM.rpg) {
-        bodyEl.appendChild(el("div", { class: "em-note em-note-bad", text: "La capa de juego no se ha cargado (falta rpg.js en el manifest)." }));
-      } else {
-        var host = el("div", { class: "em-rpg-host" });
-        bodyEl.appendChild(host);
-        EM.rpg.render(host);
-        bodyEl.scrollTop = keepScroll;
-      }
-      return;
-    }
     titleEl.textContent =
       state.view === "tags" ? "Etiquetas" :
       state.view === "form" ? (state.isNew ? "Nuevo rol" : "Editar rol") : "Mis roles";
@@ -2571,11 +2910,7 @@
     state.open = true;
     panel.hidden = false;
     fab.setAttribute("aria-expanded", "true");
-    if (state.tab === "rpg") {
-      if (EM.rpg) EM.rpg.setVisible(true);
-      render();
-      return;
-    }
+    if (EM.rpg) EM.rpg.panelAbierto(true);   // la ficha de la partida se aparta mientras el panel manda
     if (state.list === null) load();
     else render();
   }
@@ -2583,15 +2918,7 @@
     state.open = false;
     panel.hidden = true;
     fab.setAttribute("aria-expanded", "false");
-    if (EM.rpg) EM.rpg.setVisible(false);
-  }
-  // Dos pestañas: los roles (🎭) y la partida (🎲). La segunda vive en rpg.js.
-  function setTab(t) {
-    state.tab = t === "rpg" ? "rpg" : "roles";
-    if (tabRolesEl) tabRolesEl.className = "em-tab" + (state.tab === "roles" ? " em-tab-on" : "");
-    if (tabRpgEl) tabRpgEl.className = "em-tab" + (state.tab === "rpg" ? " em-tab-on" : "");
-    if (EM.rpg) EM.rpg.setVisible(state.tab === "rpg" && state.open);
-    render();
+    if (EM.rpg) EM.rpg.panelAbierto(false);
   }
 
   // Dónde se planta el panel. **Fuera de <body>**, colgado de <html>: su web es una SPA de React
@@ -2625,7 +2952,9 @@
   // Vigilante: si la web nos quita del documento (o cambia el <body> de sitio), se vuelve a plantar.
   function keep() {
     if (!root) return false;
-    return attach();
+    var ok = attach();
+    if (EM.rpg) EM.rpg.keep();
+    return ok;
   }
 
   function mount() {
@@ -2635,19 +2964,13 @@
     fab = el("button", {
       id: "em-fab",
       type: "button",
-      title: "Roles y juego de rol — emochi",
+      title: "Roles y partida — emochi",
       "aria-label": "Mi panel",
       "aria-expanded": "false",
       onclick: function () { state.open ? closePanel() : openPanel(); }
     }, [el("span", { text: "🎭" })]);
 
     var head = el("header", { class: "em-head" });
-    // Las dos caras del panel: los roles (🎭) y la partida (🎲).
-    tabsEl = el("div", { class: "em-tabs" });
-    tabRolesEl = el("button", { type: "button", class: "em-tab em-tab-on", text: "🎭 Roles", onclick: function () { setTab("roles"); } });
-    tabRpgEl = el("button", { type: "button", class: "em-tab", text: "🎲 Juego", title: "Estadísticas, tiradas y acciones", onclick: function () { setTab("rpg"); } });
-    tabsEl.appendChild(tabRolesEl);
-    tabsEl.appendChild(tabRpgEl);
     titleEl = el("b", { class: "em-title", text: "Mis roles" });
     statusEl = el("span", { class: "em-count" });
     head.appendChild(titleEl);
@@ -2661,13 +2984,26 @@
 
     footEl = el("footer", { class: "em-foot" });
     footEl.appendChild(el("button", { class: "em-btn em-btn-main", text: "＋ Nuevo rol", onclick: newPersona }));
+    footEl.appendChild(el("button", {
+      class: "em-btn",
+      text: "💗 Ficha de la partida",
+      title: "Enseñar u ocultar la ficha de la partida al lado del chat",
+      onclick: function () {
+        if (!EM.rpg) return;
+        var on = !(EM.rpg.estado().visible);
+        EM.rpg.mostrar(on);
+        state.open = false;
+        closePanel();
+      }
+    }));
 
-    panel = el("aside", { id: "em-panel", hidden: true, "aria-label": "Mis roles" }, [tabsEl, head, msgEl, bodyEl, footEl]);
+    panel = el("aside", { id: "em-panel", hidden: true, "aria-label": "Mis roles" }, [head, msgEl, bodyEl, footEl]);
     root.appendChild(fab);
     root.appendChild(panel);
     EM.whenBody(function () {
       attach();
       render();
+      if (EM.rpg) EM.rpg.montar(root);
     });
 
     EM.onBot.push(function () {
