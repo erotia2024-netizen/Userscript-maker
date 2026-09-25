@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.24
+// @version      0.9.25
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -931,6 +931,7 @@
     if (!s.log) s.log = [];
     if (!s.memoria) s.memoria = { original: null, campo: "", texto: "", at: 0, error: "", tope: 0 };
     if (typeof s.memoria.tope !== "number") s.memoria.tope = 0;
+    if (!s.memoria.tope && store.tope) s.memoria.tope = store.tope;
     if (EM.bot.title) s.bot = EM.bot.title;
     return s;
   }
@@ -1431,6 +1432,7 @@
         if (r.largo && !bajo) {
           bajo = true;
           s.memoria.tope = r.tope || LIMITE_MEM;
+          store.tope = s.memoria.tope;   // el tope es de su cuenta: vale para todos sus bots
           guardar();
           // de aquí en adelante, solo lo que de verdad cabe en lo que ha dicho su servidor
           var cabe = cands.slice(i + 1).filter(function (t) { return t.length <= s.memoria.tope; });
