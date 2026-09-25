@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.10
+// @version      0.9.11
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -944,7 +944,12 @@
         say(state.isNew ? "Rol creado." : "Rol guardado.");
       })
       .catch(function (e) {
-        say("No se pudo guardar: " + e.message, true);
+        say(
+          e && e.code === "no-session"
+            ? "No se pudo guardar: sin sesión. Entra en emochi.com con tu cuenta y vuelve a intentarlo."
+            : "No se pudo guardar: " + e.message,
+          true
+        );
       });
   }
   function removePersona(p) {
