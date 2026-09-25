@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.39
+// @version      0.9.40
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1456,17 +1456,22 @@
   // --- reiniciar su chat --------------------------------------------------------------------------
   // El botón de reiniciar de su chat no lleva id ni clase estable (sus clases son utilidades de
   // Tailwind y cambian), pero sí `aria-label="Reiniciar"` y un <span> con ese texto. Eso es lo que
-  // no cambia, así que se busca por ahí: primero por `aria-label`, y por el texto solo si el botón
-  // no tiene `aria-label` (para no pulsar el «Reiniciar» de un formulario cualquiera).
-  function esBotonReiniciar(b) {
+  // no cambia, así que se busca por ahí primero: manda el `aria-label`. El texto solo vale como
+  // último recurso y con la forma de su botón (con svg), para no pulsar el «Reiniciar» de un
+  // formulario cualquiera.
+  function ariaReiniciar(b) {
     if (!b || !b.getAttribute) return false;
-    var aria = (b.getAttribute("aria-label") || "") + " " + (b.getAttribute("title") || "");
-    aria = aria.replace(/\s+/g, " ").trim();
-    if (/^(reiniciar|restart)\b/i.test(aria)) return true;
-    if (aria) return false;
-    var txt = (b.textContent || "").replace(/\s+/g, " ").trim();
-    return /^(reiniciar|restart|nueva conversaci[oó]n|empezar de nuevo)\b/i.test(txt);
+    var pista = ((b.getAttribute("aria-label") || "") + " " + (b.getAttribute("title") || "")).replace(/\s+/g, " ").trim();
+    return /^(reiniciar|restart)\b/i.test(pista);
   }
+  function textoReiniciar(b) {
+    if (!b || !b.getAttribute) return false;
+    if ((b.getAttribute("aria-label") || "").trim()) return false;   // eso ya lo mira ariaReiniciar
+    var txt = (b.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+    if (!/^(reiniciar|restart|nueva conversaci[oó]n|empezar de nuevo)\b/.test(txt)) return false;
+    return !!b.querySelector("svg");   // la forma de su tarjeta de reiniciar
+  }
+  function esBotonReiniciar(b) { return ariaReiniciar(b) || textoReiniciar(b); }
   function seVe(n) {
     if (!n) return false;
     var r = n.getBoundingClientRect();
@@ -1474,16 +1479,17 @@
     var st = getComputedStyle(n);
     return st.visibility !== "hidden" && st.display !== "none" && st.opacity !== "0";
   }
-  // Los visibles primero: si su menú está abierto y hay dos, se pulsa el que se ve.
+  // Orden: los que llevan el aria-label (primero los visibles), y solo después los del texto.
   function botonesReiniciar() {
     var nodos = document.querySelectorAll("button, [role='button']");
-    var visibles = [], ocultos = [];
+    var grupos = { ariaSi: [], ariaNo: [], txtSi: [], txtNo: [] };
     Array.prototype.forEach.call(nodos, function (n) {
       if (n.closest && n.closest("#em-root")) return;
-      if (!esBotonReiniciar(n)) return;
-      (seVe(n) ? visibles : ocultos).push(n);
+      var via = ariaReiniciar(n) ? "aria" : (textoReiniciar(n) ? "txt" : "");
+      if (!via) return;
+      grupos[via + (seVe(n) ? "Si" : "No")].push(n);
     });
-    return visibles.concat(ocultos);
+    return grupos.ariaSi.concat(grupos.ariaNo, grupos.txtSi, grupos.txtNo);
   }
   function botonReiniciar() { return botonesReiniciar()[0] || null; }
   // Pulsa su botón de «Reiniciar». Si está escondido dentro de un menú suyo se pulsa igual (su
