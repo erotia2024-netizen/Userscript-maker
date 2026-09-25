@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.1.0
+// @version      0.1.1
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -219,7 +219,9 @@
       headers: { Accept: "application/json" }
     })
       .then(function (r) {
-        if (r.status === 401 || r.status === 403) return null;
+        // 401/403 = no hay sesión (o ha caducado). 404 = no estamos en emochi.com (el laboratorio):
+        // también es "sin sesión", solo que sin drama.
+        if (r.status === 401 || r.status === 403 || r.status === 404) return null;
         if (!r.ok) throw new Error("el sitio respondió " + r.status + " al pedir la sesión");
         return r.json().catch(function () { return null; });
       })
