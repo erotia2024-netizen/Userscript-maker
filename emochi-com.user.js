@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.11
+// @version      0.9.12
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1413,6 +1413,40 @@
     fab.setAttribute("aria-expanded", "false");
   }
 
+  // Dónde se planta el panel. **Fuera de <body>**, colgado de <html>: su web es una SPA de React
+  // que al terminar de arrancar reordena/repinta el cuerpo entero (y a veces lo deja con transform,
+  // que rompe `position: fixed`), y ahí dentro nuestro panel desaparecía en cuanto cargaba del todo.
+  // Colgado de <html> no lo toca nadie, y además, al ir **después** de <body> en el orden del
+  // documento, con el mismo z-index ganamos nosotros si su web monta algo a pantalla completa.
+  function hostNode() {
+    return document.documentElement || document.body;
+  }
+  // Los dos elementos van fijos y por encima de todo: se declara aquí con `!important` porque es
+  // justo lo que su web podría pisar con su propio CSS o con un portal suyo a pantalla completa.
+  function pinStyles() {
+    [fab, panel].forEach(function (n) {
+      if (!n) return;
+      n.style.setProperty("position", "fixed", "important");
+      n.style.setProperty("z-index", "2147483647", "important");
+    });
+  }
+  var lastHost = null;
+  function attach() {
+    var h = hostNode();
+    if (!h) return false;
+    if (root.parentNode !== h) h.appendChild(root);
+    if (lastHost !== h) {
+      lastHost = h;
+      pinStyles();
+    }
+    return true;
+  }
+  // Vigilante: si la web nos quita del documento (o cambia el <body> de sitio), se vuelve a plantar.
+  function keep() {
+    if (!root) return false;
+    return attach();
+  }
+
   function mount() {
     if (root) return;
     root = el("div", { id: "em-root" });
@@ -1445,7 +1479,7 @@
     root.appendChild(fab);
     root.appendChild(panel);
     EM.whenBody(function () {
-      document.body.appendChild(root);
+      attach();
       render();
     });
 
@@ -1458,6 +1492,7 @@
 
   EM.panel = {
     mount: mount,
+    keep: keep,
     open: openPanel,
     close: closePanel,
     toggle: function () { state.open ? closePanel() : openPanel(); },
@@ -1490,11 +1525,13 @@
     syncBot();
     if (EM.prefs.on) {
       EM.panel.mount();
+      siguirPlanta();
       // Una SPA cambia de pantalla sin avisar: se vigila la dirección (y el título, que es lo que
       // trae el nombre del personaje) para saber si hemos entrado o salido de un chat.
       var last = location.href;
       var lastTitle = document.title;
       setInterval(function () {
+        EM.panel.keep();
         if (location.href !== last) {
           last = location.href;
           syncBot();
@@ -1518,6 +1555,33 @@
     } else {
       EM.log("apagado por ajuste");
     }
+  }
+
+  // Su web (una SPA de React) al terminar de arrancar repinta el documento: mientras carga conviene
+  // mirar si nos ha quitado de en medio, y volver a plantar el panel si hace falta. Se vigilan los
+  // hijos de <html> (ahí vive el panel), que es barato: son poquísimos cambios. Y si su web se pone
+  // a pantalla completa, el panel se cuela dentro de lo que esté a pantalla completa para seguir viéndose.
+  function siguirPlanta() {
+    var mo = new MutationObserver(function () {
+      EM.panel.keep();
+    });
+    function mirar() {
+      try {
+        mo.observe(document.documentElement, { childList: true });
+      } catch (e) {}
+    }
+    if (document.documentElement) mirar();
+    else document.addEventListener("readystatechange", function h() {
+      if (!document.documentElement) return;
+      document.removeEventListener("readystatechange", h);
+      mirar();
+    });
+    document.addEventListener("fullscreenchange", function () {
+      var fe = document.fullscreenElement || document.webkitFullscreenElement;
+      var root = document.getElementById("em-root");
+      if (fe && root && root.parentNode !== fe) fe.appendChild(root);
+      else EM.panel.keep();
+    });
   }
 
   EM.whenBody(start);
