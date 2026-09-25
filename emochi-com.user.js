@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.6
+// @version      0.9.7
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -18,7 +18,7 @@
 
 (function () {
   "use strict";
-  var css = "/* =============================================================================================\n   emochi.com — el CSS del panel de roles (🎭). Todo vive bajo #em-root, así que no toca nada de la\n   web: ni sus clases, ni su Tailwind, ni su Chakra. El único cuidado es que su reset global\n   (`* { margin: 0; padding: 0; font: inherit }`) no se coma lo nuestro, así que aquí se declara\n   todo lo que hace falta, sin dar por hecho nada.\n   ============================================================================================= */\n#em-root {\n  --em-bg: #141416;\n  --em-bg2: #1d1d21;\n  --em-bg3: #26262c;\n  --em-line: #34343c;\n  --em-text: #f2f2f5;\n  --em-dim: #b8b8c4;\n  --em-accent: #f7c948;\n  --em-accent-ink: #241c03;\n  --em-bad: #ff6b6b;\n  --em-good: #5ad18a;\n  --em-radius: 14px;\n  color: var(--em-text);\n  font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif;\n  font-size: 14px;\n  line-height: 1.45;\n  text-align: left;\n  box-sizing: border-box;\n}\n#em-root *,\n#em-root *::before,\n#em-root *::after {\n  box-sizing: border-box;\n  font-family: inherit;\n}\n\n/* --- el botón flotante (abajo a la izquierda: abajo a la derecha está su asistente) --------- */\n#em-fab {\n  position: fixed;\n  left: 18px;\n  bottom: 18px;\n  z-index: 2147483000;\n  width: 52px;\n  height: 52px;\n  border: 1px solid var(--em-line);\n  border-radius: 50%;\n  background: var(--em-bg);\n  color: var(--em-text);\n  font-size: 24px;\n  line-height: 1;\n  cursor: pointer;\n  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);\n  transition: transform 0.15s ease, box-shadow 0.15s ease;\n}\n#em-fab:hover {\n  transform: translateY(-2px);\n  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);\n}\n#em-fab[aria-expanded=\"true\"] {\n  background: var(--em-accent);\n  color: var(--em-accent-ink);\n  border-color: var(--em-accent);\n}\n\n/* --- el panel ------------------------------------------------------------------------------- */\n#em-panel {\n  position: fixed;\n  left: 18px;\n  top: 18px;\n  bottom: 84px;\n  z-index: 2147483000;\n  width: 400px;\n  max-width: calc(100vw - 36px);\n  display: flex;\n  flex-direction: column;\n  background: var(--em-bg);\n  border: 1px solid var(--em-line);\n  border-radius: var(--em-radius);\n  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);\n  overflow: hidden;\n}\n#em-panel[hidden] {\n  display: none;\n}\n#em-fab,\n#em-panel,\n#em-panel * {\n  text-align: left;\n}\n#em-panel img {\n  max-width: 100%;\n}\n\n.em-head {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  padding: 12px 14px;\n  background: var(--em-bg2);\n  border-bottom: 1px solid var(--em-line);\n}\n.em-title {\n  font-size: 15px;\n  font-weight: 700;\n}\n.em-count {\n  font-size: 12px;\n  color: var(--em-dim);\n}\n.em-grow {\n  flex: 1 1 auto;\n}\n.em-icon {\n  background: transparent;\n  border: 0;\n  color: var(--em-dim);\n  font-size: 15px;\n  padding: 4px 6px;\n  border-radius: 8px;\n  cursor: pointer;\n}\n.em-icon:hover {\n  background: var(--em-bg3);\n  color: var(--em-text);\n}\n\n.em-body {\n  flex: 1 1 auto;\n  overflow-y: auto;\n  padding: 12px;\n  display: flex;\n  flex-direction: column;\n  gap: 10px;\n}\n.em-foot {\n  padding: 10px 12px;\n  border-top: 1px solid var(--em-line);\n  background: var(--em-bg2);\n  display: flex;\n  gap: 8px;\n}\n\n.em-msg {\n  margin: 10px 12px 0;\n  padding: 8px 10px;\n  border-radius: 10px;\n  background: rgba(90, 209, 138, 0.12);\n  border: 1px solid rgba(90, 209, 138, 0.35);\n  font-size: 13px;\n}\n.em-msg-bad {\n  background: rgba(255, 107, 107, 0.12);\n  border-color: rgba(255, 107, 107, 0.4);\n}\n\n.em-note {\n  background: var(--em-bg2);\n  border: 1px solid var(--em-line);\n  border-radius: 12px;\n  padding: 12px;\n  color: var(--em-dim);\n  font-size: 13px;\n  display: flex;\n  flex-direction: column;\n  gap: 10px;\n  align-items: flex-start;\n}\n.em-note-bad {\n  border-color: rgba(255, 107, 107, 0.4);\n  color: #ffd9d9;\n}\n.em-note-small {\n  padding: 8px 10px;\n  font-size: 12px;\n}\n\n/* --- el bot en el que estás ----------------------------------------------------------------- */\n.em-bot {\n  background: var(--em-bg2);\n  border: 1px solid var(--em-line);\n  border-radius: 12px;\n  padding: 10px 12px;\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n}\n.em-bot-title {\n  font-size: 13px;\n  color: var(--em-dim);\n}\n.em-bot-title b {\n  color: var(--em-text);\n}\n.em-bot-note {\n  font-size: 12px;\n  color: var(--em-dim);\n}\n\n/* --- las tarjetas de rol -------------------------------------------------------------------- */\n.em-card {\n  background: var(--em-bg2);\n  border: 1px solid var(--em-line);\n  border-radius: 12px;\n  padding: 10px 12px;\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n}\n.em-card-primary {\n  border-color: rgba(247, 201, 72, 0.55);\n  box-shadow: inset 3px 0 0 var(--em-accent);\n}\n.em-card-top {\n  display: flex;\n  gap: 10px;\n  align-items: center;\n}\n.em-avatar {\n  width: 42px;\n  height: 42px;\n  border-radius: 50%;\n  object-fit: cover;\n  flex: 0 0 auto;\n  background: var(--em-bg3);\n}\n.em-avatar-empty {\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-weight: 700;\n  color: var(--em-dim);\n}\n.em-card-head {\n  min-width: 0;\n}\n.em-name {\n  font-weight: 700;\n  font-size: 15px;\n}\n.em-meta {\n  font-size: 12px;\n  color: var(--em-dim);\n}\n.em-story {\n  font-size: 13px;\n  color: #e4e4ea;\n  margin: 0;\n  white-space: pre-wrap;\n}\n.em-chips {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px;\n}\n.em-chip {\n  font-size: 11px;\n  padding: 2px 8px;\n  border-radius: 999px;\n  background: #2f2f36;\n  color: #cfcfd8;\n  border: 1px solid #43434d;\n}\n\n/* --- botones e inputs ----------------------------------------------------------------------- */\n.em-acts {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px;\n}\n.em-acts-end {\n  justify-content: flex-end;\n  margin-top: 4px;\n}\n.em-btn {\n  font-size: 12.5px;\n  padding: 6px 10px;\n  border-radius: 9px;\n  border: 1px solid var(--em-line);\n  background: var(--em-bg3);\n  color: var(--em-text);\n  cursor: pointer;\n}\n.em-btn:hover {\n  border-color: #4a4a55;\n}\n.em-btn:disabled {\n  opacity: 0.55;\n  cursor: default;\n}\n.em-btn-main {\n  background: var(--em-accent);\n  border-color: var(--em-accent);\n  color: var(--em-accent-ink);\n  font-weight: 600;\n}\n.em-btn-bad {\n  color: #ffc9c9;\n  border-color: rgba(255, 107, 107, 0.35);\n}\n.em-btn-on {\n  background: rgba(90, 209, 138, 0.16);\n  border-color: rgba(90, 209, 138, 0.5);\n  color: #c9f5dc;\n}\n\n.em-form {\n  display: flex;\n  flex-direction: column;\n  gap: 10px;\n}\n.em-row {\n  display: flex;\n  gap: 10px;\n}\n.em-row > * {\n  flex: 1 1 0;\n  min-width: 0;\n}\n.em-field {\n  display: flex;\n  flex-direction: column;\n  gap: 4px;\n}\n.em-field-label {\n  font-size: 12px;\n  color: var(--em-dim);\n}\n.em-field small {\n  font-size: 11px;\n  color: var(--em-dim);\n}\n.em-input {\n  width: 100%;\n  background: var(--em-bg3);\n  color: var(--em-text);\n  border: 1px solid var(--em-line);\n  border-radius: 9px;\n  padding: 7px 9px;\n  font-size: 13px;\n  resize: vertical;\n}\n.em-input:focus {\n  outline: none;\n  border-color: var(--em-accent);\n}\n.em-input::placeholder {\n  color: #74747f;\n}\n\n.em-spin {\n  width: 12px;\n  height: 12px;\n  border-radius: 50%;\n  border: 2px solid var(--em-line);\n  border-top-color: var(--em-accent);\n  display: inline-block;\n  animation: em-spin 0.8s linear infinite;\n}\n@keyframes em-spin {\n  to {\n    transform: rotate(360deg);\n  }\n}\n\n@media (max-width: 520px) {\n  #em-panel {\n    left: 8px;\n    right: 8px;\n    width: auto;\n    max-width: none;\n    top: 8px;\n    bottom: 76px;\n  }\n  #em-fab {\n    left: 12px;\n    bottom: 12px;\n  }\n}\n";
+  var css = "/* =============================================================================================\n   emochi.com — el CSS del panel de roles (🎭). Todo vive bajo #em-root, así que no toca nada de la\n   web: ni sus clases, ni su Tailwind, ni su Chakra. El único cuidado es que su reset global\n   (`* { margin: 0; padding: 0; font: inherit }`) no se coma lo nuestro, así que aquí se declara\n   todo lo que hace falta, sin dar por hecho nada.\n   ============================================================================================= */\n#em-root {\n  --em-bg: #141416;\n  --em-bg2: #1d1d21;\n  --em-bg3: #26262c;\n  --em-line: #34343c;\n  --em-text: #f2f2f5;\n  --em-dim: #b8b8c4;\n  --em-accent: #f7c948;\n  --em-accent-ink: #241c03;\n  --em-bad: #ff6b6b;\n  --em-good: #5ad18a;\n  --em-radius: 14px;\n  color: var(--em-text);\n  font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif;\n  font-size: 14px;\n  line-height: 1.45;\n  text-align: left;\n  box-sizing: border-box;\n}\n#em-root *,\n#em-root *::before,\n#em-root *::after {\n  box-sizing: border-box;\n  font-family: inherit;\n}\n\n/* --- el botón flotante (abajo a la izquierda: abajo a la derecha está su asistente) --------- */\n#em-fab {\n  position: fixed;\n  left: 18px;\n  bottom: 18px;\n  z-index: 2147483000;\n  width: 52px;\n  height: 52px;\n  border: 1px solid var(--em-line);\n  border-radius: 50%;\n  background: var(--em-bg);\n  color: var(--em-text);\n  font-size: 24px;\n  line-height: 1;\n  cursor: pointer;\n  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);\n  transition: transform 0.15s ease, box-shadow 0.15s ease;\n}\n#em-fab:hover {\n  transform: translateY(-2px);\n  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);\n}\n#em-fab[aria-expanded=\"true\"] {\n  background: var(--em-accent);\n  color: var(--em-accent-ink);\n  border-color: var(--em-accent);\n}\n\n/* --- el panel ------------------------------------------------------------------------------- */\n#em-panel {\n  position: fixed;\n  left: 18px;\n  top: 18px;\n  bottom: 84px;\n  z-index: 2147483000;\n  width: 400px;\n  max-width: calc(100vw - 36px);\n  display: flex;\n  flex-direction: column;\n  background: var(--em-bg);\n  border: 1px solid var(--em-line);\n  border-radius: var(--em-radius);\n  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);\n  overflow: hidden;\n}\n#em-panel[hidden] {\n  display: none;\n}\n#em-fab,\n#em-panel,\n#em-panel * {\n  text-align: left;\n}\n#em-panel img {\n  max-width: 100%;\n}\n\n.em-head {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  padding: 12px 14px;\n  background: var(--em-bg2);\n  border-bottom: 1px solid var(--em-line);\n}\n.em-title {\n  font-size: 15px;\n  font-weight: 700;\n}\n.em-count {\n  font-size: 12px;\n  color: var(--em-dim);\n}\n.em-grow {\n  flex: 1 1 auto;\n}\n.em-icon {\n  background: transparent;\n  border: 0;\n  color: var(--em-dim);\n  font-size: 15px;\n  padding: 4px 6px;\n  border-radius: 8px;\n  cursor: pointer;\n}\n.em-icon:hover {\n  background: var(--em-bg3);\n  color: var(--em-text);\n}\n\n.em-body {\n  flex: 1 1 auto;\n  overflow-y: auto;\n  padding: 12px;\n  display: flex;\n  flex-direction: column;\n  gap: 10px;\n}\n.em-foot {\n  padding: 10px 12px;\n  border-top: 1px solid var(--em-line);\n  background: var(--em-bg2);\n  display: flex;\n  gap: 8px;\n}\n\n.em-msg {\n  margin: 10px 12px 0;\n  padding: 8px 10px;\n  border-radius: 10px;\n  background: rgba(90, 209, 138, 0.12);\n  border: 1px solid rgba(90, 209, 138, 0.35);\n  font-size: 13px;\n}\n.em-msg-bad {\n  background: rgba(255, 107, 107, 0.12);\n  border-color: rgba(255, 107, 107, 0.4);\n}\n\n.em-note {\n  background: var(--em-bg2);\n  border: 1px solid var(--em-line);\n  border-radius: 12px;\n  padding: 12px;\n  color: var(--em-dim);\n  font-size: 13px;\n  display: flex;\n  flex-direction: column;\n  gap: 10px;\n  align-items: flex-start;\n}\n.em-note-bad {\n  border-color: rgba(255, 107, 107, 0.4);\n  color: #ffd9d9;\n}\n.em-note-small {\n  padding: 8px 10px;\n  font-size: 12px;\n}\n\n/* --- el bot en el que estás ----------------------------------------------------------------- */\n.em-bot {\n  background: var(--em-bg2);\n  border: 1px solid var(--em-line);\n  border-radius: 12px;\n  padding: 10px 12px;\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n}\n.em-bot-title {\n  font-size: 13px;\n  color: var(--em-dim);\n}\n.em-bot-title b {\n  color: var(--em-text);\n}\n.em-bot-note {\n  font-size: 12px;\n  color: var(--em-dim);\n}\n\n/* --- las tarjetas de rol -------------------------------------------------------------------- */\n.em-card {\n  background: var(--em-bg2);\n  border: 1px solid var(--em-line);\n  border-radius: 12px;\n  padding: 10px 12px;\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n}\n.em-card-primary {\n  border-color: rgba(247, 201, 72, 0.55);\n  box-shadow: inset 3px 0 0 var(--em-accent);\n}\n.em-card-top {\n  display: flex;\n  gap: 10px;\n  align-items: center;\n}\n.em-avatar {\n  width: 42px;\n  height: 42px;\n  border-radius: 50%;\n  object-fit: cover;\n  flex: 0 0 auto;\n  background: var(--em-bg3);\n}\n.em-avatar-empty {\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  font-weight: 700;\n  color: var(--em-dim);\n}\n.em-card-head {\n  min-width: 0;\n}\n.em-name {\n  font-weight: 700;\n  font-size: 15px;\n}\n.em-meta {\n  font-size: 12px;\n  color: var(--em-dim);\n}\n.em-story {\n  font-size: 13px;\n  color: #e4e4ea;\n  margin: 0;\n  white-space: pre-wrap;\n}\n.em-chips {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px;\n}\n.em-chip {\n  font-size: 11px;\n  padding: 2px 8px;\n  border-radius: 999px;\n  background: #2f2f36;\n  color: #cfcfd8;\n  border: 1px solid #43434d;\n}\n\n/* --- botones e inputs ----------------------------------------------------------------------- */\n.em-acts {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 6px;\n}\n.em-acts-end {\n  justify-content: flex-end;\n  margin-top: 4px;\n}\n.em-btn {\n  font-size: 12.5px;\n  padding: 6px 10px;\n  border-radius: 9px;\n  border: 1px solid var(--em-line);\n  background: var(--em-bg3);\n  color: var(--em-text);\n  cursor: pointer;\n}\n.em-btn:hover {\n  border-color: #4a4a55;\n}\n.em-btn:disabled {\n  opacity: 0.55;\n  cursor: default;\n}\n.em-btn-main {\n  background: var(--em-accent);\n  border-color: var(--em-accent);\n  color: var(--em-accent-ink);\n  font-weight: 600;\n}\n.em-btn-bad {\n  color: #ffc9c9;\n  border-color: rgba(255, 107, 107, 0.35);\n}\n.em-btn-on {\n  background: rgba(90, 209, 138, 0.16);\n  border-color: rgba(90, 209, 138, 0.5);\n  color: #c9f5dc;\n}\n\n.em-form {\n  display: flex;\n  flex-direction: column;\n  gap: 10px;\n}\n.em-row {\n  display: flex;\n  gap: 10px;\n}\n.em-row > * {\n  flex: 1 1 0;\n  min-width: 0;\n}\n.em-field {\n  display: flex;\n  flex-direction: column;\n  gap: 4px;\n}\n.em-field-label {\n  font-size: 12px;\n  color: var(--em-dim);\n}\n.em-field small {\n  font-size: 11px;\n  color: var(--em-dim);\n}\n.em-input {\n  width: 100%;\n  background: var(--em-bg3);\n  color: var(--em-text);\n  border: 1px solid var(--em-line);\n  border-radius: 9px;\n  padding: 7px 9px;\n  font-size: 13px;\n  resize: vertical;\n}\n.em-input:focus {\n  outline: none;\n  border-color: var(--em-accent);\n}\n.em-input::placeholder {\n  color: #74747f;\n}\n\n/* --- el formulario del rol (igual que su editor: contadores, géneros, etiquetas) ------------- */\n.em-req {\n  color: #ff8f6b;\n  font-style: normal;\n  margin-left: 3px;\n}\n.em-counted {\n  display: flex;\n  align-items: flex-start;\n  gap: 6px;\n}\n.em-counted > .em-input {\n  flex: 1 1 auto;\n  min-width: 0;\n}\n.em-count-num {\n  font-size: 11px;\n  color: var(--em-dim);\n  padding-top: 8px;\n  font-variant-numeric: tabular-nums;\n  white-space: nowrap;\n}\n.em-count-on {\n  color: var(--em-accent);\n}\n.em-hint {\n  font-size: 11.5px;\n  color: #8f8f9c;\n}\n.em-tip {\n  font-size: 11.5px;\n  color: #8f8f9c;\n  border-top: 1px dashed var(--em-line);\n  padding-top: 8px;\n}\n.em-radios {\n  display: flex;\n  gap: 6px;\n  flex-wrap: wrap;\n}\n.em-radio {\n  display: inline-flex;\n  align-items: center;\n  gap: 6px;\n  font-size: 12.5px;\n  padding: 6px 12px 6px 6px;\n  border-radius: 999px;\n  border: 1px solid var(--em-line);\n  background: var(--em-bg3);\n  color: var(--em-text);\n  cursor: pointer;\n}\n.em-radio:hover {\n  border-color: #4a4a55;\n}\n.em-radio-dot {\n  width: 18px;\n  height: 18px;\n  border-radius: 50%;\n  border: 1px solid var(--em-line);\n  background: var(--em-bg);\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  font-size: 11px;\n  font-style: normal;\n  color: var(--em-accent-ink);\n}\n.em-radio-on {\n  border-color: var(--em-accent);\n  background: rgba(247, 201, 72, 0.12);\n}\n.em-radio-on .em-radio-dot {\n  background: var(--em-accent);\n  border-color: var(--em-accent);\n}\n.em-avatar-wrap {\n  display: flex;\n  gap: 10px;\n  align-items: flex-start;\n}\n.em-avatar-big {\n  width: 72px;\n  height: 72px;\n  border-radius: 12px;\n  object-fit: cover;\n  flex: 0 0 auto;\n  background: var(--em-bg3);\n  font-size: 26px;\n}\n.em-avatar-fields {\n  flex: 1 1 auto;\n  min-width: 0;\n  display: flex;\n  flex-direction: column;\n  gap: 6px;\n  align-items: flex-start;\n}\n.em-btn-mini {\n  font-size: 11.5px;\n  padding: 4px 8px;\n}\n.em-chip-del {\n  background: transparent;\n  border: 0;\n  color: inherit;\n  font: inherit;\n  cursor: pointer;\n  padding: 0 0 0 6px;\n  opacity: 0.75;\n}\n.em-chip-del:hover {\n  opacity: 1;\n}\n\n/* --- el selector de etiquetas --------------------------------------------------------------- */\n.em-picker {\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n}\n.em-tag-list {\n  display: flex;\n  flex-direction: column;\n  gap: 8px;\n}\n.em-tag-group {\n  font-size: 12px;\n  color: var(--em-accent);\n  margin-top: 2px;\n}\n.em-tag-grid {\n  display: grid;\n  grid-template-columns: repeat(3, minmax(0, 1fr));\n  gap: 6px;\n}\n.em-tag {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  gap: 4px;\n  font-size: 11.5px;\n  padding: 6px 8px;\n  border-radius: 9px;\n  border: 1px solid var(--em-line);\n  background: var(--em-bg3);\n  color: var(--em-text);\n  cursor: pointer;\n  text-align: left;\n  min-width: 0;\n}\n.em-tag span {\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;\n}\n.em-tag:hover {\n  border-color: #4a4a55;\n}\n.em-tag-mark {\n  font-style: normal;\n  color: var(--em-dim);\n  flex: 0 0 auto;\n}\n.em-tag-on {\n  background: rgba(247, 201, 72, 0.16);\n  border-color: var(--em-accent);\n  color: #fff;\n}\n.em-tag-on .em-tag-mark {\n  color: var(--em-accent);\n}\n.em-tag-full {\n  border-color: var(--em-bad);\n  color: #ffd9d9;\n}\n\n.em-spin {\n  width: 12px;\n  height: 12px;\n  border-radius: 50%;\n  border: 2px solid var(--em-line);\n  border-top-color: var(--em-accent);\n  display: inline-block;\n  animation: em-spin 0.8s linear infinite;\n}\n@keyframes em-spin {\n  to {\n    transform: rotate(360deg);\n  }\n}\n\n@media (max-width: 520px) {\n  #em-panel {\n    left: 8px;\n    right: 8px;\n    width: auto;\n    max-width: none;\n    top: 8px;\n    bottom: 76px;\n  }\n  #em-fab {\n    left: 12px;\n    bottom: 12px;\n  }\n}\n";
   if (!css) return;
   var style = document.createElement("style");
   style.id = "r34g-styles";
@@ -904,8 +904,24 @@
   }
   function save() {
     var d = state.draft;
-    if (!d.name.trim()) {
-      say("El rol necesita un nombre.", true);
+    // Se corta a los topes de su formulario y se exige lo que su web exige (nombre, género y
+    // descripción): así lo que se manda pasa su validación a la primera.
+    d.name = String(d.name || "").trim().slice(0, LIMITS.name);
+    d.backgroundStory = String(d.backgroundStory || "").trim().slice(0, LIMITS.backgroundStory);
+    d.appearance = String(d.appearance || "").slice(0, LIMITS.appearance);
+    d.likes = String(d.likes || "").slice(0, LIMITS.likes);
+    d.dislikes = String(d.dislikes || "").slice(0, LIMITS.dislikes);
+    d.label = (d.label || []).slice(0, EM.tags.now().max || 5);
+    if (!d.name) {
+      say("Ponle un nombre: en su editor es obligatorio.", true);
+      return;
+    }
+    if (!d.gender) {
+      say("Elige el género: en su editor es obligatorio.", true);
+      return;
+    }
+    if (!d.backgroundStory) {
+      say("Escribe la descripción de la persona: en su editor es obligatoria.", true);
       return;
     }
     var body = EM.personaBody(d, {
@@ -975,6 +991,10 @@
   }
 
   // --- vistas ---------------------------------------------------------------------------------
+  // El nombre de una etiqueta tal como lo enseña su web (la API guarda el inglés)
+  function tagLabel(name) {
+    return EM.tags.labelOf(name);
+  }
   function personaOf(id) {
     return (state.list || []).filter(function (p) { return String(p.personaId) === String(id); })[0] || null;
   }
@@ -989,20 +1009,256 @@
     return p.personaEnabled === true || p.personaEnabled === "true";
   }
 
-  function field(label, node, hint) {
-    return el("label", { class: "em-field" }, [el("span", { class: "em-field-label", text: label }), node, hint ? el("small", { text: hint }) : null]);
+  // --- el formulario, calcado del suyo ---------------------------------------------------------
+  // Su editor ("Editar personalidad") tiene estos campos, estos topes y estos contadores: nombre 40,
+  // género en tres botones, la descripción de la persona 3000, edad, apariencia / gustos / disgustos
+  // 100 y etiquetas (cinco). Aquí se replica tal cual para que no haya que aprenderse dos sitios.
+  function labelSpan(text, required) {
+    var s = el("span", { class: "em-field-label" });
+    s.appendChild(el("span", { text: text }));
+    if (required) s.appendChild(el("i", { class: "em-req", text: "*", title: "Obligatorio" }));
+    return s;
   }
-  function input(key, opts) {
-    opts = opts || {};
+  function fieldBox(labelNode, node, hint) {
+    return el("div", { class: "em-field" }, [labelNode, node, hint ? el("small", { text: hint }) : null]);
+  }
+  // Un campo con su contador, como los suyos: al llegar al tope ya no deja escribir más.
+  function counted(opts) {
+    var key = opts.key;
+    var max = opts.max;
     var node = opts.multiline
-      ? el("textarea", { rows: opts.rows || 3, class: "em-input", placeholder: opts.placeholder || "" })
-      : el("input", { class: "em-input", type: opts.type || "text", placeholder: opts.placeholder || "" });
-    node.value = state.draft[key] == null ? "" : state.draft[key];
-    node.addEventListener("input", function () {
+      ? el("textarea", { class: "em-input", rows: opts.rows || 3 })
+      : el("input", { class: "em-input", type: opts.type || "text" });
+    node.placeholder = opts.placeholder || "";
+    node.value = state.draft[key] == null ? "" : String(state.draft[key]);
+    var num = el("span", { class: "em-count-num" });
+    function sync() {
+      if (max && node.value.length > max) node.value = node.value.slice(0, max);
       state.draft[key] = node.value;
+      num.textContent = node.value.length + (max ? "/" + max : "");
+      num.className = "em-count-num" + (max && node.value.length >= max ? " em-count-on" : "");
+      saveDraft();
+    }
+    node.addEventListener("input", sync);
+    sync();
+    return fieldBox(labelSpan(opts.label, opts.required), el("div", { class: "em-counted" }, [node, num]), opts.hint);
+  }
+  function numberField() {
+    var d = state.draft;
+    var node = el("input", { class: "em-input", type: "number", min: "1", max: "200" });
+    node.placeholder = "Ej. 27";
+    node.value = d.age == null || d.age === "" ? "" : String(d.age);
+    node.addEventListener("input", function () {
+      var n = parseInt(node.value, 10);
+      d.age = isNaN(n) ? null : n;
       saveDraft();
     });
-    return node;
+    return fieldBox(labelSpan("Edad", false), node, "Solo el número: la IA lo usa para tratarte como toca.");
+  }
+  function genderField() {
+    var d = state.draft;
+    var box = el("div", { class: "em-radios" });
+    GENDERS.forEach(function (g) {
+      var on = (d.gender || "") === g[0];
+      var b = el("button", { class: "em-radio" + (on ? " em-radio-on" : ""), type: "button" }, [
+        el("i", { class: "em-radio-dot", text: on ? "✓" : "" }),
+        el("span", { text: g[1] })
+      ]);
+      b.addEventListener("click", function () {
+        d.gender = g[0];
+        saveDraft();
+        render();
+      });
+      box.appendChild(b);
+    });
+    return fieldBox(labelSpan("Género", true), box);
+  }
+  function avatarBox() {
+    var d = state.draft;
+    var wrap = el("div", { class: "em-avatar-wrap" });
+    var img = d.imageURL
+      ? el("img", { class: "em-avatar-big", alt: "", src: d.imageURL })
+      : el("span", { class: "em-avatar-big em-avatar-empty", text: (d.name || "?").trim().charAt(0).toUpperCase() || "?" });
+    wrap.appendChild(img);
+    var right = el("div", { class: "em-avatar-fields" });
+    var node = el("input", { class: "em-input", type: "url", placeholder: "Pega la dirección de una imagen" });
+    node.value = d.imageURL || "";
+    node.addEventListener("input", function () {
+      d.imageURL = node.value.trim();
+      saveDraft();
+      if (img.tagName === "IMG") img.src = d.imageURL;
+    });
+    node.addEventListener("change", render);
+    right.appendChild(node);
+    right.appendChild(el("div", { class: "em-hint", text: "Su web la sube y la recorta; aquí vale con pegar la dirección." }));
+    if (d.imageURL) {
+      right.appendChild(el("button", { class: "em-btn em-btn-mini", type: "button", text: "Quitar foto", onclick: function () { d.imageURL = ""; saveDraft(); render(); } }));
+    }
+    wrap.appendChild(right);
+    return fieldBox(labelSpan("Foto", false), wrap);
+  }
+  function chipsOf(names, removable) {
+    var box = el("div", { class: "em-chips" });
+    (names || []).forEach(function (name) {
+      var chip = el("span", { class: "em-chip", title: name }, [el("span", { text: tagLabel(name) })]);
+      if (removable) {
+        chip.appendChild(el("button", {
+          class: "em-chip-del", type: "button", title: "Quitar", text: "✕",
+          onclick: function () {
+            state.draft.label = state.draft.label.filter(function (n) { return n !== name; });
+            saveDraft();
+            render();
+          }
+        }));
+      }
+      box.appendChild(chip);
+    });
+    return box;
+  }
+  function tagsField() {
+    var d = state.draft;
+    var max = EM.tags.now().max || 5;
+    var head = labelSpan("Etiquetas", false);
+    head.appendChild(el("span", { class: "em-count-num", text: " " + d.label.length + "/" + max }));
+    var box = el("div", { class: "em-field" }, [head]);
+    box.appendChild(d.label.length ? chipsOf(d.label, true) : el("div", { class: "em-hint", text: "Ninguna todavía." }));
+    box.appendChild(el("button", { class: "em-btn", type: "button", text: "Elegir etiquetas ›", onclick: openTags }));
+    return box;
+  }
+  function renderForm() {
+    var d = state.draft;
+    var out = el("div", { class: "em-form" });
+
+    out.appendChild(avatarBox());
+    out.appendChild(counted({ key: "name", label: "Nombre", required: true, max: LIMITS.name, placeholder: "Como quieres que te llamen" }));
+    out.appendChild(genderField());
+    out.appendChild(counted({
+      key: "backgroundStory", label: "Descripción de la persona", required: true, max: LIMITS.backgroundStory,
+      multiline: true, rows: 8, placeholder: "Quién eres, de dónde vienes, qué te trajo hasta aquí…",
+      hint: "Es lo que la IA lee para recordarte: cuanto más concreto, mejor te trata."
+    }));
+    out.appendChild(numberField());
+    out.appendChild(counted({ key: "appearance", label: "Apariencia", max: LIMITS.appearance, multiline: true, rows: 2, placeholder: "Cómo te ve el bot cuando te describe" }));
+    out.appendChild(counted({ key: "likes", label: "Me gusta", max: LIMITS.likes, multiline: true, rows: 2, placeholder: "Cosas que te gustan" }));
+    out.appendChild(counted({ key: "dislikes", label: "Disgustos", max: LIMITS.dislikes, multiline: true, rows: 2, placeholder: "Cosas que no soportas" }));
+    out.appendChild(tagsField());
+    out.appendChild(el("small", { class: "em-tip", text: "Los campos con * son obligatorios en su web: sin ellos no deja guardar." }));
+
+    var acts = el("div", { class: "em-acts em-acts-end" });
+    if (EM.prefs.ideas) acts.appendChild(el("button", { class: "em-btn", text: "🎲 Ideas", title: "Rellena los huecos con una sugerencia", onclick: fillIdeas }));
+    acts.appendChild(el("button", { class: "em-btn", text: "Reiniciar", title: "Vaciar el formulario", onclick: resetForm }));
+    acts.appendChild(el("button", { class: "em-btn", text: "Cancelar", onclick: function () { state.view = "list"; render(); } }));
+    acts.appendChild(el("button", { class: "em-btn em-btn-main", text: state.isNew ? "Crear rol" : "Guardar", disabled: state.busy, onclick: save }));
+    out.appendChild(acts);
+    return out;
+  }
+
+  // --- el selector de etiquetas (como su ventana: las 68, agrupadas, y cinco como mucho) --------
+  function openTags() {
+    state.tagDraft = (state.draft.label || []).slice();
+    state.tagQuery = "";
+    state.view = "tags";
+    render();
+    EM.tags.load().then(function () {
+      if (state.view === "tags") render();
+    }).catch(function () {});
+  }
+  function renderTags() {
+    var t = EM.tags.now();
+    var max = t.max || 5;
+    var chosen = state.tagDraft || (state.tagDraft = []);
+    var out = el("div", { class: "em-picker" });
+
+    var search = el("input", { class: "em-input", type: "search", placeholder: "Buscar etiqueta…" });
+    search.value = state.tagQuery || "";
+    out.appendChild(search);
+    out.appendChild(el("div", { class: "em-hint", text: "Las suyas, con el nombre que usa su web. Se pueden marcar " + max + "." }));
+
+    var list = el("div", { class: "em-tag-list" });
+    var groups = [];
+    Object.keys(t.groups).forEach(function (g) {
+      var items = t.labels.filter(function (l) { return l.group === g; });
+      if (!items.length) return;
+      var head = el("div", { class: "em-tag-group", text: t.groups[g] });
+      var grid = el("div", { class: "em-tag-grid" });
+      var rows = [];
+      items.forEach(function (l) {
+        var on = chosen.indexOf(l.name) >= 0;
+        var b = el("button", { class: "em-tag" + (on ? " em-tag-on" : ""), type: "button", "data-em-tag": l.name }, [
+          el("span", { text: l.label }),
+          el("i", { class: "em-tag-mark", text: on ? "✕" : "+" })
+        ]);
+        b.addEventListener("click", function () {
+          var i = chosen.indexOf(l.name);
+          if (i >= 0) chosen.splice(i, 1);
+          else if (chosen.length >= max) { blink(b); return; }
+          else chosen.push(l.name);
+          paint(b, chosen.indexOf(l.name) >= 0);
+          paintCount();
+        });
+        rows.push({ node: b, hay: (l.label + " " + l.name).toLowerCase() });
+        grid.appendChild(b);
+      });
+      list.appendChild(head);
+      list.appendChild(grid);
+      groups.push({ head: head, rows: rows });
+    });
+    out.appendChild(list);
+
+    var confirm = el("button", { class: "em-btn em-btn-main", type: "button" });
+    function paintCount() {
+      confirm.textContent = "Confirmar (" + chosen.length + "/" + max + ")";
+      confirm.disabled = chosen.length === 0;
+    }
+    function paint(b, on) {
+      b.className = "em-tag" + (on ? " em-tag-on" : "");
+      if (b.lastChild) b.lastChild.textContent = on ? "✕" : "+";
+    }
+    function blink(b) {
+      b.className = "em-tag em-tag-full";
+      setTimeout(function () { b.className = "em-tag" + (chosen.indexOf(b.dataset.emTag) >= 0 ? " em-tag-on" : ""); }, 400);
+    }
+    function applyFilter() {
+      var q = (search.value || "").trim().toLowerCase();
+      state.tagQuery = search.value;
+      groups.forEach(function (g) {
+        var any = false;
+        g.rows.forEach(function (r) {
+          var hit = !q || r.hay.indexOf(q) >= 0;
+          r.node.hidden = !hit;
+          if (hit) any = true;
+        });
+        g.head.hidden = !any;
+      });
+    }
+    search.addEventListener("input", applyFilter);
+    confirm.addEventListener("click", function () {
+      state.draft.label = chosen.slice(0, max);
+      saveDraft();
+      state.view = "form";
+      render();
+    });
+    out.appendChild(el("div", { class: "em-acts em-acts-end" }, [
+      el("button", { class: "em-btn", type: "button", text: "Cancelar", onclick: function () { state.view = "form"; render(); } }),
+      confirm
+    ]));
+    paintCount();
+    applyFilter();
+    return out;
+  }
+  function resetForm() {
+    if (!window.confirm("¿Vaciar el formulario? Se pierde lo que no hayas guardado.")) return;
+    dropDraft(state.draft.personaId);
+    if (state.isNew) {
+      newPersona();
+      return;
+    }
+    var p = personaOf(state.draft.personaId);
+    if (p) editPersona(p);
+    else {
+      state.view = "list";
+      render();
+    }
   }
 
   function renderList() {
@@ -1079,7 +1335,7 @@
       var labels = Array.isArray(p.label) ? p.label : Array.isArray(p.labels) ? p.labels : [];
       if (labels.length) {
         var chips = el("div", { class: "em-chips" });
-        labels.slice(0, 8).forEach(function (t) { chips.appendChild(el("span", { class: "em-chip", text: t })); });
+        labels.slice(0, 8).forEach(function (t) { chips.appendChild(el("span", { class: "em-chip", title: t, text: tagLabel(t) })); });
         card.appendChild(chips);
       }
       var acts = el("div", { class: "em-acts" });
@@ -1093,47 +1349,6 @@
       card.appendChild(acts);
       out.appendChild(card);
     });
-    return out;
-  }
-
-  function renderForm() {
-    var d = state.draft;
-    var out = el("div", { class: "em-form" });
-    out.appendChild(field("Nombre", input("name", { placeholder: "Como quieres que te llamen" })));
-
-    var row = el("div", { class: "em-row" });
-    var gsel = el("select", { class: "em-input" });
-    GENDERS.forEach(function (g) { gsel.appendChild(el("option", { value: g[0], text: g[1] })); });
-    gsel.value = d.gender || "";
-    gsel.addEventListener("change", function () { d.gender = gsel.value; saveDraft(); });
-    row.appendChild(field("Género", gsel));
-    var age = input("age", { type: "number", placeholder: "Ej. 27" });
-    age.addEventListener("input", function () {
-      var n = parseInt(age.value, 10);
-      d.age = isNaN(n) ? null : n;
-      saveDraft();
-    });
-    row.appendChild(field("Edad", age));
-    out.appendChild(row);
-
-    out.appendChild(field("Historia", input("backgroundStory", { multiline: true, rows: 5, placeholder: "Quién eres, de dónde vienes, qué te trajo aquí…" }), "Es lo que más pesa en cómo te trata el bot."));
-    out.appendChild(field("Apariencia", input("appearance", { multiline: true, rows: 3, placeholder: "Cómo te ve el bot cuando te describe" })));
-    out.appendChild(field("Gustos", input("likes", { multiline: true, rows: 2, placeholder: "Cosas que te gustan" })));
-    out.appendChild(field("Disgustos", input("dislikes", { multiline: true, rows: 2, placeholder: "Cosas que no soportas" })));
-
-    var lab = el("input", { class: "em-input", placeholder: "etiquetas separadas por comas" });
-    lab.value = (d.label || []).join(", ");
-    lab.addEventListener("input", function () {
-      d.label = lab.value.split(",").map(function (s) { return s.trim(); }).filter(Boolean).slice(0, 12);
-      saveDraft();
-    });
-    out.appendChild(field("Etiquetas", lab));
-
-    var acts = el("div", { class: "em-acts em-acts-end" });
-    if (EM.prefs.ideas) acts.appendChild(el("button", { class: "em-btn", text: "🎲 Ideas", title: "Rellena los huecos con una sugerencia", onclick: fillIdeas }));
-    acts.appendChild(el("button", { class: "em-btn", text: "Cancelar", onclick: function () { state.view = "list"; render(); } }));
-    acts.appendChild(el("button", { class: "em-btn em-btn-main", text: state.isNew ? "Crear rol" : "Guardar", disabled: state.busy, onclick: save }));
-    out.appendChild(acts);
     return out;
   }
 
@@ -1167,13 +1382,15 @@
 
   function render() {
     if (!panel) return;
-    titleEl.textContent = state.view === "form" ? (state.isNew ? "Nuevo rol" : "Editar rol") : "Mis roles";
+    titleEl.textContent =
+      state.view === "tags" ? "Etiquetas" :
+      state.view === "form" ? (state.isNew ? "Nuevo rol" : "Editar rol") : "Mis roles";
     statusEl.textContent = state.busy ? "…" : state.list ? state.list.length + "" : "";
     msgEl.hidden = !state.msg;
     msgEl.textContent = state.msg ? state.msg.text : "";
     msgEl.className = "em-msg" + (state.msg && state.msg.bad ? " em-msg-bad" : "");
     EM.clear(bodyEl);
-    bodyEl.appendChild(state.view === "form" ? renderForm() : renderList());
+    bodyEl.appendChild(state.view === "tags" ? renderTags() : state.view === "form" ? renderForm() : renderList());
     bodyEl.scrollTop = 0;
   }
 
