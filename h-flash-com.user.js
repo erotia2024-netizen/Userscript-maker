@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         h-flash.com
-// @version      0.1.305
+// @version      0.1.306
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -92,7 +92,10 @@
     keys: true,
     // idioma de la web: "auto" (el suyo: inglés, o japonés en `ja.h-flash.com`) o "es" (español,
     // traducido encima de la página — lo pone `lang.js`)
-    lang: "auto"
+    lang: "auto",
+    // en la web japonesa, poner los títulos de los juegos como los tiene su versión inglesa (el
+    // nombre en inglés va escondido en el `alt` de cada miniatura; lo pone `lang.js`)
+    jaTitles: true
   };
 
   var settings = {};
@@ -117,6 +120,7 @@
     if (typeof settings.shield !== "boolean") settings.shield = DEFAULTS.shield;
     if (typeof settings.crownTags !== "boolean") settings.crownTags = DEFAULTS.crownTags;
     if (typeof settings.crownFavs !== "boolean") settings.crownFavs = DEFAULTS.crownFavs;
+    if (typeof settings.jaTitles !== "boolean") settings.jaTitles = DEFAULTS.jaTitles;
     if (["auto", "es"].indexOf(settings.lang) < 0) settings.lang = DEFAULTS.lang;
   }
 
@@ -1624,31 +1628,74 @@
 })();
 
 // ---------------------------------------------------------------------------------------------
-// h-flash.com — EL IDIOMA. La web es inglesa y tiene su versión japonesa en otro dominio
-// (`ja.h-flash.com`); el bloque «LANGUAGE» del pie son dos enlaces y ahí se acaba el asunto. Aquí ese
-// bloque pasa a ser un **desplegable** con los dos idiomas de la web y **español**, que el sitio no
-// tiene: el español lo pone este módulo traduciendo la **interfaz** encima de la página (menú de la
-// cabecera, títulos de sección, botones, la ficha del juego, los comentarios, el pie, los avisos…).
+// h-flash.com — EL IDIOMA. La web está en dos dominios y en dos idiomas: la inglesa (`h-flash.com`)
+// y la japonesa (`ja.h-flash.com`), que no es una traducción de la inglesa sino la misma web con
+// otra interfaz (mismo HTML, mismos `tid`, mismas direcciones `/tag/<x>/`, pero todo su texto en
+// japonés). El bloque «LANGUAGE» del pie son dos enlaces y ahí se acaba el asunto: aquí ese bloque
+// pasa a ser un **desplegable** con los idiomas de la web y **español**, que el sitio no tiene.
 //
-// Sólo se traduce lo que está en el diccionario, palabra por palabra: el contenido de la web (los
-// títulos de los juegos, las etiquetas, los nombres de los autores, las descripciones) es material
-// y se queda como está — traducir eso sería inventarse lo que la web no ha dicho.
+// El español lo pone este módulo traduciendo la **interfaz** encima de la página (menú de la
+// cabecera, títulos de sección, botones, la ficha del juego, los comentarios, el pie, los avisos…),
+// y para eso hay un diccionario por idioma: `DICT` para las páginas inglesas y `DICT_JA` para las
+// japonesas (más `PATTERNS_JA` y `ATTRS_JA` para lo que la web escribe con números por medio y para
+// sus atributos). De la web japonesa se traduce además lo que la web tiene también en latín:
+//
+//   · las **etiquetas de su taxonomía** (simulación, vestir, rayos X…), que son suyas igual que el
+//     menú y se ven por todas partes — van en `DICT_JA` como una palabra más;
+//   · los **títulos de los juegos**, que la web japonesa traduce pero deja al lado en inglés dentro
+//     del `alt` de cada miniatura: se pone el suyo, el de la versión inglesa (ver `titles()`, y se
+//     puede apagar con `hf.settings.jaTitles`).
+//
+// Nada de eso se inventa: se traduce lo que está en el diccionario palabra por palabra, y lo que no
+// está (las descripciones, los comentarios, los nombres de los autores) se queda como la web lo
+// escribió — traducir eso sería poner en su boca lo que no ha dicho.
 //
 // El ajuste es `hf.settings.lang`: "auto" (el idioma de la web: inglés, o japonés en `ja.*`) o "es".
-// Cambiar de idioma desde el desplegable no recarga nada cuando es «español» (se traduce la página
-// que ya está abierta); los otros dos son navegar al enlace que la propia web pone en el pie.
+// Elegir «Español» no recarga ni navega: se traduce la página que está abierta, sea la inglesa o la
+// japonesa. Elegir otro idioma es ir al enlace que la propia web pone en el pie.
 // ---------------------------------------------------------------------------------------------
 (function () {
   "use strict";
   var hf = window.hf;
   if (!hf || hf.lang) return;
 
-  // ¿Estamos en la versión japonesa? Es otro dominio (ja.h-flash.com), así que allí el diccionario
-  // inglés no sirve: la web sirve su interfaz en japonés.
-  var JA = /^ja\./i.test(location.hostname);
-  // Cuando se elige español desde la web japonesa hay que irse a la inglesa y traducirla al llegar
-  // (el ajuste vive en `localStorage`, que es por dominio: no cruza a `ja.`). El encargo va en el
-  // hash, que no llega al servidor ni le cambia la URL que la web indexa.
+  // ¿La página que se está viendo es la japonesa? Normalmente lo dice el dominio (`ja.h-flash.com`),
+  // pero el laboratorio monta la página dentro de su propio documento —el dominio es el suyo— así
+  // que se miran también las señales que trae la propia página (`<html lang="ja">`, el `ln-ja` del
+  // `<body>`) y, si ninguna sobrevive al viaje, su propio texto: la cabecera y el pie de la versión
+  // japonesa son los únicos que no están en inglés.
+  //
+  // La respuesta se apunta, pero sólo cuando es de fiar: el «no» hace falta confirmarlo con la
+  // cabecera de la web delante (`.nav` o el pie), porque al preguntar antes de que la página esté
+  // montada no hay nada que mirar —y una vez traducida tampoco: los textos ya están en español, y
+  // por eso se apunta en la primera pasada—.
+  var jaPage = null;
+
+  function detectJa() {
+    if (/^ja\./i.test(location.hostname)) return true;
+    var html = document.documentElement;
+    if (html && /^ja$/i.test(html.getAttribute("lang") || "")) return true;
+    if (document.body && /(^|\s)ln-ja(\s|$)/.test(document.body.className || "")) return true;
+    var probes = [hf.q(".nav"), hf.q(".pagefoot .friendlinks"), hf.q(".pagefoot .tools"), hf.q(".mtitle")];
+    for (var i = 0; i < probes.length; i++) {
+      if (probes[i] && /[\u3040-\u30ff]/.test(probes[i].textContent || "")) return true;
+    }
+    // Sin nada que mirar no hay respuesta: se vuelve a preguntar en la pasada siguiente.
+    if (!hf.q(".nav") && !hf.q(".pagefoot")) return null;
+    return false;
+  }
+
+  function isJa() {
+    if (jaPage === null) {
+      var got = detectJa();
+      if (got !== null) jaPage = got;
+    }
+    return jaPage === true;
+  }
+
+  // Los encargos que viajan en el hash (`#hf-es`), de cuando elegir español desde la web japonesa
+  // llevaba a la inglesa: aquello ya no hace falta (el español se pone en la que estés), pero los
+  // enlaces y marcadores que quedaron por ahí siguen funcionando.
   var MARK_ES = "#hf-es";
   var MARK_EN = "#hf-en";
 
@@ -1877,8 +1924,850 @@
     "This game has a very large file size, play it online may take a long loading time or crash your browser, download to play offline is recommended.":
       "Este juego pesa mucho: jugarlo en línea puede tardar en cargar o colgar el navegador. Mejor descárgalo y juégalo sin conexión.",
     "I understand, but i want to run it online.": "Lo entiendo, quiero jugarlo en línea.",
-    "This file is not available in your location": "Este archivo no está disponible en tu ubicación"
+    "This file is not available in your location": "Este archivo no está disponible en tu ubicación",
+
+    // --- Lo que se añadió al revisar la web japonesa (aquí también vale, son sus mismos textos) ---
+    OLD: "ANTIGUOS",
+    auto: "Automático",
+    "English": "Inglés",
+    "open in new window": "Abrir en una ventana nueva",
+    "Pros:": "Ventajas:",
+    "Cons:": "Desventajas:",
+    "Table of content": "Índice",
+    // El recuadro del resumen de la ayuda va partido por los dos enlaces («Ruffle» y
+    // «HFlashPlayer»), así que se traduce trozo a trozo.
+    "TL;DR. mobile =>": "RESUMEN: en el móvil →",
+    ", PC =>": ", en PC →"
   };
+
+  // =============================================================================================
+  // EL DICCIONARIO JAPONÉS
+  // =============================================================================================
+  // La web japonesa no es la inglesa traducida: es la misma web con **otra interfaz** (mismo HTML,
+  // mismos `tid`, mismas direcciones `/tag/<x>/`) y necesita su propio diccionario: lo que allí se
+  // ve en japonés y aquí en español, de la cabecera al pie. A este diccionario se le vuelcan además
+  // las **etiquetas** de la web (sus nombres en japonés, con su traducción) desde `TAG_JA`, que es
+  // donde viven: son las de su taxonomía («シミュレーション» = simulación) y las que la web tiene
+  // también en latín («ポケモン» = Pokemon, que es como lo llama su versión inglesa).
+  //
+  // Lo que NO entra: las descripciones de los juegos, los comentarios de la gente y los nombres de
+  // los autores (texto suyo, y en la web inglesa tampoco se traduce) ni el cuerpo del artículo de
+  // ayuda de `/plugin/flash/`, que es un artículo entero (en la inglesa también se queda como está;
+  // aquí se traducen sus títulos y sus etiquetas).
+  var DICT_JA = {
+    // --- La cabecera ---
+    "ホーム": "INICIO",
+    "タグ": "ETIQUETAS",
+    "カテゴリ": "CATEGORÍAS",
+    "目録": "LISTA",
+    "作者": "AUTORES",
+    "人気": "POPULARES",
+    "ランキング": "MEJORES",
+    "全て": "TODOS",
+    "ランダム": "ALEATORIO",
+    "お気に入り": "Mis favoritos",
+    "検索": "BUSCAR",
+    // El nombre de la web va pegado a lo que cada sección titula («新着» + «エロフラッシュゲーム»),
+    // así que el suyo lleva delante el hueco que la web inglesa sí pone.
+    "エロフラッシュゲーム": " JUEGOS FLASH HENTAI",
+    "エロフラッシュ": "Juegos Flash Hentai",
+    "エロフラ": "JUEGOS",
+
+    // --- El pie ---
+    "リンクサイト:": "WEBS AMIGAS:",
+    "レイアウト:": "DISEÑO:",
+    "自動": "Automático",
+    "ツール:": "HERRAMIENTAS:",
+    "環境設定": "Preferencias",
+    "プラグイン": "Complemento",
+    "日本語": "Japonés",
+    "中文": "Chino",
+
+    // --- Los títulos de sección ---
+    "新着": "NUEVOS",
+    "人気100": "TOP 100",
+    "プランク": "TOP",
+    "トップランク": "MEJOR VALORADOS",
+    "最も再生され": "MÁS JUGADOS",
+    "条件検索": "FILTRO AVANZADO",
+    "関連して": "Relacionados",
+    "コメント": "Comentarios",
+    // Los cinco títulos del índice de etiquetas (`/tags/`).
+    "ゲーム": "Juego",
+    "セックス": "Sexo",
+    "シリーズ": "Series",
+    "キャラクター": "Personajes",
+    "スペシャル": "Especial",
+
+    // --- La ficha de juego ---
+    "情報": "Información del juego",
+    // «タイトル» es el título del juego en la ficha y la opción «título» del desplegable de orden:
+    // en japonés las dos son la misma palabra y aquí cada uno tiene lo suyo (la ficha va por `tid`,
+    // ver `TIDS`).
+    "タイトル": "Título",
+    "元のタイトル": "Nombre original",
+    "統計": "Estadísticas",
+    "私の評価:": "Mi nota:",
+    "作者様": "Autor",
+    "発表日": "Fecha de publicación",
+    "出所": "Fuente",
+    "関連出所": "Fuente alternativa",
+    "元の説明": "Descripción original",
+    "もっと見る": "VER MÁS",
+    "追加!": "¡Favorito!",
+    "ダウンロード": "Descargar",
+    "プレーヤーをダウンロード": "Descargar el reproductor Flash sin conexión",
+    "音量注意": "AVISO DE SONIDO",
+    "クリックして実行": "CLIC PARA JUGAR",
+    "使い方": "Cómo se usa",
+    "その他の方法": "Más soluciones",
+
+    // --- El buscador y el filtro avanzado (`/list/`) ---
+    "タグや作者に検索:": "Buscar una etiqueta o un autor para aplicarla:",
+    "タイトル:": "Título:",
+    "適用されたタグ:": "Etiquetas aplicadas:",
+    "並べ替え:": "Orden:",
+    "ページサイズ:": "Por página:",
+    "評価": "Valoración",
+    "再生回数": "Veces jugado",
+    "更新日": "Fecha de actualización",
+    "降順": "Descendente",
+    "昇順": "Ascendente",
+    "読み込み中...": "Cargando...",
+    "英語で検索してください。英語不明が場合は、URLを参照してください。":
+      "Busca en inglés: si no sabes cómo se llama en inglés, míralo en la dirección del enlace.",
+
+    // --- Los ajustes (`/tool/prefs/`) ---
+    "すべてのデータはクッキーで保存されます。": "Todas las opciones se guardan en tus cookies.",
+    "デフォルトフラッシュプラグイン": "Reproductor Flash por defecto",
+    "デフォルトフラッシュプラグインを選択:": "Elige el reproductor flash que quiero usar:",
+    "*このオプションを選択すると、フラッシュコンテンツはクリックせずに自動的に起動します。":
+      "*Si eliges una de estas opciones, el contenido flash arrancará solo, sin hacer clic.",
+    "レイアウト": "Diseño",
+    "内容遮断システム": "Bloqueo de contenido",
+    "極端なコンテンツの警告を無効化": "Desactivar el aviso de contenido extremo",
+    "*このオプションをオンにすると、ゲームページの濃い赤の極端なコンテンツ警告が無効化になります。":
+      "*Marca esta opción y el aviso de contenido extremo (el fondo rojo oscuro de la ficha) no sale.",
+    "遮断されたアイテムをリストから削除": "Quitar de la lista los elementos bloqueados",
+    "*このオプションをオンにすると、遮断されたアイテムをリストから削除され、全然表示されません。":
+      "*Marca esta opción y los elementos bloqueados desaparecen de la lista en vez de salir su aviso.",
+    "遮断されたタグ": "Etiquetas bloqueadas",
+    "タグを検索": "Buscar etiquetas",
+    "*英語で検索してください。英語不明が場合は、URLを参照してください。":
+      "* Busca en inglés: si no sabes cómo se llama en inglés, míralo en la dirección del enlace.",
+
+    // --- La ayuda del reproductor (`/plugin/flash/`): sus títulos, no su artículo ---
+    "目次": "Índice",
+    "TL;DR. 携帯 =>": "RESUMEN: en el móvil →",
+    "ソリューション: Ruffle": "Solución: Ruffle",
+    "ソリューション: HFlashPlayer": "Solución: HFlashPlayer",
+    "ソリューション: ダウンロード": "Solución: descargar",
+    "ソリューション: 古いブラウザ": "Solución: navegadores que aún soportan Flash",
+    "代替の古いバージョンのプラグインパッケージ":
+      "Paquete alternativo del complemento (versión antigua archivada)",
+    "このプラグインパッケージは古くなっているため、これを使用することはお勧めしません。":
+      "Este paquete del complemento está anticuado; no se recomienda usarlo.",
+    "メリット:": "Ventajas:",
+    "デメリット:": "Desventajas:",
+    "ダウンロード:": "Descargar:",
+    "古いブラウザ": "Navegadores que aún soportan Flash",
+    "プラグインアーカイブ": "Paquete del complemento archivado",
+    // --- Los textos que la web escribe desde SU PROPIO JavaScript ---
+    // No están en su HTML: los pone su `pack0.js` (los avisos de contenido extremo y de contenido
+    // bloqueado que salen encima de la ficha) y su `pack1.js` (el menú de zoom del reproductor:
+    // «ズーム», «元のサイズ»…) cuando el idioma de la web es el japonés; `comment.js` (los títulos
+    // de los comentarios) y `favorite.js` (el botón de quitar de favoritos) ponen los otros.
+    "ズーム": "Zoom",
+    "元のサイズ": "Tamaño original",
+    "幅と高さに合わせ": "Ajustar al ancho y al alto",
+    "幅に合わせ": "Ajustar al ancho",
+    "領域いっぱい": "Llenar el área",
+    "ウィンドウいっぱい": "Llenar la ventana",
+    "ルール": "Normas",
+    "コメントを書く": "Escribir un comentario",
+    "外す": "Quitar",
+    "準備中": "En preparación",
+    "このファイルは現在の場所では利用できません": "Este archivo no está disponible desde esta ubicación",
+    "このゲームには極端なコンテンツ（極端な流血、暴力、虐待、排泄物など）が含まれています。": "Este juego contiene contenido extremo (sangre, violencia, abuso, escatología…).",
+    "まだ見たい": "Verlo de todas formas",
+    "、 [これを設定で無効にする]": ", [desactivar esto en los ajustes]",
+    "このコンテンツはお客様の内容遮断設定によって遮断されました。": "Este contenido está bloqueado por tus ajustes de bloqueo de contenido.",
+    "、 [設定を更新にする]": ", [actualizar los ajustes]",
+    "このコンテンツのファイルサイズは非常に大きいので、ダウンロードしてオフラインで再生することをお勧めします。": "El archivo de este contenido es muy grande: te recomendamos descargarlo y verlo sin conexión.",
+    "まだオンラインで実行したい": "Ejecutarlo en línea de todas formas",
+    // --- La ayuda del reproductor (`/plugin/flash/`): sus párrafos enteros ---
+    // La web escribe esa página a mano, con frases largas que no se pueden traducir a trozos: van
+    // tal y como están en su HTML (el texto que hay entre sus etiquetas), cada una con su línea.
+    "この記事では、2024年にPC、携帯、Windows、Linux、macOSでフラッシュを実行する方法を紹介します。 解決策を試した後に問題が発生した場合は、コメントを残すか、バグを報告してください":
+      "En este artículo te contamos cómo ejecutar Flash en 2024 en PC, móvil, Windows, Linux y macOS. Si al probar alguna de las soluciones te surge algún problema, deja un comentario o informa de un error.",
+    "携帯とPC適用のエミュレーター":
+      "Emulador para móvil y PC",
+    "windows PC適用":
+      "solo para PC con Windows",
+    "携帯以外適用":
+      "para todo menos el móvil",
+    "推奨しません":
+      "no recomendado",
+    "バックアップダウンロード":
+      "descarga de respaldo",
+    "ワンクリックで実行.":
+      "Se ejecuta con un solo clic.",
+    "まだ互換性の問題がある.":
+      "Todavía tiene problemas de compatibilidad.",
+    "Ruffleは、ブラウザ内で動作するオープンソースのFlashエミュレーターです。 Ruffleを使えば、ダウンロードやインストールは不要で、クリックするだけで再生できます。携帯でも同様に利用可能です。 Ruffleを使用するには、":
+      "Ruffle es un emulador de Flash de código abierto que funciona dentro del navegador. Con Ruffle no hay que descargar ni instalar nada: se reproduce con un clic, y en el móvil funciona igual. Para usar Ruffle, ",
+    "黄色い":
+      "haz clic en el botón amarillo",
+    "ボタンをクリックする":
+      "",
+    "だけです。":
+      ".",
+    "Ruffleはまだ開発中のソフトウェアです。一部の互換性の問題が発生する可能性があり、正常に動作しない状況もありますが、大部分は正常に動作するでしょう。 ぜひRuffleを試してみて、Ruffleプロジェクトのサポートをご検討ください！こちらがRuffleプロジェクトのホームページです:":
+      "Ruffle es un programa que todavía está en desarrollo: puede tener problemas de compatibilidad y hay juegos que no van del todo bien, aunque la mayoría funcionan. Anímate a probarlo y plantéate apoyar al proyecto. Esta es su página:",
+    "ワンクリックで実行、互換性が高い.":
+      "Se ejecuta con un solo clic y es muy compatible.",
+    "Windows専用、追加のソフトが必要.":
+      "Solo para Windows; hay que instalar un programa aparte.",
+    "HFlashPlayerは、Windows用に設計された支援プログラムです。 カスタムURLを使用してブラウザと通信し、公式のFlashPlayerを制御して、当サイトのswfファイルを処理します。 公式のFlash Playerと同等の互換性を持ち、ワンクリックだけで再生する、使い方も非常に簡単ています。":
+      "HFlashPlayer es un programa de apoyo diseñado para Windows. Se comunica con el navegador mediante una URL personalizada y controla el Flash Player oficial para reproducir los archivos swf de esta web. Tiene la misma compatibilidad que el Flash Player oficial, se reproduce con un solo clic y es muy fácil de usar.",
+    "HFlashPlayerを使用するには、":
+      "Para usar HFlashPlayer, descárgalo de",
+    "または":
+      "o",
+    "[ここ]":
+      "[aquí]",
+    "からダウンロード":
+      "",
+    "して、任意の場所に解凍し、":
+      " descomprímelo donde quieras y",
+    "HFlashPlayer.exeを1回実行":
+      "ejecuta HFlashPlayer.exe una vez",
+    "]ボタンをクリックすると、ブラウザからHFlashPlayerで実行するかどうかを尋ねられます。 [はい]をクリックして、私の選択を覚えておいてください、FlashPlayerは自動的に起動します。":
+      "], el navegador te preguntará si quieres abrirlo con HFlashPlayer. Pulsa [Sí] y marca «recordar mi elección»: el FlashPlayer se abrirá solo.",
+    "HFlashPlayerには":
+      "HFlashPlayer necesita",
+    "が必要です。Windows10を使用していない場合は、":
+      " para funcionar. Si no usas Windows 10, tendrás que descargarlo e instalarlo desde",
+    "からダウンロードしてインストールする必要があります。 HFlashPlayerを削除する場合は、「unregister.reg」を実行してカスタムURLスキームを削除してから、すべてのファイルを削除できくたさい。":
+      ". Para desinstalar HFlashPlayer, ejecuta «unregister.reg» para quitar el esquema de URL personalizado y luego borra todos sus archivos.",
+    "何らかの理由でHFlashPlayerが機能しない場合は、ここでセルフチェックリストを確認してください：":
+      "Si por algún motivo HFlashPlayer no te funciona, consulta esta lista de comprobación:",
+    "互換性が高い.":
+      "Muy compatible.",
+    "携帯では動作しない.":
+      "No funciona en el móvil.",
+    "SWFファイルは、Windows PC、Linux、またはMacintoshで引き続き実行できます。 Flashをダウンロードするには、":
+      "Los archivos SWF todavía se pueden ejecutar en un PC con Windows, en Linux o en Macintosh. Para descargar el Flash,",
+    "ゲーム領域の下のダウンロードボタン":
+      "haz clic en el botón de descarga que hay debajo del juego",
+    "をクリックください。 ただし一部のゲームはオンラインでプレイに設計されだ、オフラインで実行の簡単な方法がないため、それらのゲームのダウンロードを提供することはできません。 ダウンロード後、swfファイルを実行するにはオフラインプレーヤーが必要です。":
+      ". Algunos juegos, en cambio, están pensados para jugarse en línea y no hay una forma sencilla de ejecutarlos sin conexión, así que no podemos ofrecer su descarga. Una vez descargado el archivo swf, necesitas un reproductor para poder ejecutarlo.",
+    "オフラインフラッシュプレーヤー":
+      "reproductor flash sin conexión",
+    "をダウンロードではここから:":
+      ": descárgalo aquí:",
+    "プレーヤーをダウンロードした後は、SWFファイルをドラッグしてその上に置くだけで実行できます。Windows PC以外の環境では、お使いのOSバージョンに対応したオフラインプレーヤーをダウンロードする必要があります。Googleで検索するか、下記の代替アーカイブから見つけてください。ダウンロードしたファイルがZIPファイルの場合は、すべてのファイルを解凍して、Flashが正しく動作するようにしてください。":
+      "Cuando tengas el reproductor, basta con arrastrar el archivo SWF encima para ejecutarlo. Si no usas un PC con Windows, tendrás que descargar el reproductor sin conexión que corresponda a tu sistema: búscalo en Google o en el archivo alternativo de más abajo. Si el archivo que descargas es un ZIP, descomprime todo su contenido para que Flash funcione bien.",
+    "最高の互換性.":
+      "La mejor compatibilidad.",
+    "設定が難しい、携帯には対応していない.":
+      "Difícil de configurar y no sirve para el móvil.",
+    "現在でもFlashをサポートしているブラウザはありますが、 ほとんどが古く、プラグインやブラウザの設定に多くの問題があります。この解決策は経験豊富なユーザーであっても推奨しません。":
+      "Todavía hay navegadores que soportan Flash, pero casi todos son antiguos y dan muchos problemas con los complementos y con su configuración. No recomendamos esta solución ni siquiera a usuarios con experiencia.",
+    "この解決策を試したいユーザーへのヒントは以下の通りです:":
+      "Algunos consejos, si aun así quieres probarla:",
+    "- この設定を日常ブラウザとして使用しないでください。 仮想マシン内に設定することを推奨します。":
+      "- No uses esta configuración como tu navegador del día a día; lo mejor es hacerlo dentro de una máquina virtual.",
+    "- 2020年以前にリリースされたブラウザで、古いまたは改造されたバージョンのFlashプラグインを使用しているものは、今日でもFlashコンテンツを実行できます。ただし、強制的な自動更新には注意してください。":
+      "- Los navegadores anteriores a 2020 que usan una versión antigua o modificada del complemento Flash todavía pueden ejecutar contenido Flash hoy, pero cuidado con las actualizaciones automáticas forzadas.",
+    "- 公式のFlashプラグインの最終バージョンには多くの問題があり、使用は推奨されません。古いバージョンやサードパーティが編集したバージョンを推奨します。":
+      "- La última versión del complemento Flash oficial tiene muchos problemas y no se recomienda; mejor una versión antigua o editada por terceros.",
+    "携帯のPuffinブラウザがFlashをサポートしているとの報告があります（有料です）。":
+      "Hay informes de que el navegador Puffin, en el móvil, todavía soporta Flash (es de pago).",
+    "このパッケージには、Windows、Macintosh、Linux用のフラッシュプラグイン、スタンドアロンプレーヤー、自動アンインストーラー、リリースとデバッグバージョンが含まれています。":
+      "Este paquete incluye el complemento Flash para Windows, Macintosh y Linux, el reproductor independiente, el desinstalador automático y las versiones de lanzamiento y de depuración.",
+    "ファイル拡張子の意味：":
+      "Qué significa cada extensión:",
+    "なし：Firefoxや古いバージョンの現代ブラウザなどのブラウザ用のNPAPIプラグイン":
+      "sin extensión: complemento NPAPI para navegadores como Firefox y las versiones antiguas de los navegadores actuales",
+    "sa： スタンドアロンプレーヤー":
+      "sa: reproductor independiente",
+    "ax： WindowsアプリケーションおよびIE用のActiveXプラグイン":
+      "ax: complemento ActiveX para aplicaciones de Windows e Internet Explorer",
+    "pep： Chromeのようなブラウザ用のPPAPIプラグイン":
+      "pep: complemento PPAPI para navegadores como Chrome",
+    // --- Y los textos sueltos que quedaban (los títulos de sus páginas, la nota de favoritos y
+    //     las etiquetas de temporada de su índice) ---
+    "フラッシュプラグイン":
+      "Complemento Flash",
+    "タグカテゴリ":
+      "Categorías de etiquetas",
+    "全てエロフラッシュゲーム":
+      "Todos los juegos flash hentai",
+    "すべてのお気に入りはクッキーに保存されます,":
+      "Tus favoritos se guardan en las cookies,",
+    "[現在のお気に入りをバックアップ]":
+      "[Copia de seguridad de tus favoritos]",
+    "名前":
+      "Nombre",
+    "英語で検索してください":
+      "Busca en inglés",
+    "ハロウィーン":
+      "Halloween",
+    "新年":
+      "Año Nuevo",
+    "夏日":
+      "Verano",
+    "[2024フラッシュ対処]":
+      "[Arreglar el Flash en 2024]",
+    "する必要があります。 実行すると、Windowsユーザー制御が表示されます。カスタムURLスキームを登録するために、[はい]をクリックしてください。 ゲームページの[":
+      " Es lo único que hay que hacer. Al ejecutarlo, Windows te pedirá permiso: pulsa [Sí] para registrar el esquema de URL personalizado. En la página del juego, cuando pulses el botón ["
+  };
+
+  // Las etiquetas de la web, por su dirección (`/tag/<slug>/`, la misma en las dos versiones
+  // del sitio): el nombre que la web les pone en japonés y el que les ponemos aquí. De aquí salen
+  // los dos usos: el nombre suelto —en las tarjetas una etiqueta es un `<span>` sin dirección, así
+  // que se busca por el texto y se vuelca al diccionario— y el de un enlace, que lo pregunta
+  // `hf.lang.tag` por la dirección (y así sale bien aunque en pantalla ya esté traducido o sea el
+  // nombre del índice de la web, que en la japonesa viene en japonés).
+  var TAG_JA = {
+    "loop": ["ループ", "Bucle"],
+    "game": ["ゲーム", "Juego"],
+    "story": ["ドラマ", "Historia"],
+    "loli": ["ロリ", "Loli"],
+    "furry": ["ケモノ", "Furry"],
+    "funny": ["面白い", "Divertido"],
+    "music": ["音楽", "Música"],
+    "schoolgirl": ["女子生徒", "Escolar"],
+    "catgirl": ["ねこみみ", "Nekomimi"],
+    "gallery": ["ギャラリー", "Galería"],
+    "bunny": ["バニー", "Conejita"],
+    "boy": ["ショタ", "Shota"],
+    "comic": ["漫画", "Cómic"],
+    "maid": ["メイド", "Sirvienta"],
+    "pose": ["ポーズ", "Pose"],
+    "simulation": ["シミュレーション", "Simulación"],
+    "dress-up": ["着せ替え", "Vestir"],
+    "breakout": ["ブロック崩し", "Rompeladrillos"],
+    "action": ["動作", "Acción"],
+    "discovery": ["探索", "Exploración"],
+    "quiz": ["クイズ", "Quiz"],
+    "line-art": ["下絵", "Boceto"],
+    "pixel": ["ドット絵", "Píxel"],
+    "puzzle": ["パズル", "Puzle"],
+    "rps": ["野球拳", "Piedra, papel o tijera"],
+    "shooting": ["シューティング", "Disparos"],
+    "jigsaw": ["ジグソー", "Rompecabezas"],
+    "slot": ["スロット", "Tragaperras"],
+    "blackjack": ["ブラックジャック", "Blackjack"],
+    "card": ["トランプ", "Cartas"],
+    "click": ["クリック", "Clic"],
+    "difference": ["間違い探し", "Encuentra las diferencias"],
+    "memory": ["神経衰弱", "Memoria"],
+    "management": ["管理ゲーム", "Gestión"],
+    "irairabo": ["イライラ棒", "Irairabo"],
+    "mine": ["マインスイーパ", "Buscaminas"],
+    "tetris": ["テトリス", "Tetris"],
+    "shisen-sho": ["四川省", "Shisen-Sho"],
+    "bejeweled": ["ビジュエルド", "Bejeweled"],
+    "solitaire": ["ソリティア", "Solitario"],
+    "defense": ["防衛ゲーム", "Defensa"],
+    "chess": ["チェス", "Ajedrez"],
+    "mahjong": ["麻雀", "Mahjong"],
+    "blowjob": ["フェラ", "Mamada"],
+    "pov": ["主視点", "POV"],
+    "undress": ["脱衣", "Desnudar"],
+    "doggy": ["後背位", "Perrito"],
+    "cowgirl": ["騎乗位", "Amazona"],
+    "stocking": ["ストッキング", "Medias"],
+    "creampie": ["中出し", "Creampie"],
+    "anal": ["肛交", "Anal"],
+    "toy": ["器具", "Juguetes"],
+    "busty": ["巨乳", "Tetona"],
+    "missionary": ["通常位", "Misionero"],
+    "futanari": ["ふたなり", "Futanari"],
+    "handjob": ["手コキ", "Paja"],
+    "tentacle": ["触手", "Tentáculos"],
+    "milkshake": ["乳揺れ", "Menear las tetas"],
+    "titjob": ["パイズリ", "Cubana"],
+    "ass": ["お尻", "Culo"],
+    "facial": ["顔射", "Corrida facial"],
+    "masturbation": ["オナニー", "Masturbación"],
+    "lesbian": ["レズ", "Lesbianas"],
+    "cross-section": ["断面", "Corte transversal"],
+    "x-ray": ["透視", "Rayos X"],
+    "stretching": ["拡張", "Dilatación"],
+    "urine": ["放尿", "Orina"],
+    "pantyhose": ["パンスト", "Pantis"],
+    "footjob": ["足コキ", "Paja con los pies"],
+    "spanking": ["スパンキング", "Azotes"],
+    "ryona": ["リョナ", "Ryona"],
+    "giantess": ["巨大娘", "Giganta"],
+    "vore": ["丸呑み", "Vore"],
+    "rape": ["強姦", "Violación"],
+    "incest": ["相姦", "Incesto"],
+    "gangbang": ["乱交", "Gangbang"],
+    "scat": ["脱糞", "Scat"],
+    "glory-hole": ["壁尻", "Glory hole"],
+    "egging": ["産卵", "Puesta de huevos"],
+    "fart": ["おなら", "Pedos"],
+    "pregnant": ["妊婦", "Embarazada"],
+    "pervert-train": ["痴漢電車", "Tren de pervertidos"],
+    "ai-subeki": ["あいすベき", "Ai Subeki"],
+    "dot-ero-monster-2": ["ドット・エロモンスター2", "Dot Ero Monster 2"],
+    "show-chan": ["笑ちゃんと遊ぼう", "Let's play with Show-chan"],
+    "k-on-play": ["けい○んプレイ!!", "K-ON Play!!"],
+    "hint-chan": ["ヒントちゃんと遊ぼう", "Let's play with Hint-chan"],
+    "daily-life-with-vita": ["ヴィータと俺の日常", "daily life with Vita"],
+    "huge-tit-and-semen": ["巨乳与精液", "Huge tit and semen"],
+    "amu-chan": ["あむちゃん", "amu-chan"],
+    "peach": ["ピーチ姫", "Peach"],
+    "tifa": ["ティファ", "Tifa"],
+    "chun-li": ["春麗", "Chun-Li"],
+    "beako": ["ベア子", "Beako"],
+  };
+
+  // Y el resto de etiquetas de la web —las de franquicia— tal y como las escribe su propio índice
+  // (`/tags/list/`: Pokémon, Naruto, My Little Pony…). La web japonesa las pone en japonés y la
+  // inglesa en latín, así que se emparejan por su dirección: se enseña el nombre de la web inglesa,
+  // que un hispanohablante lee (traducir 680 títulos de series no tendría ningún sentido). Van como
+  // texto, una por línea (`dirección|nombre japonés|nombre inglés`), porque son cientos y así se
+  // leen y se tocan de un vistazo.
+  var TAG_MORE =
+    "a-certain-scientific-railgun|とある科学の超電磁砲|A Certain Scientific Railgun\n" +
+    "adventure-time|アドベンチャー・タイム|Adventure Time\n" +
+    "aggretsuko|アグレッシブ烈子|Aggretsuko\n" +
+    "akame-ga-kill|アカメが斬る!|Akame ga Kill!\n" +
+    "alices-adventures-in-wonderland|不思議の国のアリス|Alice's Adventures in Wonderland\n" +
+    "angel-beats|エンジェル ビーツ|Angel Beats!\n" +
+    "angelic-layer|エンジェリックレイヤー|Angelic Layer\n" +
+    "animal-crossing|どうぶつの森|Animal Crossing\n" +
+    "animal-detective-kiruminzoo|あにゃまる探偵 キルミンずぅ|Animal Detective Kiruminzoo\n" +
+    "anohana|あの日見た花の名前を僕達はまだ知らない。|Anohana: The Flower We Saw That Day\n" +
+    "ape-escape|サルゲッチュ|Ape Escape\n" +
+    "arc-the-lad|アークザラッド|Arc the Lad\n" +
+    "asari-chan|あさりちゃん|Asari-chan\n" +
+    "assassination-classroom|暗殺教室|Assassination Classroom\n" +
+    "astroganger|アストロガンガー|Astroganger\n" +
+    "asuka-120|あすか120%|Asuka 120%\n" +
+    "atashinchi|あたしンち|Atashin'chi\n" +
+    "atelier-series|アトリエシリーズ|Atelier Series\n" +
+    "attack-on-titan|進撃の巨人|Attack on Titan\n" +
+    "aura-battler-dunbine|聖戦士ダンバイン|Aura Battler Dunbine\n" +
+    "avatar|アバター|Avatar series\n" +
+    "azumangadaioh|あずまんが大王|Azumangadaioh\n" +
+    "bakegyamon|妖逆門|Bakegyamon\n" +
+    "bakemonogatari|物語 シリーズ|Monogatari Series\n" +
+    "bakugan-battle-brawlers|爆丸バトルブローラーズ|Bakugan Battle Brawlers\n" +
+    "bakuman|バクマン。|Bakuman\n" +
+    "bamboo-blade|バンブーブレード|BAMBOO BLADE\n" +
+    "basquash|バスカッシュ!|Basquash!\n" +
+    "battle-programmer-shirase|BPS バトルプログラマーシラセ|Battle Programmer Shirase\n" +
+    "battle-spirits|バトルスピリッツ|Battle Spirits\n" +
+    "beat-angel-escalayer|超昂天使エスカレイヤー|Beat Angel Escalayer\n" +
+    "beatmania|ビートマニア|beatmania\n" +
+    "beyond-the-boundary|境界の彼方|Beyond the Boundary\n" +
+    "blazblue|ブレイブルー|BlazBlue\n" +
+    "bleach|ブリーチ|Bleach\n" +
+    "bludgeoning-angel-dokuro-chan|撲殺天使ドクロちゃん|Bludgeoning Angel Dokuro-chan\n" +
+    "blue-archive|ブルーアーカイブ|Blue Archive\n" +
+    "blue-dragon|ブルードラゴン|Blue Dragon\n" +
+    "boy-ashibe|少年アシベ|Boy Ashibe\n" +
+    "breath-of-fire|ブレス オブ ファイア|Breath of Fire\n" +
+    "buster-keel|バスターキール!|BUSTER KEEL!\n" +
+    "cardcaptor-sakura|カードキャプターさくら|Cardcaptor Sakura\n" +
+    "case-closed|名探偵コナン|Case Closed\n" +
+    "castlevania|悪魔城ドラキュラ|Castlevania\n" +
+    "cats-eye|キャッツ♥アイ|Cat's Eye\n" +
+    "chimpui|チンプイ|Chimpui\n" +
+    "chou-soku-henkei-gyrozetter|超速変形ジャイロゼッター|Chou Soku Henkei Gyrozetter\n" +
+    "chrono-crusade|クロノクルセイド|Chrono Crusade\n" +
+    "chrono-trigger|クロノ・トリガー|Chrono Trigger\n" +
+    "code-geass|コードギアス 反逆のルルーシュ|Code Geass\n" +
+    "cream-lemon|くりいむレモン|Cream Lemon\n" +
+    "crystal-dragon-nes|水晶の龍|Crystal Dragon\n" +
+    "danganronpa|ダンガンロンパ|Danganronpa\n" +
+    "danmachi|ダンジョンに出会いを求めるのは間違っているだろうか|DanMachi\n" +
+    "dark-chronicle|ダーククロニクル|Dark Chronicle\n" +
+    "darkstalkers|ヴァンパイア|Darkstalkers\n" +
+    "darling-in-the-franxx|ダーリン・イン・ザ・フランキス|DARLING in the FRANXX\n" +
+    "date-a-live|デート・ア・ライブ|Date A Live\n" +
+    "deathsmiles|デススマイルズ|DeathSmiles\n" +
+    "demon-slayer|鬼滅の刃|Demon Slayer: Kimetsu no Yaiba\n" +
+    "devil-summoner|デビルサマナー|Devil Summoner\n" +
+    "di-gi-charat|デ・ジ･キャラット|Di Gi Charat\n" +
+    "digital-monsters|デジタルモンスター|Digital Monsters\n" +
+    "dinosaur-king|古代王者恐竜キング|Dinosaur King\n" +
+    "disgaea|魔界戦記ディスガイア|Disgaea\n" +
+    "do-you-love-your-mom-and-her-two-hit-multi-target-attacks|通常攻撃が全体攻撃で二回攻撃のお母さんは好きですか?|Do You Love Your Mom and Her Two-Hit Multi-Target Attacks?\n" +
+    "doki-doki-majo-shinpan|どきどき魔女神判!|Doki Doki Majo Shinpan\n" +
+    "dominion-tank-police|ドミニオン|Dominion Tank Police\n" +
+    "doraemon|ドラえもん|Doraemon\n" +
+    "dot-hack|ドットハック|.hack\n" +
+    "dragalia-lost|ドラガリアロスト|Dragalia Lost\n" +
+    "dragon-ball|ドラゴンボール|DRAGON BALL\n" +
+    "dragon-drive|ドラゴンドライブ|Dragon Drive\n" +
+    "dragon-quest|ドラゴンクエスト|Dragon Quest\n" +
+    "dragonaut|ドラゴノーツ|DRAGONAUT\n" +
+    "dream-club|ドリームクラブ|Dream Club\n" +
+    "dream-diary|ゆめにっき|Dream Diary\n" +
+    "dynasty-warriors|真・三國無双|Dynasty Warriors\n" +
+    "elfen-lied|エルフェンリート|Elfen Lied\n" +
+    "engaged-to-the-unidentified|未確認で進行形|Engaged to the Unidentified\n" +
+    "eromanga-sensei|エロマンガ先生|Eromanga Sensei\n" +
+    "etrian-odyssey|世界樹の迷宮|Etrian Odyssey\n" +
+    "excel-saga|エクセル♥サーガ|Excel Saga\n" +
+    "fairy-musketeers|おとぎ銃士 赤ずきん|Fairy Musketeers\n" +
+    "fairy-tail|フェアリーテイル|Fairy Tail\n" +
+    "final-fantasy|ファイナルファンタジーシリーズ|FINAL FANTASY\n" +
+    "fire-emblem|ファイアーエムブレム|Fire Emblem\n" +
+    "fire-force|炎炎ノ消防隊|Fire Force\n" +
+    "flcl|フリクリ|FLCL\n" +
+    "franken-fran|フランケン・ふらん|Franken Fran\n" +
+    "full-blast-science-adventure|おもいっきり科学アドベンチャー そーなんだ!|Full-Blast Science Adventure: So That's How It Is!\n" +
+    "full-metal-alchemist|鋼の錬金術師|Full Metal Alchemist\n" +
+    "galaxy-angel|ギャラクシーエンジェル|Galaxy Angel\n" +
+    "gear-fighter-dendoh|GEAR戦士電童|Gear Fighter Dendoh\n" +
+    "gegege-no-kitaro|ゲゲゲの鬼太郎|GeGeGe no Kitaro\n" +
+    "genji-tsushin-agedama|ゲンジ通信あげだま|Genji Tsushin Agedama\n" +
+    "genshiken|げんしけん|Genshiken\n" +
+    "gintama|銀魂|GinTama\n" +
+    "girl-friend-beta|ガールフレンド（仮）|Girl Friend Beta\n" +
+    "girls-frontline|少女前線|Girls' Frontline\n" +
+    "goblin-slayer|ゴブリンスレイヤー|Goblin Slayer\n" +
+    "god-eater|ゴッドイーター|GOD EATER\n" +
+    "grandia|グランディア|Grandia\n" +
+    "gundam|ガンダムシリーズ|Gundam\n" +
+    "hacka-doll|ハッカドール|Hacka Doll\n" +
+    "hakumei-and-mikochi|ハクメイとミコチ|Hakumei and Mikochi\n" +
+    "hamtaro|とっとこハム太郎|Hamtaro\n" +
+    "hanasaku-iroha|花咲くいろは|Hanasaku Iroha\n" +
+    "hanjuku-ninpouchou|半熟忍法帳|Hanjuku Ninpouchou\n" +
+    "happy-lesson|ハッピー・レッスン|HAPPY☆LESSON\n" +
+    "hare-guu|ジャングルはいつもハレのちグゥ|Haré+Guu\n" +
+    "haruhi-suzumiya|涼宮ハルヒ|Haruhi Suzumiya\n" +
+    "hayate-the-combat-butler|ハヤテのごとく|Hayate the Combat Butler\n" +
+    "hell-girl|地獄少女|Hell Girl\n" +
+    "hell-teacher|地獄先生|Hell Teacher\n" +
+    "hellsing|ヘルシング|Hellsing\n" +
+    "hidamari-sketch|ひだまりスケッチ|Hidamari Sketch\n" +
+    "hikaru-no-go|ヒカルの碁|Hikaru no Go\n" +
+    "his-and-her-circumstances|彼氏彼女の事情|His and Her Circumstances\n" +
+    "how-heavy-are-the-dumbbells-you-lift|ダンベル何キロ持てる？|How Heavy Are the Dumbbells You Lift?\n" +
+    "hua-mulan|花木蘭|Hua Mulan\n" +
+    "i-don't-have-many-friends|僕は友達が少ない|I Don't Have Many Friends\n" +
+    "idolmaster|アイドルマスター|THE IDOLM@STER\n" +
+    "ikki-tousen|一騎当千|Ikki Tousen\n" +
+    "iliad|Ἰλιάς イーリアス|Iliad\n" +
+    "inuyasha|犬夜叉|Inuyasha\n" +
+    "inyouchuu|淫妖蟲|in'youchuu\n" +
+    "is|アイズ|I\"s\n" +
+    "ishuzoku-reviewers|異種族レビュアーズ|Ishuzoku Reviewers\n" +
+    "jack-and-the-beanstalk|ジャックと豆の木|Jack and the Beanstalk\n" +
+    "jet-set-radio|ジェットセットラジオ|Jet Set Radio\n" +
+    "jewelpet|ジュエルペット|Jewelpet\n" +
+    "journey-to-the-west|西遊記|Journey to the West\n" +
+    "kanamemo|かなめも|Kanamemo\n" +
+    "kanokon|かのこん|Kanokon\n" +
+    "kanon|カノン|Kanon\n" +
+    "kantai-collection|艦隊これくしょん|Kantai Collection\n" +
+    "katanagatari|刀語|Katanagatari\n" +
+    "kemono-friends|けものフレンズ|Kemono Friends\n" +
+    "keroro-gunso|ケロロ軍曹|Keroro Gunso\n" +
+    "kid-icarus|光神話|Kid Icarus\n" +
+    "kill-la-kill|キルラキル|Kill la Kill\n" +
+    "kirby|カービィ|Kirby series\n" +
+    "kochikame-tokyo-beat-cops|こちら葛飾区亀有公園前派出所|KochiKame - Tokyo Beat Cops\n" +
+    "konosuba|このすば|KonoSuba\n" +
+    "laid-back-camp|ゆるキャン△|Laid-Back Camp\n" +
+    "laputa|天空の城ラピュタ|Laputa: Castle in the Sky\n" +
+    "league-of-legends|リーグ・オブ・レジェンド|League of Legends\n" +
+    "leda-the-fantastic-adventure-of-yohko|幻夢戦記レダ|Leda: The Fantastic Adventure of Yohko\n" +
+    "legend-of-mana|Seiken Densetsu 聖剣伝説|Mana series\n" +
+    "legend-of-zelda|ゼルダの伝説|Legend of Zelda\n" +
+    "little-battlers-experience|ダンボール戦機|Little Battlers Experience\n" +
+    "locodol|普通の女子校生が【ろこどる】やってみた。|Locodol\n" +
+    "lollipop-chainsaw|ロリポップチェーンソー|Lollipop Chainsaw\n" +
+    "lord-marksman-and-vanadis|魔弾の王と戦姫|Lord Marksman and Vanadis\n" +
+    "love-hina|ラブひな|LOVE HINA\n" +
+    "lucky-star|らき☆すた|Lucky Star\n" +
+    "machine-robo-rescue|マシンロボレスキュー|Machine Robo Rescue\n" +
+    "magic-users-club|魔法使いTai!|Magic User's Club\n" +
+    "magical-doremi|おジャ魔女どれみ|Magical DoReMi\n" +
+    "magical-emi-the-magic-star|魔法のスターマジカルエミ|Magical Emi, the Magic Star\n" +
+    "magical-girl-lyrical-nanoha|魔法少女リリカルなのは|Magical Girl Lyrical Nanoha\n" +
+    "magical-girl-site|魔法少女サイト|Magical Girl Site\n" +
+    "magical-pokaan|錬金3級 まじかる?ぽか〜ん|Magical Pokaan\n" +
+    "mahoraba|まほらば|Mahoraba\n" +
+    "mahoromatic|まほろまてぃっく|Mahoromatic\n" +
+    "mahou-sensei-negima|魔法先生ネギま！|Mahou Sensei Negima\n" +
+    "maken-ki|マケン姫っ!|Maken-ki!\n" +
+    "mario|スーパーマリオ|Super Mario series\n" +
+    "martian-successor-nadesico|機動戦艦ナデシコ|Martian Successor Nadesico\n" +
+    "megaman|ロックマン|Megaman\n" +
+    "megami-ibunroku|女神異聞録|Megami Ibunroku\n" +
+    "metroid|メトロイド|METROID\n" +
+    "michiko-to-hatchin|ミチコとハッチン|Michiko to Hatchin\n" +
+    "mischief-makers|ゆけゆけ!!トラブルメーカーズ|Mischief Makers\n" +
+    "mischievous-twins-the-tales-of-st-clares|おちゃめなふたご ―クレア学院物語―|Mischievous Twins: The Tales of St. Clare's\n" +
+    "miss-kobayashis-dragon-maid|小林さんちのメイドラゴン|Miss Kobayashi's Dragon Maid\n" +
+    "mob-psycho-100|モブサイコ100|Mob Psycho 100\n" +
+    "moetan|もえたん|Moetan\n" +
+    "monster-hunter|モンスターハンター|Monster Hunter\n" +
+    "monster-maker|モンスターメーカー|Monster Maker\n" +
+    "monster-musume|モンスター娘|Monster Musume\n" +
+    "mushihime-sama|虫姫さま|Mushihime-sama\n" +
+    "my-hero-academia|僕のヒーローアカデミア|My Hero Academia\n" +
+    "my-little-pony|マイリトルポニー|My Little Pony\n" +
+    "my-teen-romantic-comedy|やはり俺の青春ラブコメはまちがっている|My Teen Romantic Comedy\n" +
+    "nanatsu-no-taizai|七つの大罪 Nanatsu no Taizai|The Seven Deadly Sins\n" +
+    "naruto|ナルト|NARUTO\n" +
+    "nausicaa|風の谷のナウシカ|Nausicaä of the Valley of the Wind\n" +
+    "nichijou|日常|Nichijou\n" +
+    "nier-automata|ニーア オートマタ|Nier: Automata\n" +
+    "night-wizard|ナイトウィザード|Night Wizard\n" +
+    "nijiura-maids|虹裏メイド|Nijiura Maids\n" +
+    "nisekoi|ニセコイ|Nisekoi\n" +
+    "no-rin|のうりん|No-Rin\n" +
+    "non-non-biyori|のんのんびより|Non Non Biyori\n" +
+    "nura-rise-of-the-yokai-clan|ぬらりひょんの孫|Nura: Rise of the Yokai Clan\n" +
+    "occult-academy|世紀末オカルト学院|Occult Academy\n" +
+    "oh-my-goddess|ああっ女神さまっ|Oh My Goddess!\n" +
+    "one-piece|ワンピース|One Piece\n" +
+    "one-punch-man|ワンパンマン|One-Punch Man\n" +
+    "ongeki|オンゲキ|O.N.G.E.K.I.\n" +
+    "onmyoji|陰陽師|Onmyōji\n" +
+    "onmyou-taisenki|陰陽大戦記|Onmyou Taisenki\n" +
+    "oreimo|俺の妹がこんなに可愛いわけがない|Oreimo\n" +
+    "otomedius|オトメディウス|Otomedius\n" +
+    "outlaw-star|星方武侠アウトロースター|Outlaw Star\n" +
+    "overlord|オーバーロード|OVERLORD\n" +
+    "overwatch|オーバーウォッチ|Overwatch\n" +
+    "pani-poni-dash|ぱにぽにだっしゅ|PANI PONI DASH!\n" +
+    "panty-stocking-with-garterbelt|パンティ＆ストッキングwithガーターベルト|Panty & Stocking with Garterbelt\n" +
+    "parasite-eve|パラサイト・イヴ|Parasite Eve\n" +
+    "peanuts|ピーナッツ|Peanuts\n" +
+    "persona|ペルソナ|Persona\n" +
+    "phantasy-star|ファンタシースター|Phantasy Star\n" +
+    "pita-ten|ぴたテン|Pita-Ten\n" +
+    "please-teacher|おねがい☆ティーチャー|Please Teacher\n" +
+    "pocky-and-rocky|奇々怪界|Pocky & Rocky\n" +
+    "pokemon|ポケモン|Pokemon\n" +
+    "pretty-cure|プリキュア|Pretty Cure\n" +
+    "prison-school|監獄学園|Prison School\n" +
+    "puella-magi-madoka-magica|魔法少女まどか☆マギカ|Puella Magi Madoka Magica\n" +
+    "queen's-blade|クイーンズブレイド|Queen's Blade\n" +
+    "rail-wars|RAIL WARS! -日本國有鉄道公安隊-|Rail Wars!\n" +
+    "ranma-1-2|らんま&#189;|Ranma 1/2\n" +
+    "record-of-lodoss-war|ロードス島戦記|Record of Lodoss War\n" +
+    "resident-evil|バイオハザード|Resident Evil\n" +
+    "rezero|Re:ゼロから始める異世界生活|Re:Zero\n" +
+    "rhythm-tengoku|リズム天国|Rhythm Tengoku\n" +
+    "ridge-racer|リッジレーサー|Ridge Racer\n" +
+    "ring|リング|Ring\n" +
+    "rio|リオシリーズ|Rio series\n" +
+    "rival-schools|私立ジャスティス学園|Rival Schools\n" +
+    "river-city|熱血硬派|River City\n" +
+    "ro-kyu-bu|ロウきゅーぶ!|Ro-Kyu-Bu!\n" +
+    "rosario-vampire|ロザリオとバンパイア|Rosario + Vampire\n" +
+    "rozen-maiden|ローゼンメイデン|Rozen Maiden\n" +
+    "rumble-roses|ランブルローズ|Rumble Roses\n" +
+    "s-cry-ed|スクライド|s-CRY-ed\n" +
+    "saga-of-tanya-the-evil|幼女戦記|Saga of Tanya the Evil\n" +
+    "sailor-moon|美少女戦士セーラームーン|Sailor Moon\n" +
+    "saint-seiya|聖闘士星矢|Saint Seiya: Knights of the Zodiac\n" +
+    "scooby-doo|スクービー・ドゥー|Scooby-Doo\n" +
+    "senran-kagura|閃乱カグラ|Senran Kagura\n" +
+    "shantae|シャンティ|Shantae\n" +
+    "sherlock-hound|名探偵ホームズ|Sherlock Hound\n" +
+    "shin-megami-tensei|真・女神転生|Shin Megami Tensei\n" +
+    "shinmai-fukei-kiruko-san|新米婦警キルコさん|Shinmai Fukei Kiruko-san\n" +
+    "shinrabanshou|神羅万象チョコ|Shinrabanshou\n" +
+    "shugo-chara|しゅごキャラ!|Shugo Chara\n" +
+    "sirius-the-jaeger|天狼|Sirius the Jaeger\n" +
+    "sky-girls|スカイガールズ|Sky Girls\n" +
+    "slayers|スレイヤーズ|Slayers\n" +
+    "snowboard-kids|スノボキッズ|Snowboard Kids\n" +
+    "solatorobo|ソラトロボ|Solatorobo\n" +
+    "sonic|ソニック|Sonic the Hedgehog\n" +
+    "sound-euphonium|響け! ユーフォニアム|Sound! Euphonium\n" +
+    "space-dandy|スペース☆ダンディ|Space Dandy\n" +
+    "spice-and-wolf|狼と香辛料|Spice and Wolf\n" +
+    "splatoon|スプラトゥーン|Splatoon\n" +
+    "squid-girl|侵略!イカ娘|Squid Girl\n" +
+    "star-driver|輝きのタクト|Star Driver\n" +
+    "star-fox|スターフォックス|Star Fox\n" +
+    "stellvia|宇宙のステルヴィア|Stellvia\n" +
+    "stellvia-of-the-universe|宇宙のステルヴィア|Stellvia of the Universe\n" +
+    "steven-universe|ティーブン・ユニバース|Steven Universe\n" +
+    "strawberry-100|いちご100%|Strawberry 100%\n" +
+    "strawberry-marshmallow|苺ましまろ|Strawberry Marshmallow\n" +
+    "street-fighter|ストリートファイター|Street Fighter\n" +
+    "strike-witches|ストライクウィッチーズ|Strike Witches\n" +
+    "suikoden|幻想水滸伝|Suikoden\n" +
+    "summon-night|サモンナイト|Summon Night\n" +
+    "super-real-mahjong|スーパーリアル麻雀|Super Real Mahjong\n" +
+    "super-robot-wars|スーパーロボット大戦|Super Robot Wars\n" +
+    "super-smash-bros|大乱闘スマッシュブラザーズ|Super Smash Bros\n" +
+    "super-sonico|すーぱーそに子|Super Sonico\n" +
+    "superhero|ジャスティス・リーグ|Superhero\n" +
+    "taimanin|対魔忍|Taimanin\n" +
+    "tales-of-berseria|テイルズ オブ ベルセリア|Tales of Berseria\n" +
+    "tales-series|テイルズ|Tales Series\n" +
+    "teekyu|てーきゅう|Teekyu\n" +
+    "teen-titans|ティーン・タイタンズ|Teen Titans\n" +
+    "tekken|鉄拳|Tekken\n" +
+    "tenchi-muyo|天地無用!|Tenchi Muyo!\n" +
+    "tengen-toppa-gurren-lagann|天元突破グレンラガン|Tengen Toppa Gurren Lagann\n" +
+    "the-devil-is-a-part-timer|はたらく魔王さま!|The Devil is a Part-Timer!\n" +
+    "the-disastrous-life-of-saiki-k|斉木楠雄のΨ難|The Disastrous Life of Saiki K.\n" +
+    "the-familiar-of-zero|ゼロの使い魔|The Familiar of Zero\n" +
+    "the-rising-of-the-shield-hero|盾の勇者の成り上がり|The Rising of the Shield Hero\n" +
+    "the-simpsons|ザ・シンプソンズ|The Simpsons\n" +
+    "the-tower-of-druaga|ドルアーガの塔|The Tower of Druaga\n" +
+    "the-walking-dead|ウォーキング・デッド|The Walking Dead\n" +
+    "the-wonderful-101|ザ ワンダフル ワンオーワン|The Wonderful 101\n" +
+    "tiny-toon-adventures|タイニー・トゥーンズ|Tiny Toon Adventures\n" +
+    "to-love-ru|とらぶる|To Love-Ru\n" +
+    "tokyo-ghoul|東京喰種|Tokyo Ghoul\n" +
+    "tokyo-pig|はれときどきぶた|Tokyo Pig\n" +
+    "touhou-project|東方Project|Touhou Project\n" +
+    "triggerheart-exelica|トリガーハート エグゼリカ|Triggerheart Exelica\n" +
+    "tsukihime|月姫|Tsukihime\n" +
+    "twelve-warrior-explosive-eto-rangers|十二戦支 爆烈エトレンジャー|Twelve Warrior Explosive Eto Rangers\n" +
+    "twin-princess-of-wonder-planet|ふしぎ星の☆ふたご姫|Twin Princess of Wonder Planet\n" +
+    "twinbee|ツインビー|TwinBee\n" +
+    "um-jammer-lammy|ウンジャマ・ラミー|Um Jammer Lammy\n" +
+    "umihara-kawase|海腹川背|Umihara Kawase\n" +
+    "urusei-yatsura|うる星やつら|Urusei Yatsura\n" +
+    "valkyria-chronicles|戦場のヴァルキュリア|Valkyria Chronicles\n" +
+    "vhgame01|VHゲーム01|VHGame01\n" +
+    "virtual-on|電脳戦機バーチャロン|Virtual On\n" +
+    "vocaloid|ボーカロイド|Vocaloid\n" +
+    "warcraft|ウォークラフト|Warcraft\n" +
+    "wario-ware-inc|メイド イン ワリオ|Wario Ware Inc\n" +
+    "watamote|私がモテないのはどう考えてもお前らが悪い!|WataMote\n" +
+    "wedding-peach|愛天使伝説|Wedding Peach\n" +
+    "weekly-dearest-my-brother|週刊わたしのおにいちゃん|Weekly Dearest My Brother\n" +
+    "welcome-to-pia-carrot|Pia♥キャロットへようこそ!!|Welcome to Pia Carrot!!\n" +
+    "white-cat-project|白猫プロジェクト|White Cat Project\n" +
+    "wii-fit|Wiiフィット|Wii Fit\n" +
+    "witchblade|ウィッチブレイド|Witchblade\n" +
+    "xenosaga|ゼノサーガシリーズ|Xenosaga\n" +
+    "yatterman|ヤッターマン|Yatterman\n" +
+    "yotsubato|よつばと!|Yotsuba to\n" +
+    "youre-under-arrest|逮捕しちゃうぞ|You're Under Arrest\n" +
+    "yu-gi-oh|遊☆戯☆王|Yu-Gi-Oh\n" +
+    "yu-yu-hakusho|幽☆遊☆白書|Yu Yu Hakusho\n" +
+    "yumeria|ゆめりあ|Yumeria\n" +
+    "yuru-yuri|ゆるゆり|Yuru Yuri\n" +
+    "zemi|進研ゼミ|shinkenzemi\n" +
+    "zetsubou-sensei|さよなら絶望先生|Sayonara, Zetsubou-Sensei\n" +
+    "zoids-genesis|ゾイドジェネシス|ZOIDS GENESIS\n" +
+    "zombie-land-saga|ゾンビランドサガ|Zombie Land Saga\n" +
+    "";
+  // La web escribe una misma etiqueta de dos formas según dónde: su índice dice `ロリ` y sus dos
+  // filas de la cabecera `ロリータ` (la misma dirección, `/tag/loli/`). Los dos nombres van al
+  // diccionario.
+  // Y las dos filas de la cabecera usan nombres viejos para otras dos (`Nintendoエロ`, `LOLエロ`)
+  // donde su índice dice «Nintendo Hentai» y `リーグ・オブ・レジェンド`: la misma dirección, otro
+  // nombre.
+  var TAG_ALIAS = {
+    "ロリータ": "Loli",
+    "Nintendoエロ": "Nintendo Hentai",
+    "LOLエロ": "League of Legends"
+  };
+
+  TAG_MORE.split("\n").forEach(function (line) {
+    var p = line.split("|");
+    if (p.length < 3 || TAG_JA[p[0]] != null) return;
+    TAG_JA[p[0]] = [p[1], p[2]];
+  });
+
+  Object.keys(TAG_JA).forEach(function (slug) {
+    var t = TAG_JA[slug];
+    if (t[0] && DICT_JA[t[0]] == null) DICT_JA[t[0]] = t[1];
+  });
+  Object.keys(TAG_ALIAS).forEach(function (k) {
+    if (DICT_JA[k] == null) DICT_JA[k] = TAG_ALIAS[k];
+  });
+
+  // Lo que la web japonesa escribe con números por medio (la fecha de la ficha y el «desde cuándo»
+  // de la ayuda) y sus opciones de «tantas filas».
+  var PATTERNS_JA = [
+    [
+      /^最終更新日: (\d{1,2})月 (\d{1,2}), (\d{4})$/,
+      function (all, m, d, y) {
+        return "Última actualización: " + d + " de " + MESES_JA[Number(m)] + " de " + y;
+      }
+    ],
+    [
+      /^(\d{1,2})月 (\d{1,2}), (\d{4})$/,
+      function (all, m, d, y) {
+        return d + " de " + MESES_JA[Number(m)] + " de " + y;
+      }
+    ],
+    // El contador de los listados: «665件目, 1 / 45 ページ».
+    [/^([\d.,]+)件目, (\d+) \/ (\d+)$/, "$1 juegos, $2 / $3"],
+    // El título de la búsqueda: «検索 "maid"».
+    [/^検索 "(.*)"$/, "Búsqueda: «$1»"],
+    // El mismo título, pero sin comillas cuando la web no las pone (el de la pestaña del navegador).
+    [/^検索 (.+)$/, "Búsqueda: $1"],    // El título de la lista de populares: «人気 1» (el número es la página).
+    [/^人気 (\d+)$/, "Populares, pág. $1"],
+    // Las filas por página del filtro avanzado: «1行».
+    [/^(\d+)行$/, "$1 filas"],
+    // Las notas de su índice de etiquetas: un paréntesis con otro nombre de la etiqueta y el suyo en
+    // japonés («(Detective Conan,名探偵コナン)»). Los dos trozos se pasan por el diccionario, que el
+    // japonés sí lo tiene (y si no lo tiene, el texto se queda como estaba y no se toca).
+    [
+      /^\((.+?),\s*(.+)\)$/,
+      function (all, a, b) {
+        return "(" + tr(a.trim()) + ", " + tr(b.trim()) + ")";
+      }
+    ]
+  ];
+
+  var MESES_JA = [
+    "",
+    "enero",
+    "febrero",
+    "marzo",
+    "abril",
+    "mayo",
+    "junio",
+    "julio",
+    "agosto",
+    "septiembre",
+    "octubre",
+    "noviembre",
+    "diciembre"
+  ];
+
+  // Los atributos que la web japonesa escribe en japonés (el texto de sus botones y los bocadillos
+  // que salen al pasar el ratón).
+  var ATTRS_JA = {
+    value: { "検索": "Buscar" },
+    title: {
+      "新しいウィンドウで開く": "Abrir en una ventana nueva",
+      "H-FLASH ホーム": "Portada de H-FLASH",
+      "エロフラッシュホーム": "Portada de Juegos Flash Hentai",
+      "トップ100最も人気のエロフラッシュ": "Los 100 juegos flash hentai más populares",
+      "トップ100ランキング最高のエロフラッシュ": "Los 100 mejores juegos flash hentai",
+      "全てのエロフラッシュ": "Todos los juegos flash hentai",
+      "ランダムのエロフラッシュ": "Lista de juegos aleatorios",
+      "音量おきなゲームはある、ご注意ください。": "Cuidado: algunos juegos tienen sonido fuerte"
+    }
+  };
+
+  // Los nombres de los idiomas, para el desplegable: lo lee quien no tiene por qué saber que
+  // «日本語» es japonés.
+  var LANG_NAMES = { English: "Inglés", "日本語": "Japonés", "Русский": "Ruso", "中文": "Chino" };
+
+  // Los huecos que la web marca con un `tid` (el mismo en sus dos versiones) y que el texto no puede
+  // distinguir: en `B01` la ficha pone el nombre del juego y en el desplegable de orden la palabra
+  // «título», que en japonés son «タイトル» las dos; `B07` es la fila de etiquetas de la ficha (y
+  // «タグ» a secas es el menú); y `P00` es la palabra «páginas» del contador.
+  var TIDS = { B01: "Nombre", B07: "Etiquetas", P00: "Páginas" };
 
   // Textos que la web monta en un elemento con varios trozos dentro (ahí no vale traducir nodo a
   // nodo: hay que rehacer el elemento entero).
@@ -1887,8 +2776,32 @@
     "Previous Page": "Anterior",
     "Next Page": "Siguiente",
     "First Page": "Primera página",
-    "Last Page": "Última página"
+    "Last Page": "Última página",
+    // El botón de la ficha que lanza el juego con Ruffle: la web lo escribe «Ruffleで実行» (el
+    // «Ruffle» dentro de su `span` naranja, y «で実行» detrás), que en español no se puede decir
+    // trozo a trozo sin que quede «Ruffleejectuar».
+    "Ruffleで実行": 'Ejecutar con <span class="ruffle">Ruffle</span>'
   };
+
+  // La lista de autocomprobación de la ayuda del reproductor (`/plugin/flash/`): la web la mete en un
+  // `<textarea readonly>` de texto monoespaciado, y ahí no hay nodos de texto que traducir (el paso
+  // de los nodos se salta los `textarea`, ver `SKIP_TAGS`), así que va entera. Se cambia en el
+  // arranque de la página (`apply`), no por el diccionario.
+  var TA_CHECK = [
+    "Al pulsar un botón «CLIC PARA JUGAR» o «HFlashPlayer»:",
+    "\tP1. No ha pasado nada.",
+    "\t\tR11. HFlashPlayer no está registrado correctamente. Ejecuta HFlashPlayer.exe para registrarlo.",
+    "\t\t\tP111. Al ejecutar HFlashPlayer.exe no pasa nada.",
+    "\t\t\t\tR111. Para ejecutar HFlashPlayer necesitas .net Framework 4.0.",
+    "\t\tR12. Lo ha bloqueado el navegador o el antivirus: revisa los ajustes de aplicaciones del navegador o pruébalo en otro navegador.",
+    "",
+    "\tP2. Sale una ventana en blanco y se queda en blanco para siempre.",
+    "\t\tR21. Pulsa el menú [Archivo]: en la posición 1 verás una URL. Ábrela en el navegador, escríbela con cuidado y comprueba que se puede llegar al archivo.",
+    "\t\t\tP211. He visto una comprobación del navegador o un captcha, o lo he visto hace un momento.",
+    "\t\t\t\tR211: Tu red está marcada como insegura por el cortafuegos: descarga el archivo y juégalo sin conexión, o usa un proxy o una VPN.",
+    "\t\t\tP212. He podido descargar el archivo porque uso un proxy.",
+    "\t\t\t\tR212: Tienes que hacer que el proxy sirva también para flashplayer.exe."
+  ].join("\n");
 
   // Elementos del menú que la web parte en dos («ALL» + un `<span class="mobhide"> GAMES</span>` que
   // esconde en el móvil): nodo a nodo saldría «TODOS JUEGOS». Aquí se les da su texto entero, corto
@@ -1973,11 +2886,19 @@
     if (!s) return s;
     // La web a veces corta las frases con dos espacios de más («OLD  HENTAI FLASH GAMES», con el
     // hueco que deja una etiqueta vacía): se busca por el texto ya normalizado.
-    var key = s.replace(/\s+/g, " ");
-    var v = DICT[key];
+    // La web japonesa a veces deja un hueco antes del punto («…表示されません 。»), y el diccionario
+    // va sin él: el hueco que sobra delante de la puntuación japonesa no cuenta.
+    var key = s.replace(/\s+/g, " ").replace(/\s+([。、！？])/g, "$1");
+    // El japonés primero: sus claves no aparecen en una página inglesa, así que preguntar por las
+    // dos listas vale para las dos versiones de la web (y la japonesa tiene textos en inglés, como
+    // su pie, que se traducen con el diccionario de siempre).
+    var v = DICT_JA[key] != null ? DICT_JA[key] : DICT[key];
     if (v != null) return v;
     for (var i = 0; i < PATTERNS.length; i++) {
       if (PATTERNS[i][0].test(key)) return key.replace(PATTERNS[i][0], PATTERNS[i][1]);
+    }
+    for (var j = 0; j < PATTERNS_JA.length; j++) {
+      if (PATTERNS_JA[j][0].test(key)) return key.replace(PATTERNS_JA[j][0], PATTERNS_JA[j][1]);
     }
     return s;
   }
@@ -2009,12 +2930,14 @@
   }
 
   function attr(el, name) {
-    var map = ATTRS[name];
-    if (!map) return false;
+    var ja = ATTRS_JA[name];
+    var en = ATTRS[name];
+    if (!ja && !en) return false;
     if (name === "value" && el.tagName === "OPTION") return false;
     var v = el.getAttribute && el.getAttribute(name);
     if (!v) return false;
-    var out = map[v.trim()] || tr(v.trim());
+    var k = v.trim();
+    var out = (ja && ja[k]) || (en && en[k]) || tr(k);
     if (!out || out === v) return false;
     if (name === "value" && el.value !== undefined && el.tagName !== "OPTION") {
       try {
@@ -2025,12 +2948,153 @@
     return true;
   }
 
+  // =============================================================================================
+  // LA PAGINACIÓN
+  // =============================================================================================
+  // Cada enlace de la paginación lo escribe la web en dos trozos y **pegados** («最初» + «ページ»,
+  // que en el móvil esconde el segundo; en la inglesa «First» + « Page»), así que traducirlos por
+  // separado dejaría «Primera páginapágina». Se mira el texto que lleva el enlace y se le da el
+  // suyo entero: así queda bien en el PC y en el móvil, y también cuando la web lo pinta por
+  // JavaScript (esos enlaces no llevan `id`).
+  var PAGES = [
+    [/^(First|最初)/, "Primera página"],
+    [/^(Prev|前へ)/, "Anterior"],
+    [/^(Next|次へ)/, "Siguiente"],
+    [/^(Last|最終)/, "Última página"]
+  ];
+
+  function pagination(root) {
+    var count = 0;
+    hf.qa(".pagelink a[href]", root).forEach(function (a) {
+      if (skip(a)) return;
+      var t = (a.textContent || "").replace(/\s+/g, " ").trim();
+      for (var i = 0; i < PAGES.length; i++) {
+        if (PAGES[i][0].test(t) && t !== PAGES[i][1]) {
+          a.textContent = PAGES[i][1];
+          count++;
+          return;
+        }
+      }
+    });
+    return count;
+  }
+
+  // =============================================================================================
+  // LOS TÍTULOS DE LOS JUEGOS EN LA WEB JAPONESA
+  // =============================================================================================
+  // La web japonesa traduce también los títulos («メイド» donde la inglesa pone «Maid») y son lo que
+  // más se ve de la página. No hay diccionario que valga, pero tampoco hace falta inventarse nada:
+  // cada ficha lleva su nombre **en inglés escondido** en el `alt` de su miniatura, pegado al
+  // japonés («このすば尻女神様 Creambee - Konosuba Shiri Megami Sama»), y es el mismo que la web
+  // enseña en su versión inglesa. Así que se recorta el `alt` justo por donde acaba el título
+  // japonés —el texto que se ve, tal cual— y lo que queda es el suyo en inglés. Si no queda nada
+  // (juegos que sólo tienen nombre japonés, como el de una ficha) se deja como está. Se apaga con
+  // `hf.settings.jaTitles`.
+  var CJK = /[\u3040-\u30ff\u4e00-\u9fff]/;
+
+  // La web escapa los `&#39;` de algunos `alt` dos veces (`&amp;#39;`), así que al leerlos quedan
+  // como texto: se deshacen los números y los `&amp;` para no enseñar «Teto&#39;s Hentai Simulator».
+  function plain(s) {
+    return String(s == null ? "" : s)
+      .replace(/&#(\d+);/g, function (all, n) {
+        try {
+          return String.fromCharCode(Number(n));
+        } catch (e) {
+          return all;
+        }
+      })
+      .replace(/&amp;/g, "&")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function titles(root) {
+    if (!isJa() || hf.settings.lang !== "es" || !hf.settings.jaTitles) return 0;
+    var count = 0;
+    hf.qa(".gamebox, a[href][class~='title']", root).forEach(function (box) {
+      if (skip(box)) return;
+      var el = box.querySelector(".title") || box;
+      var ja = (el.textContent || "").replace(/\s+/g, " ").trim();
+      if (!ja || !CJK.test(ja)) return;
+      var en = latinName(box, ja);
+      if (!en) return;
+      // El `.title` lleva dentro el «abrir en otra ventana» (`.nw`), así que se cambia el nodo de
+      // texto que es el título, no el elemento.
+      var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+      var n;
+      while ((n = walker.nextNode())) {
+        if ((n.nodeValue || "").replace(/\s+/g, " ").trim() === ja) {
+          n.nodeValue = en;
+          count++;
+          return;
+        }
+      }
+    });
+    return count;
+  }
+
+  // El nombre del juego en latín, que la web ya tiene escrito en algún sitio de la ficha:
+  //   · en las rejillas, escondido en el `alt` de la miniatura, pegado detrás del japonés
+  //     («このすば尻女神様 Creambee - Konosuba Shiri Megami Sama»);
+  //   · en los resultados de la búsqueda, el título es un enlace suelto y su nombre en inglés está
+  //     en el `alt` de la miniatura de al lado o, más a mano, en su `.subtitle` («The Bad Maid»).
+  // Si no hay ninguno, devuelve vacío y el título se queda como está (es un juego que sólo tiene
+  // nombre japonés: el suyo no se puede inventar).
+  function latinName(box, ja) {
+    var grid = /(^|\s)gamebox(\s|$)/.test(box.className || "");
+    var row = grid ? null : box.closest ? box.closest(".row") || box.parentElement : box.parentElement;
+    var img = box.querySelector("img[alt]") || (row && row.querySelector("img[alt]"));
+    var alt = plain(img ? img.getAttribute("alt") : "");
+    if (alt && alt.indexOf(ja) === 0) {
+      var en = plain(alt.slice(ja.length).replace(/^[\s\-–—:.]+/, ""));
+      if (en && !CJK.test(en) && en !== ja) return en;
+    }
+    var sub = row && row.querySelector(".subtitle");
+    var s = plain(sub ? sub.textContent : "");
+    if (s && !CJK.test(s) && s !== ja) return s;
+    return "";
+  }
+
+  // El bocadillo de una ficha (el `title` de su enlace). La web lo escribe en dos trozos separados
+  // por un `&#13;` (que en el documento ya es un salto de línea): «título japonés + su título en
+  // inglés» y, detrás, la lista de etiquetas del juego separada por comas. Las etiquetas se traducen
+  // siempre con el diccionario (son interfaz, como las píldoras de la ficha) y el título se cambia
+  // por el suyo en inglés con el mismo truco que `titles` —el nombre que la web esconde en el `alt`
+  // de la miniatura—, y sólo si los títulos en inglés están encendidos.
+  function cardTitles(root) {
+    if (!isJa() || hf.settings.lang !== "es") return 0;
+    var count = 0;
+    hf.qa("a.gamebox[title]", root).forEach(function (box) {
+      if (skip(box)) return;
+      var t = box.getAttribute("title") || "";
+      var i = t.search(/[\r\n]/);
+      if (i < 0) return;
+      var head = t.slice(0, i);
+      var tags = t.slice(i + 1).split(",").map(function (s) {
+        return tr(s.trim());
+      });
+      if (hf.settings.jaTitles) {
+        var el = box.querySelector(".title");
+        var ja = el ? (el.textContent || "").replace(/\s+/g, " ").trim() : "";
+        var en = ja ? latinName(box, ja) : "";
+        if (en) head = en;
+      }
+      var out = head + "\n" + tags.join(", ");
+      if (out === t) return;
+      box.setAttribute("title", out);
+      count++;
+    });
+    return count;
+  }
+
   function apply(root) {
     if (hf.settings.lang !== "es") return 0;
     root = root && root.nodeType === 1 ? root : document.body;
     if (!root) return 0;
     var count = 0;
-    // 1. Los elementos que hay que rehacer enteros (el «Bug Report» con su palabra en rojo).
+    // 1. Los elementos que hay que rehacer enteros (el «Bug Report» con su palabra en rojo) y los
+    //    que la web marca con un `tid` (una fila de la ficha, el contador de páginas), que el texto
+    //    no puede distinguir (ver `TIDS`).
     Object.keys(IDS).forEach(function (id) {
       var el = document.getElementById(id);
       if (!el || skip(el)) return;
@@ -2038,6 +3102,16 @@
       el.textContent = IDS[id];
       count++;
     });
+    if (isJa()) {
+      Object.keys(TIDS).forEach(function (tid) {
+        hf.qa('[tid="' + tid + '"]', root).forEach(function (el) {
+          if (skip(el)) return;
+          if (el.textContent.replace(/\s+/g, " ").trim() === TIDS[tid]) return;
+          el.textContent = TIDS[tid];
+          count++;
+        });
+      });
+    }
     hf.qa("a, span, b, strong", root).forEach(function (el) {
       var t = (el.textContent || "").replace(/\s+/g, " ").trim();
       if (ELEMS[t] && !el.querySelector("iframe")) {
@@ -2045,7 +3119,16 @@
         count++;
       }
     });
-    // 2. Los nodos de texto (el grueso de la interfaz).
+    count += pagination(root);
+    // 2. Los títulos de los juegos (sólo en la web japonesa, que es la que los traduce). Van antes
+    //    que los nodos de texto para que una palabra del diccionario no se lleve por delante un
+    //    título que la web tiene en inglés (ver `titles`).
+    // Y el bocadillo de cada ficha, que lleva la misma mezcla y además sus etiquetas. Va ANTES de
+    // `titles`: necesita leer el título japonés de la ficha tal y como lo escribió la web para
+    // reconocerlo dentro del `alt` (que es donde está su nombre en inglés).
+    count += cardTitles(root);
+    count += titles(root);
+    // 3. Los nodos de texto (el grueso de la interfaz).
     var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
     var nodes = [];
     var n;
@@ -2053,10 +3136,13 @@
     nodes.forEach(function (node) {
       if (textNode(node)) count++;
     });
-    // 3. Los atributos que se ven. Ojo: lo que la web añade por AJAX llega aquí siendo *él mismo* el
+    // 4. Los atributos que se ven. Ojo: lo que la web añade por AJAX llega aquí siendo *él mismo* el
     //    nodo nuevo (una ficha suelta), y un `querySelectorAll` no se mira a sí mismo: el nodo de
     //    arriba entra en la lista a mano, que si no sus propios `title` se quedaban sin traducir.
     var names = Object.keys(ATTRS);
+    Object.keys(ATTRS_JA).forEach(function (k) {
+      if (names.indexOf(k) < 0) names.push(k);
+    });
     var attrSel = names.map(function (k) { return "[" + k + "]"; }).join(",");
     var targets = hf.qa(attrSel, root);
     if (root !== document.body && root.matches && root.matches(attrSel)) targets.unshift(root);
@@ -2066,25 +3152,44 @@
         if (attr(el, name)) count++;
       });
     });
-    // 4. El idioma del documento y su título (es lo que leen el navegador y los buscadores). La web
-    //    los escribe como «Preferences - Hentai Flash Games»: se traduce trozo a trozo, que el
+    // 5. El idioma del documento y su título (es lo que leen el navegador y los buscadores). La web
+    //    los escribe como «Preferences - Hentai Flash Games»): se traduce trozo a trozo, que el
     //    nombre del juego («Maid - Hentai Flash Games») no está en el diccionario y se queda igual.
     document.documentElement.setAttribute("lang", "es");
     if (document.title) {
       document.title = document.title
         .split(" - ")
         .map(function (part) {
-          return tr(part.trim()).replace(/Hentai Flash Games/gi, "Juegos Flash Hentai");
+          // En la web japonesa el nombre de la web sale en mayúsculas (`JUEGOS FLASH HENTAI`), que
+          // en un título queda a gritos: aquí se pone como se escribe.
+          return tr(part.trim())
+            .replace(/Hentai Flash Games/gi, "Juegos Flash Hentai")
+            .replace(/JUEGOS FLASH HENTAI/g, "Juegos Flash Hentai")
+            .trim();
         })
         .join(" - ");
     }
-    // 5. El campo de buscar etiquetas de los ajustes (`/tool/prefs/`) va sin pista ninguna al lado de
+    // 6. El campo de buscar etiquetas de los ajustes (`/tool/prefs/`) va sin pista ninguna al lado de
     //    su botón: la web no se la pone, así que se la pone esta (solo ahí: el `#keyword` del filtro
     //    avanzado es otro campo y ya tiene su etiqueta al lado).
     var pre = document.forms && document.forms.preform;
     if (pre) {
       var kw = pre.querySelector("#keyword");
       if (kw && !kw.getAttribute("placeholder")) kw.setAttribute("placeholder", "Etiqueta…");
+    }
+    // 7. La lista de autocomprobación de la ayuda del reproductor (`/plugin/flash/`): va dentro de un
+    //    `<textarea readonly>`, que el paso de los nodos de texto se salta —ahí dentro no hay frases
+    //    sueltas que traducir, hay un panel entero—, así que se cambia tal cual. Sólo la trae la web
+    //    japonesa (la inglesa ya la tiene en inglés).
+    if (isJa()) {
+      var ta = document.getElementById("ta_check");
+      if (ta && ta.value !== TA_CHECK) {
+        // Se ponen los dos: el valor por defecto (el texto de dentro del `textarea`, que es lo que
+        // sale si alguien lo copia o clona) y el valor que se ve.
+        ta.textContent = TA_CHECK;
+        ta.value = TA_CHECK;
+        count++;
+      }
     }
     return count;
   }
@@ -2119,9 +3224,10 @@
   // =============================================================================================
   // La web pone sus idiomas como enlaces en el bloque «LANGUAGE»: dos en casi todas las páginas y
   // **cuatro** (inglés, japonés, ruso y chino) en el editor de partidas. El desplegable se monta con
-  // los que la web ponga —sus direcciones y sus nombres, tal cual— y se le añade el español: así no
-  // se pierde ninguno de los suyos por el camino. Los enlaces se esconden, pero se quedan en el
-  // documento.
+  // los que la web ponga —sus direcciones y sus idiomas— y se le añade el español: así no se pierde
+  // ninguno de los suyos por el camino. Sus nombres van en español (el desplegable es nuestro y
+  // quien lo lee no tiene por qué saber que «日本語» es japonés). Los enlaces se esconden, pero se
+  // quedan en el documento.
   var langs = null;
 
   function links() {
@@ -2137,21 +3243,18 @@
       try {
         host = new URL(href, location.href).hostname;
       } catch (e) {}
-      return { value: href, label: a.textContent.replace(/\s+/g, " ").trim() || href, host: host };
+      var name = a.textContent.replace(/\s+/g, " ").trim();
+      return { value: href, label: LANG_NAMES[name] || LANG_NAMES[a.getAttribute("lang")] || name || href, host: host };
     });
   }
 
-  // El enlace «de casa»: el de la web inglesa (en `ja.h-flash.com` es el que no es de `ja.`), que es
-  // a donde se va cuando aquí no se puede traducir (la versión japonesa) y se elige español.
+  // El enlace «de casa»: el de la web inglesa (en `ja.h-flash.com` es el que no es de `ja.`). Es el
+  // que se marca en el desplegable cuando no se ha elegido español (el japonés de verdad se marca
+  // con el suyo, que lo pilla `build` por el dominio).
   function mainLang() {
     var list = langs || [];
     for (var i = 0; i < list.length; i++) if (!/^ja\./i.test(list[i].host)) return list[i];
     return list[0] || null;
-  }
-
-  function homeUrl() {
-    var main = mainLang();
-    return (main && main.value) || (JA ? "https://h-flash.com" : location.origin) + location.pathname;
   }
 
   function build() {
@@ -2193,12 +3296,11 @@
     return true;
   }
 
+  // Elegir idioma. El español no navega a ningún sitio: se traduce la página que estés mirando (la
+  // inglesa con `DICT` y la japonesa con `DICT_JA`), que es lo que hace que desde `ja.h-flash.com`
+  // no haya que irse a la inglesa —y perder su versión— para leerla en español.
   function pick(value) {
     if (value === "es") {
-      if (JA) {
-        location.href = homeUrl() + MARK_ES;
-        return;
-      }
       hf.set("lang", "es");
       return;
     }
@@ -2283,7 +3385,7 @@
     apply: apply,
     chooser: chooser,
     get: function () {
-      return hf.settings.lang === "es" ? "es" : JA ? "ja" : "en";
+      return hf.settings.lang === "es" ? "es" : isJa() ? "ja" : "en";
     },
     set: function (code) {
       hf.set("lang", code === "es" ? "es" : "auto");
@@ -2294,15 +3396,33 @@
     pick: pick,
     // Pasar el texto por el diccionario (para lo que se construya fuera del documento).
     tr: tr,
-    dict: DICT
+    dict: DICT,
+    dictJa: DICT_JA,
+    // ¿La página es la japonesa? Lo pregunta `crown.js`, que también pone nombres de etiqueta.
+    ja: isJa,
+    // El nombre de una etiqueta en español: `slug` es su dirección (`/tag/<slug>/`, la misma en las
+    // dos webs), `index` el nombre del índice de la web (en inglés) y `own` el que la web tiene
+    // puesto en ese momento (en japonés, en `ja.`). En la web japonesa el japonés no lo lee un
+    // hispanohablante, así que se prefiere el nombre latino del índice antes que el suyo.
+    tag: function (slug, index, own) {
+      if (hf.settings.lang !== "es") return own || index;
+      // En la web japonesa el nombre suyo no lo lee un hispanohablante, así que la dirección manda:
+      // el nombre de `TAG_JA` es el que se pone (y si esa etiqueta no está, el del índice, que es
+      // latino). En la inglesa no se toca nada: el nombre que ya tenía la web es el que vale.
+      if (!isJa()) return own || index;
+      var t = TAG_JA[slug];
+      if (t) return t[1];
+      return DICT_JA[own] || DICT_JA[index] || index || own;
+    }
   };
 
   hf.onChange(function (changed) {
-    if (changed.indexOf("lang") < 0) return;
+    if (changed.indexOf("lang") < 0 && changed.indexOf("jaTitles") < 0) return;
     build();
-    // Volver a 「auto」 no puede deshacer lo ya traducido (los textos originales no se guardan): eso
-    // lo arregla la recarga del navegador que hace `pick()`. Cambiarlo a mano desde la consola
-    // necesita recargar la página.
+    // Volver a 「auto」 (o apagar los títulos en inglés de la web japonesa) no puede deshacer lo ya
+    // traducido: los textos originales no se guardan. Eso lo arregla la recarga del navegador —
+    // volver al idioma de la web navega, y apagar `jaTitles` pide recargar a mano desde la consola
+    // (el panel lo dice)—.
     if (hf.settings.lang === "es") {
       applied = true;
       apply();
@@ -3200,7 +4320,16 @@
 
       caption("Idioma"),
       row("Idioma de la web", langChooser()),
-      hint("Los mismos idiomas del bloque «IDIOMA» del pie, más el español: «Español» traduce la interfaz de la página que tienes abierta (los títulos de los juegos, las etiquetas y las descripciones son de la web y se quedan como están); los demás son los de la web y llevan a su dirección."),
+      hint(
+        "Los mismos idiomas del bloque «IDIOMA» del pie, más el español: «Español» traduce la interfaz de la página que tienes delante —también la web japonesa, que tiene su propio diccionario— y no recarga ni cambia de web. Los demás son los de la web y llevan a su dirección."
+      ),
+      hf.lang && hf.lang.ja && hf.lang.ja()
+        ? sw(
+            "jaTitles",
+            "Los títulos de los juegos en inglés",
+            "Esta web es la versión japonesa y traduce también los títulos. La inglesa lleva el suyo en el `alt` de cada miniatura, y es el que se pone aquí (a los juegos que sólo tienen nombre japonés no se les puede poner nada, y se quedan como están). Apagarlo pide recargar la página."
+          )
+        : null,
 
       caption("Listados"),
       row("Tamaño de las tarjetas", chooser("cards", [["0", "Como la web (152 px)"], ["170", "Pequeñas · 170"], ["190", "Normales · 190"], ["220", "Grandes · 220"], ["250", "Muy grandes · 250"], ["280", "Enormes · 280"]], Number)),
@@ -5404,7 +6533,7 @@
   function nwSpan() {
     var s = document.createElement("span");
     s.className = "nw";
-    s.title = "open in new window";
+    s.title = "Abrir en una ventana nueva";
     s.setAttribute("onclick", "nw(this)");
     return s;
   }
@@ -5840,15 +6969,16 @@
   }
 
   // LOS NOMBRES QUE LA WEB YA TIENE PUESTOS EN LA CABECERA.
-  // El índice de etiquetas que usamos (el de `/tags/`) da los nombres en inglés, y la web tiene su
+  // El índice de etiquetas que usamos (el de `/tags/`) da los nombres en un idioma, y la web tiene su
   // versión japonesa en otro dominio (`ja.h-flash.com`: misma plantilla, mismas direcciones
   // `/tag/<x>/`, pero los nombres en japonés: ループ, ゲーム…). Si reescribiésemos las dos filas a
   // pelo, a un visitante japonés le saldrían 26 etiquetas en inglés, que es justo lo contrario de lo
   // que hace el resto del userscript con el idioma (ver `lang.js`). Así que antes de reescribir se
   // apuntan los nombres que la web tiene en ese momento —se leen del HTML ORIGINAL que se guarda en
-  // `hfOrig`, no de la fila ya reescrita— y se usan para las etiquetas que YA estaban en la
-  // cabecera; el nombre del índice queda solo para las que añadimos nosotros. En la web inglesa el
-  // nombre propio y el del índice son el mismo, así que allí no cambia nada.
+  // `hfOrig`, no de la fila ya reescrita— y se le pasan a `hf.lang.tag`, que es quien decide:
+  // en la web inglesa el nombre propio que ya estaba (el del índice es el mismo, así que no cambia
+  // nada), y en la japonesa el español del diccionario o, si esa etiqueta no está en él, el nombre
+  // latino del índice (el japonés ahí no hay quien lo lea).
   var ownNames = null;
 
   function ownLabels(lines) {
@@ -5867,7 +6997,8 @@
   }
 
   function tagLink(t, i) {
-    var name = (ownNames && ownNames[t.slug]) || t.name;
+    var own = ownNames && ownNames[t.slug];
+    var name = hf.lang && hf.lang.tag ? hf.lang.tag(t.slug, t.name, own) : own || t.name;
     var a = hf.el("a", {
       cls: "hf-ct" + (i < CROWNS ? " hf-ct-" + (i + 1) : ""),
       href: hf.abs("/tag/" + t.slug + "/"),
@@ -6109,6 +7240,23 @@
   var ORDERS = { desc: "de mayor a menor", asc: "de menor a mayor" };
   var SELECTS = ["sortselector", "orderselector", "pagesizeselector"];
 
+  // La etiqueta del botón de filtrar la pone el guion de la web a mano y por la **propiedad**
+  // `value` (que no cambia el atributo, así que el traductor de `lang.js` no la ve): la deja en su
+  // idioma, «検索» en la web japonesa y « Filter » en la inglesa. Aquí se pisa cada vez que el
+  // filtro termina de trabajar, que es cuando la web acaba de escribirla.
+  var FILTER_BTN = "Filtrar";
+  var LOADING_BTN = "Cargando…";
+
+  function label() {
+    var b = hf.q("#btnfilter");
+    if (!b) return;
+    var v = String(b.value || "").trim();
+    // Mientras carga, la web pone su «loading…»: se respeta (el de ella es el estado, no la
+    // etiqueta), solo se cambia cuando ya es la del botón.
+    if (v === FILTER_BTN || v === LOADING_BTN) return;
+    if (/^(Filter|検索|読み込み中)/.test(v)) b.value = /^(読み込み|loading)/i.test(v) ? LOADING_BTN : FILTER_BTN;
+  }
+
   function win() {
     return hf.pageWin();
   }
@@ -6169,6 +7317,7 @@
     } catch (e) {
       hf.errors.push({ piece: "filter", error: String((e && e.message) || e) });
     }
+    label();
   }
 
   function describe(l) {
@@ -6189,6 +7338,15 @@
         else apply(describe(l));
       });
     });
+    // El botón de la web: su `value` se vuelve a escribir en cada clic, así que después del suyo se
+    // repone el nuestro (esto corre después de `onclick`, que va antes por ser el del HTML).
+    var btn = hf.q("#btnfilter");
+    if (btn && !btn.hfLabeled) {
+      btn.hfLabeled = true;
+      btn.addEventListener("click", function () {
+        setTimeout(label, 0);
+      });
+    }
   }
 
   function init() {
@@ -6197,6 +7355,7 @@
     fixCount(l);
     fixPager(l);
     wire();
+    label();
   }
 
   hf.filter = { init: init, apply: apply };
