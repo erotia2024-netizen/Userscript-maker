@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.29
+// @version      0.9.30
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -858,8 +858,8 @@
     "Beso : beso/besar/besito/muac : deseo 1, afecto 0.5",
     "Lamer la aureola : aureola + lamer/chupar/lengua : deseo 1, tension 1",
     "Lamer el pezón : pezon/teton + lamer/chupar : deseo 2, tension 1",
-    "Caricia en la mejilla : mejilla/cachete + acariciar/caricia/rozar : deseo 2.5, afecto 1",
-    "Caricia : acariciar/caricia/rozar/tocar : deseo 1, tension 1",
+    "Caricia en la mejilla : mejilla/cachete + acariciar/caricia/roce : deseo 2.5, afecto 1",
+    "Caricia : acariciar/caricia/roce/roces/tocar : deseo 1, tension 1",
     "Desnudar : desnudar/desnuda/desnudo | quitar+ropa : deseo 3, tension 2",
     "Pechos : pecho/pechos/senos/tetas/busto : deseo 2, tension 1",
     "Culo : culo/nalgas/trasero : deseo 2, tension 1",
@@ -870,7 +870,7 @@
     "Te quiero : te+quiero | te+amo | te+adoro | enamorad : afecto 3, confianza 1",
     "Me encantas : encantas/gustas : afecto 1.5, tension 0.5",
     "Halago : guapa/guapo/hermosa/hermoso/preciosa/precioso/bella/bello/linda/lindo : afecto 1, tension 0.5",
-    "Dormir juntos : dormir+cama | dormir+abrazo : afecto 2, confianza 1, deseo 1",
+    "Dormir juntos : cama + dormir/duerme/duermo/durmiendo | abrazo + dormir/duerme/duermo : afecto 2, confianza 1, deseo 1",
     "Celos : celos/celosa/celoso : tension 2, confianza -1",
     "Disculpa : perdon/perdona/disculpa/siento : afecto 0.5, confianza 1, tension -1",
     "Gracias : gracias : afecto 0.5, confianza 0.5",
@@ -1069,13 +1069,16 @@
     if (w.length > 3 && /[aeo]$/.test(w)) w = w.slice(0, -1);
     return w;
   }
-  // ¿Son la misma palabra? Iguales, o una es el principio de la otra (y no se van mucho).
+  // ¿Son la misma palabra? Iguales, o una es el principio de la otra. El «principio» solo vale a
+  // partir de seis letras: con raíces cortas se colarían parecidos que no tienen nada que ver
+  // (`gracias` y `gracioso` caen las dos en `graci…`).
   function mismaPalabra(a, b) {
     if (!a || !b) return false;
     if (a === b) return true;
+    if (Math.min(a.length, b.length) < 6) return false;
     var n = 0;
     while (n < a.length && n < b.length && a.charAt(n) === b.charAt(n)) n++;
-    return n >= 4 && n >= Math.min(a.length, b.length) - 3 && Math.abs(a.length - b.length) <= 6;
+    return n >= 6 && n >= Math.min(a.length, b.length) - 2 && Math.abs(a.length - b.length) <= 6;
   }
   // Trocea el mensaje conservando la posición de cada letra, para saber después si una palabra cae
   // dentro de `*…*` (acción), de `"…"` (lo que dices), de `( … )` (OOC) o en texto llano.
