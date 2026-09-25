@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.31
+// @version      0.9.32
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -900,6 +900,7 @@
     forzado: false,
     panelAbierto: false,
     colapsado: false,
+    aMano: false,      // ¿el jugador ha plegado/desplegado a mano? (entonces no se toca solo)
     ancho: ANCHO,
     seccion: "",       // qué <details> está abierto (para no perderlo al repintar)
     msg: null,
@@ -1788,7 +1789,8 @@
   // antepasados hasta dar con el que es de verdad más alto que ella. Así no hace falta conocer
   // ninguna clase de su web. Se guarda un segundo de memoria, que esto se repite a menudo.
   var colCache = { at: 0, col: null };
-  function columnaChat() {
+  function columnaChat(fresco) {
+    if (fresco) colCache.at = 0;
     if (Date.now() - colCache.at < 1000) return colCache.col;
     colCache.at = Date.now();
     colCache.col = calcularColumna();
@@ -1813,31 +1815,45 @@
   // Coloca la ficha: a la izquierda de la columna del chat, con su misma altura, y si no hay sitio
   // (o no encuentro el chat) se queda a la izquierda de la pantalla. Es `position: fixed`, así que
   // no depende de dónde nos cuelgue su React.
-  function colocar() {
+  function colocar(fresco) {
     var d = state.dock;
     if (!d) return;
+    var vw = window.innerWidth || 1200;
     var vh = window.innerHeight || 800;
-    var ancho = state.colapsado ? 34 : (state.ancho || ANCHO);
-    var col = columnaChat();
+    // En pantalla estrecha no hay sitio para la ficha entera: se queda plegada (y quien la quiera
+    // abrir, la abre: en cuanto la toca a mano, manda su gusto).
+    if (!state.aMano) {
+      var quieroPlegada = vw < 760;
+      if (quieroPlegada !== state.colapsado) {
+        state.colapsado = quieroPlegada;
+        render();
+      }
+    }
+    var col = columnaChat(!!fresco);
     var left, top, alto;
     if (col) {
+      // se ensancha lo que deje el hueco que hay entre el borde de la pantalla (o su barra
+      // lateral) y la columna del chat: así nunca la pisa, y si hay sitio de sobra manda el
+      // ancho que haya elegido el jugador.
+      var hueco = Math.round(col.left - 20);
+      var ancho = state.colapsado ? 34 : Math.max(140, Math.min(state.ancho || ANCHO, hueco));
       left = Math.round(col.left - 12 - ancho);
-      if (left < 8) {
-        left = 8;
-        if (!state.colapsado) ancho = Math.max(150, Math.min(ancho, Math.round(col.left - 20)));
-      }
+      if (left < 8) left = 8;
       top = Math.round(Math.max(8, col.top));
       alto = Math.round(Math.min(vh - top - 16, Math.max(240, col.bottom - top)));
+      if (left < 110) alto = Math.min(alto, vh - top - 92);   // no pisar el botón flotante
+      alto = Math.max(160, alto);
+      d.style.width = ancho + "px";
     } else {
       left = 8;
       top = 72;
-      alto = Math.round(Math.min(vh - 168, 460));
+      alto = Math.max(160, Math.round(Math.min(vh - 168, 460)));
+      d.style.width = (state.colapsado ? 34 : (state.ancho || ANCHO)) + "px";
     }
-    if (left < 110) alto = Math.min(alto, vh - top - 92);   // no pisar el botón flotante
     d.style.left = left + "px";
     d.style.top = top + "px";
-    d.style.width = ancho + "px";
-    d.style.maxHeight = Math.max(140, alto) + "px";
+    d.style.height = alto + "px";
+    d.style.maxHeight = alto + "px";
   }
 
   // --- la interfaz de la ficha --------------------------------------------------------------------
@@ -2138,7 +2154,7 @@
     if (!v) state.panelAbierto = false;
     auto(true);
     render();
-    colocar();
+    colocar(true);
     return state.visible;
   }
   function panelAbierto(v) {
