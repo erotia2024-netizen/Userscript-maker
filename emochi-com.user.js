@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.41
+// @version      0.9.42
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -911,6 +911,7 @@
     brinco: {},        // barras que acaban de moverse (para el destello)
     prueba: "",        // el texto de la cajita de pruebas
     edicion: null,     // el borrador de la tabla mientras la editas
+    vigilando: false,  // esperando a que salga su botón de «Reiniciar»
     raw: ""            // lo último que contestó su API
   };
   var cola = false;
@@ -1503,6 +1504,62 @@
     return lista.map(function (x) { return x.n; });
   }
   function botonReiniciar() { return botonesReiniciar()[0] || null; }
+  // A veces su tarjeta no está montada hasta que se abre su menú (React la quita del DOM). Para eso
+  // está la vigilancia: se le dice que abra el menú, y en cuanto la tarjeta aparezca **visible**, se
+  // pulsa sola (o se rinde a los 20 s sin tocar nada). Volver a pulsar «♻» cancela la espera.
+  var relojReinicio = null;
+  function pararVigilancia(motivo) {
+    if (!relojReinicio) return false;
+    clearInterval(relojReinicio);
+    relojReinicio = null;
+    state.vigilando = false;
+    if (motivo) aviso(motivo, false);
+    render();
+    return true;
+  }
+  function vigilarReiniciar(ms) {
+    pararVigilancia("");
+    var fin = Date.now() + (ms || 20000);
+    state.vigilando = true;
+    var s = ficha();
+    if (s) { apuntar(s, "nota", "esperando su menú de «Reiniciar»"); guardar(); }
+    aviso("♻ Abre su menú de «Reiniciar» y lo pulso yo en cuanto salga (20 s). Vuelve a pulsar «♻» para que no espere más.", false);
+    render();
+    relojReinicio = setInterval(function () {
+      var bots = botonesReiniciar();
+      var b = bots[0];
+      if (b && seVe(b)) {
+        clearInterval(relojReinicio);
+        relojReinicio = null;
+        state.vigilando = false;
+        pulsarReiniciar({ confirmar: false, vigilado: true });
+      } else if (Date.now() > fin) {
+        clearInterval(relojReinicio);
+        relojReinicio = null;
+        state.vigilando = false;
+        aviso("♻ No ha salido su «Reiniciar» y ya no espero: no he tocado nada.", true);
+        render();
+      }
+    }, 300);
+    return { ok: false, why: "esperando", vigilando: true };
+  }
+  function reiniciarChat() {
+    if (relojReinicio) {
+      pararVigilancia("♻ Ya no espero: dime otra vez si lo quieres.");
+      return { ok: false, why: "cancelado por el usuario" };
+    }
+    var s = ficha();
+    if (!window.confirm("¿Reiniciar el chat con " + ((s && s.bot) || "el bot") + "?\n\nSe borra su conversación (la ficha 💗 y las barras no se tocan).")) {
+      return { ok: false, why: "cancelado" };
+    }
+    return reiniciarSinPreguntar();
+  }
+  // Ya confirmado por quien llama: se pulsa si está, y si su menú todavía no lo ha montado, se espera.
+  function reiniciarSinPreguntar() {
+    var b = botonReiniciar();
+    if (b) return pulsarReiniciar({ confirmar: false });
+    return vigilarReiniciar(20000);
+  }
   // Pulsa su botón de «Reiniciar». Si está escondido dentro de un menú suyo se pulsa igual (su
   // React tiene el manejador puesto); si no está en la página (menú sin montar), se dice claro.
   function pulsarReiniciar(opts) {
@@ -2217,9 +2274,9 @@
         guardar();
         aviso("💗 Partida a cero.", false);
         render();
-        if (conChat) pulsarReiniciar({ confirmar: false });
+        if (conChat) reiniciarSinPreguntar();
       }),
-      btn("♻ Reiniciar el chat", "em-btn em-btn-mini em-btn-bad", function () { pulsarReiniciar(); }, { title: "Pulsa el botón «Reiniciar» de su chat: borra la conversación del bot (la ficha 💗 no se toca)" })
+      btn(state.vigilando ? "♻ esperando…" : "♻ Reiniciar el chat", "em-btn em-btn-mini em-btn-bad", function () { reiniciarChat(); }, { title: "Pulsa el botón «Reiniciar» de su chat: borra la conversación del bot (la ficha 💗 no se toca). Si su menú no está abierto, espera a que salga." })
     ]));
     cuerpo.appendChild(aj);
 
@@ -2364,6 +2421,10 @@
     botonReiniciar: botonReiniciar,
     esBotonReiniciar: esBotonReiniciar,
     pulsarReiniciar: pulsarReiniciar,
+    reiniciarChat: reiniciarChat,
+    reiniciarSinPreguntar: reiniciarSinPreguntar,
+    vigilarReiniciar: vigilarReiniciar,
+    pararVigilancia: pararVigilancia,
     estado: function () { return state; },
     log: function () { return state.sheet ? state.sheet.log.slice() : []; }
   };
