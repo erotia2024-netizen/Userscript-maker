@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.1.1
+// @version      0.1.2
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -218,6 +218,10 @@
       credentials: "same-origin",
       headers: { Accept: "application/json" }
     })
+      .catch(function () {
+        // Un fallo de red aquí es lo mismo que no tener sesión: no se puede hablar con el sitio.
+        return { status: 0, ok: false };
+      })
       .then(function (r) {
         // 401/403 = no hay sesión (o ha caducado). 404 = no estamos en emochi.com (el laboratorio):
         // también es "sin sesión", solo que sin drama.
@@ -1030,6 +1034,7 @@
     close: closePanel,
     toggle: function () { state.open ? closePanel() : openPanel(); },
     reload: load,
+    render: render,
     state: state,
     IDEAS: IDEAS
   };
