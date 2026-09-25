@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.18
+// @version      0.9.19
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1145,6 +1145,7 @@
   function cajaDeTexto() {
     var cands = [];
     var nodos = document.querySelectorAll("textarea, input[type=text], [contenteditable='true']");
+    var alto = window.innerHeight || 0;
     Array.prototype.forEach.call(nodos, function (n) {
       if (n.id === "em-root" || n.closest("#em-root")) return;
       if (n.disabled || n.readOnly) return;
@@ -1152,10 +1153,14 @@
       if (r.width < 70 || r.height < 14) return;
       var st = getComputedStyle(n);
       if (st.visibility === "hidden" || st.display === "none" || st.opacity === "0") return;
-      cands.push({ n: n, area: r.width * r.height, bottom: r.bottom });
+      cands.push({ n: n, area: r.width * r.height, abajo: r.bottom > alto * 0.55 ? 1 : 0, bottom: r.bottom });
     });
     if (!cands.length) return null;
-    cands.sort(function (a, b) { return (b.bottom - a.bottom) || (b.area - a.area); });
+    // su chat tiene la caja abajo: se prefiere lo que esté en la mitad de abajo, y de eso lo más
+    // grande (y si hay empate, lo más bajo). Así no se coge un buscador de la cabecera.
+    cands.sort(function (a, b) {
+      return (b.abajo - a.abajo) || (b.area - a.area) || (b.bottom - a.bottom);
+    });
     return cands[0].n;
   }
   function escribirEn(n, texto) {
@@ -1214,10 +1219,15 @@
     }
   }
   function alPortapapeles(texto) {
+    // `writeText` devuelve una promesa que se rechaza si la pestaña no tiene el foco: hay que
+    // atraparla, o el rechazo se escapa como error de la página (y nos lo apunta el motor).
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(texto);
-        return true;
+        try {
+          var p = navigator.clipboard.writeText(texto);
+          if (p && p.catch) p.catch(function () {});
+          if (!document.hasFocus || document.hasFocus()) return true;
+        } catch (e) {}
       }
     } catch (e) {}
     try {
@@ -1227,9 +1237,9 @@
       t.style.left = "-9999px";
       (document.body || document.documentElement).appendChild(t);
       t.select();
-      document.execCommand("copy");
+      var ok = document.execCommand("copy");
       t.remove();
-      return true;
+      return !!ok;
     } catch (e) {
       return false;
     }
@@ -1325,7 +1335,12 @@
       render();
       return { ok: true, campo: CAMPOS[i], res: res, length: texto.length };
     }).catch(function (e) {
-      errores.push(CAMPOS[i] + " → " + (e && e.message));
+      var msg = (e && e.message) || "";
+      // sin sesión no tiene sentido probar más nombres de campo: el problema no es el nombre
+      if (/sin sesi[oó]n|\(401\)|\(403\)/.test(msg)) {
+        return { ok: false, why: "necesitas entrar en emochi.com con tu cuenta: sin sesión no puedo tocar la memoria del bot", sesion: true, errores: errores };
+      }
+      errores.push(CAMPOS[i] + " → " + msg);
       return probarCampos(s, texto, i + 1, errores);
     });
   }
@@ -1346,10 +1361,14 @@
       }
       return probarCampos(s, texto, 0);
     }).catch(function (e) {
+      var msg = (e && e.message) || "";
+      if (/sin sesi[oó]n|\(401\)|\(403\)/.test(msg)) {
+        return { ok: false, why: "necesitas entrar en emochi.com con tu cuenta: sin sesión no puedo ni leer ni escribir la memoria del bot", sesion: true };
+      }
       // si no se puede ni leer, se intenta escribir igual (a lo mejor solo falla la lectura)
       return probarCampos(s, texto, 0).then(function (r) {
         if (r.ok) return r;
-        return { ok: false, why: "leer la memoria falló (" + (e && e.message) + ") y escribir tampoco: " + r.why, errores: r.errores };
+        return { ok: false, why: "leer la memoria falló (" + msg + ") y escribir tampoco: " + r.why, errores: r.errores };
       });
     }).then(function (r) {
       state.busy = false;
@@ -1497,7 +1516,17 @@
         el("span", { text: " vs " + t.dc + " · " + t.kind.toUpperCase() + (resumen(t.cambios) ? " — " + resumen(t.cambios) : "") })
       ]));
     }
-    if (state.msg) out.appendChild(el("div", { class: "em-rpg-msg" + (state.msg.bad ? " em-rpg-msg-bad" : ""), text: state.msg.text }));
+    if (state.msg) {
+      var caja = el("div", { class: "em-rpg-msg" + (state.msg.bad ? " em-rpg-msg-bad" : "") });
+      caja.appendChild(el("span", { text: state.msg.text }));
+      if (state.msg.extra && state.msg.extra.length) {
+        caja.appendChild(el("details", { class: "em-det" }, [
+          el("summary", { text: "Lo que ha contestado el servidor" }),
+          el("pre", { class: "em-pre", text: state.msg.extra.join("\n") })
+        ]));
+      }
+      out.appendChild(caja);
+    }
     // las acciones
     out.appendChild(el("h4", { class: "em-h", text: "Acciones — tira el dado y se lo manda al chat" }));
     var rej = el("div", { class: "em-accs" });
