@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.16
+// @version      0.9.17
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -765,6 +765,918 @@
 })();
 
 /* =============================================================================================
+   emochi.com — la capa de juego (🎲): estadísticas de relación, tiradas y acciones.
+
+   Idea: el bot no sabe nada de números, así que se le da un reglamento (que se escribe en SU
+   MEMORIA, que es lo único que el modelo lee desde el primer mensaje) y se le pide una sola cosa:
+   que al final de cada respuesta escriba una línea de marcador, por ejemplo
+
+       [RPG afecto+2 confianza0 deseo+1 tension+2 etapa=Cercanía]
+
+   Nosotros llevamos la cuenta de verdad (los números viven aquí, en el navegador, por bot): se
+   leen esos deltas -recortados a lo que el reglamento permite-, se aplican, y la memoria del bot
+   se reescribe con el estado nuevo. El jugador, por su parte, tira el dado con los botones de
+   acciones: la tirada se manda al chat dentro del mensaje, así que el bot narra el resultado.
+
+   Nada de esto toca la partida del sitio: es una capa nuestra encima.
+   ============================================================================================= */
+(function () {
+  "use strict";
+  var EM = window.emochiLab;
+  if (!EM) return;
+
+  var el = EM.el;
+  var KEY = "emochi-lab:rpg:v1";
+  var LIMITE = 2000;      // tope prudente del bloque que se escribe en la memoria; se avisa si se pasa
+  var TICK = 6000;        // cada cuánto se mira el chat si el modo "leer solo" está encendido
+
+  // --- el juego ---------------------------------------------------------------------------------
+  var ETAPAS = ["Desconocidos", "Conocidos", "Amistad", "Cercanía", "Tensión", "Amantes"];
+  var ETAPA_TIP = {
+    "Desconocidos": "frío y cortés, con distancia",
+    "Conocidos": "amable, de cosas normales",
+    "Amistad": "cálido, con bromas y confianza",
+    "Cercanía": "cariñoso y coqueto, busca el contacto",
+    "Tensión": "provocador: se acerca y se aleja, te deja con ganas",
+    "Amantes": "íntimo; el deseo ya no se esconde"
+  };
+  var STATS = [
+    { id: "afecto", label: "Afecto", icon: "💗" },
+    { id: "confianza", label: "Confianza", icon: "🤝" },
+    { id: "deseo", label: "Deseo (lujuria)", icon: "🔥" },
+    { id: "tension", label: "Tensión", icon: "⚡" }
+  ];
+  // Cada acción: con qué estadística se tira, su dificultad, lo que mueve si sale bien (`gain`) o
+  // si sale mal (`miss`), la etapa mínima razonable (`min`: tirar antes de tiempo cuesta -3) y el
+  // texto que se manda al chat. `{u}` es el jugador.
+  var ACCIONES = [
+    { id: "charla", name: "Charlar", icon: "💬", stat: "afecto", dc: 8,
+      gain: { afecto: 1 }, miss: {},
+      text: "*{u} le busca la conversación y le pregunta por su día.*",
+      hint: "narra cómo reacciona y qué contesta" },
+    { id: "broma", name: "Bromear", icon: "😄", stat: "afecto", dc: 10,
+      gain: { afecto: 2, confianza: 1 }, miss: { afecto: -1 },
+      text: "*{u} suelta una broma y se queda mirando para ver si le hace gracia.*",
+      hint: "narra si le hace gracia de verdad o le sienta mal" },
+    { id: "escucha", name: "Interesarse", icon: "👂", stat: "confianza", dc: 9,
+      gain: { confianza: 2, afecto: 1 }, miss: { confianza: -1 },
+      text: "*{u} le pregunta en serio cómo está y le escucha sin prisa.*",
+      hint: "narra qué le cuenta (o si se cierra en banda)" },
+    { id: "ayuda", name: "Ayudar", icon: "🛠", stat: "confianza", dc: 11,
+      gain: { confianza: 2, afecto: 1 }, miss: { confianza: -1 },
+      text: "*{u} se ofrece a echarle una mano con lo que le preocupa.*",
+      hint: "narra si acepta la ayuda y cómo se siente al respecto" },
+    { id: "detalle", name: "Detalle", icon: "🎁", stat: "afecto", dc: 10,
+      gain: { afecto: 2, deseo: 1 }, miss: {},
+      text: "*{u} le trae un detalle pequeño, algo que mencionó de pasada.*",
+      hint: "narra su sorpresa y lo que significa para él/ella" },
+    { id: "roce", name: "Acercarse", icon: "🫱", stat: "deseo", dc: 12, min: 3,
+      gain: { deseo: 2, tension: 1 }, miss: { tension: 1 },
+      text: "*{u} se acerca, le roza el brazo y sostiene la mirada un segundo de más.*",
+      hint: "narra el cosquilleo (o el rechazo) del contacto" },
+    { id: "coqueteo", name: "Coquetear", icon: "😏", stat: "deseo", dc: 13, min: 2,
+      gain: { deseo: 2, tension: 2, afecto: 1 }, miss: { tension: -1 },
+      text: "*{u} le mira de arriba abajo y le suelta algo con doble sentido.*",
+      hint: "narra si entra al trapo o le quita hierro al asunto" },
+    { id: "provocar", name: "Provocar", icon: "🔺", stat: "tension", dc: 14, min: 3,
+      gain: { tension: 3, deseo: 1 }, miss: { tension: 1, deseo: -1 },
+      text: "*{u} juega a acercarse y alejarse, dejándole con las ganas.*",
+      hint: "narra su nerviosismo y cómo lo disimula" },
+    { id: "beso", name: "Besar", icon: "💋", stat: "deseo", dc: 15, min: 3,
+      gain: { deseo: 3, tension: 2, afecto: 1 }, miss: { deseo: -1, tension: 1 },
+      text: "*{u} le coge la cara con las dos manos y le besa.*",
+      hint: "narra el beso con detalle y lo que pasa por su cabeza después" },
+    { id: "confesar", name: "Confesar", icon: "💗", stat: "afecto", dc: 16, min: 3,
+      gain: { afecto: 4, confianza: 2 }, miss: { afecto: -1, confianza: -1 },
+      text: "*{u} respira hondo y le dice lo que siente, sin adornos.*",
+      hint: "narra su reacción: sorpresa, ternura o huida" },
+    { id: "intimar", name: "Escena íntima", icon: "🍓", stat: "deseo", dc: 17, min: 4,
+      gain: { deseo: 4, tension: 3, afecto: 2, confianza: 1 }, miss: { tension: -2, deseo: -1 },
+      text: "*{u} apaga las luces y tira de él/ella hacia la cama.*",
+      hint: "narra la escena con el nivel de detalle que tengas permitido" },
+    { id: "dormir", name: "Dormir juntos", icon: "🌙", stat: "confianza", dc: 14, min: 4,
+      gain: { confianza: 3, afecto: 2, tension: -2 }, miss: {},
+      text: "*{u} se tumba a su lado y se queda dormido con la cabeza en su hombro.*",
+      hint: "narra la calma que queda después" }
+  ];
+
+  var FLAGS_POR_DEFECTO = {
+    lujuria: true,     // el deseo cuenta en las tiradas (si se apaga, -2 a las de deseo)
+    explicito: false,  // el reglamento pide escenas íntimas detalladas
+    compacto: false,   // memoria corta (solo estado), para planes con poco espacio
+    resumen: true,     // añade los últimos sucesos a la memoria (continuidad)
+    autoenviar: true,  // además de escribir la acción en el chat, pulsa enviar
+    autoleer: false    // mira el chat cada pocos segundos y aplica lo que ponga el bot
+  };
+
+  // --- estado -----------------------------------------------------------------------------------
+  var store = { v: 1, bots: {} };
+  var state = { sheet: null, msg: null, busy: false, roll: null, raw: "", visible: false, auto: false, jugador: "" };
+  var cola = false;
+
+  function cargar() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(KEY) || "null");
+      if (raw && raw.bots) store = raw;
+      if (!store.bots) store.bots = {};
+    } catch (e) {
+      store = { v: 1, bots: {} };
+    }
+  }
+  function guardar() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(store));
+    } catch (e) {}
+  }
+  function nuevaFicha(promptId, nombre) {
+    var flags = {};
+    Object.keys(FLAGS_POR_DEFECTO).forEach(function (k) { flags[k] = FLAGS_POR_DEFECTO[k]; });
+    var stats = {};
+    var log = [];
+    return {
+      v: 1,
+      promptId: promptId || "",
+      bot: nombre || "",
+      player: "",
+      stats: stats,
+      etapa: 0,
+      turnos: 0,
+      vinculo: 0,
+      flags: flags,
+      log: log,
+      memoria: { original: null, campo: "", texto: "", at: 0, error: "" },
+      visto: ""
+    };
+  }
+  // La ficha del bot en el que estamos. Se guarda por `promptId`, que es lo que identifica al bot.
+  function ficha() {
+    var id = (EM.bot && EM.bot.promptId) || "";
+    if (!id) return state.sheet || null;
+    var s = store.bots[id];
+    if (!s) {
+      s = nuevaFicha(id, EM.bot.title || "");
+      store.bots[id] = s;
+      guardar();
+    }
+    if (!s.stats) s.stats = {};
+    STATS.forEach(function (st) { if (typeof s.stats[st.id] !== "number") s.stats[st.id] = 0; });
+    if (!s.flags) s.flags = Object.assign({}, FLAGS_POR_DEFECTO);
+    if (!s.log) s.log = [];
+    if (!s.memoria) s.memoria = { original: null, campo: "", texto: "", at: 0, error: "" };
+    if (EM.bot.title) s.bot = EM.bot.title;
+    return s;
+  }
+  function conFicha(fn) {
+    var s = ficha();
+    if (!s || !s.promptId) return null;
+    return fn(s);
+  }
+  function apuntar(s, kind, text, extra) {
+    s.log.unshift({ at: Date.now(), kind: kind, text: text, extra: extra || null });
+    if (s.log.length > 120) s.log.length = 120;
+  }
+
+  // --- las cuentas ------------------------------------------------------------------------------
+  function recorta(n) { return Math.max(-5, Math.min(5, n | 0)); }
+  function entreCeroCien(n) { return Math.max(0, Math.min(100, n | 0)); }
+  // La etapa sale de la media de afecto/confianza y del deseo. Nunca se retrocede por su cuenta.
+  function etapaQue(stats) {
+    var v = (stats.afecto + stats.confianza) / 2;
+    var d = stats.deseo;
+    var e = 0;
+    if (v >= 8) e = 1;
+    if (v >= 20) e = 2;
+    if (v >= 35) e = 3;
+    if (v >= 45 && d >= 40) e = 4;
+    if (v >= 60 && d >= 60) e = 5;
+    return e;
+  }
+  // La tirada: 1d20 + modificador. 20 natural es crítico (dobla lo bueno) y 1 es pifia.
+  function modificador(s, a) {
+    var v = s.stats[a.stat] || 0;
+    var m = Math.floor(v / 10) - 3;                    // 0 → -3 … 50 → +2 … 100 → +7
+    m += Math.max(0, s.etapa - 2);                     // una relación ya hecha ayuda
+    if (a.min != null && s.etapa < a.min) m -= 3;      // forzar antes de tiempo cuesta
+    if (a.stat === "deseo" && !s.flags.lujuria) m -= 2;
+    return m;
+  }
+  function escala(obj, mul) {
+    var out = {};
+    Object.keys(obj || {}).forEach(function (k) {
+      var v = recorta(Math.round((obj[k] || 0) * mul));
+      if (v) out[k] = v;
+    });
+    return out;
+  }
+  function tirada(s, a) {
+    var d = 1 + Math.floor(Math.random() * 20);
+    var mod = modificador(s, a);
+    var total = d + mod;
+    var t = { id: a.id, name: a.name, d: d, mod: mod, total: total, dc: a.dc, kind: "fallo", cambios: {} };
+    if (d === 20) {
+      t.kind = "crítico";
+      t.cambios = escala(a.gain, 2);
+      t.cambios.confianza = recorta((t.cambios.confianza || 0) + 1);
+    } else if (d === 1) {
+      t.kind = "pifia";
+      t.cambios = escala(a.miss, 2);
+      if (!Object.keys(t.cambios).length) t.cambios = { tension: 1, afecto: -1 };
+    } else if (total >= a.dc) {
+      t.kind = "éxito";
+      t.cambios = escala(a.gain, 1);
+    } else {
+      t.kind = "fallo";
+      t.cambios = escala(a.miss, 1);
+    }
+    return t;
+  }
+  // Aplica deltas a la ficha y devuelve lo que de verdad ha cambiado (con topes).
+  function aplicar(s, deltas, motivo) {
+    var hechos = {};
+    Object.keys(deltas || {}).forEach(function (k) {
+      if (typeof s.stats[k] !== "number") return;
+      var antes = s.stats[k];
+      var despues = entreCeroCien(antes + recorta(deltas[k]));
+      if (despues !== antes) hechos[k] = despues - antes;
+      s.stats[k] = despues;
+      s.vinculo += Math.max(0, despues - antes);
+    });
+    var antesEtapa = s.etapa;
+    s.etapa = Math.max(s.etapa, etapaQue(s.stats));
+    if (s.etapa !== antesEtapa) hechos.etapa = ETAPAS[s.etapa];
+    if (motivo) {
+      var txt = resumen(hechos);
+      if (txt) apuntar(s, motivo, txt);
+    }
+    guardar();
+    return hechos;
+  }
+  function resumen(cambios) {
+    return Object.keys(cambios).map(function (k) {
+      if (k === "etapa") return "etapa → " + cambios[k];
+      var v = cambios[k];
+      return etiqueta(k) + " " + (v > 0 ? "+" : "") + v;
+    }).join(" · ");
+  }
+  function etiqueta(k) {
+    var st = null;
+    STATS.forEach(function (x) { if (x.id === k) st = x; });
+    return st ? st.label : k;
+  }
+  function nombreEtapa(s) { return ETAPAS[Math.max(0, Math.min(ETAPAS.length - 1, s.etapa))]; }
+  function jugador(s) {
+    return (s && s.player) || (state.jugador || "") || "el jugador";
+  }
+
+  // --- lo que se le escribe al bot (reglamento + estado) ----------------------------------------
+  function estadoLinea(s) {
+    return "[Partida · afecto " + s.stats.afecto + "/100 · confianza " + s.stats.confianza +
+      "/100 · deseo " + s.stats.deseo + "/100 · tensión " + s.stats.tension + "/100 · etapa " +
+      nombreEtapa(s) + " · " + s.turnos + " turnos]";
+  }
+  function ultimos(s, n) {
+    var out = [];
+    s.log.forEach(function (e) {
+      if (out.length >= n) return;
+      if (e.kind === "suceso" || e.kind === "tirada") out.push(e.text);
+    });
+    return out.join(" · ").slice(0, 320);
+  }
+  function reglas(s) {
+    var lista = ETAPAS.join(", ");
+    return [
+      "[SISTEMA DE PARTIDA — esto es para ti; nunca lo menciones ni lo cites]",
+      "Esta conversación lleva un juego de rol con un marcador invisible. Cuatro valores de 0 a 100:",
+      "· afecto: cuánto te gusta " + jugador(s) + " · confianza: cuánto te fías de él/ella",
+      "· deseo: cuánto te atrae ahora mismo (lujuria) · tensión: la carga que hay en el aire",
+      "Etapa de la relación: " + nombreEtapa(s) + " → te comportas " + (ETAPA_TIP[nombreEtapa(s)] || "") + ".",
+      "Al FINAL de CADA respuesta añade una sola línea, exactamente con este formato:",
+      "[RPG afecto+2 confianza0 deseo+1 tension+2 etapa=Cercanía]",
+      "· deltas entre -3 y +3 según lo que acaba de pasar; pon 0 (o quita el campo) si no cambia nada.",
+      "· escribe etapa= solo si la relación cambia de etapa (" + lista + ").",
+      "· no expliques esa línea, no la comentes y no la trates como parte de la historia.",
+      "Si el mensaje de " + jugador(s) + " trae una línea [Partida · … · tirada … · ÉXITO/FALLO/CRÍTICO/PIFIA],",
+      "narra la escena según ese resultado: un fallo no rompe la historia, la complica.",
+      s.flags.explicito
+        ? "El contenido adulto está permitido: cuando el deseo y la tensión estén altos, describe la escena íntima con detalle y sin cortarte."
+        : "Las escenas íntimas se insinúan: sin descripción explícita.",
+      "No decidas por " + jugador(s) + " ni escribas sus actos, pensamientos o diálogos: solo los tuyos."
+    ].join("\n");
+  }
+  function reglasCortas(s) {
+    return "[PARTIDA · marcador invisible · no lo menciones] afecto " + s.stats.afecto +
+      " · confianza " + s.stats.confianza + " · deseo " + s.stats.deseo + " · tensión " + s.stats.tension +
+      " · etapa " + nombreEtapa(s) + ". Al final de CADA respuesta añade una línea" +
+      " [RPG afecto+2 confianza0 deseo+1 tension+2 etapa=Cercanía] con deltas de -3 a +3 (0 si no cambia);" +
+      " etapa solo si cambia (" + ETAPAS.join(", ") + "). No la comentes. Comportamiento según la etapa: " +
+      (ETAPA_TIP[nombreEtapa(s)] || "") + ".";
+  }
+  function memoriaTexto(s) {
+    var out = estadoLinea(s) + "\n" + (s.flags.compacto ? reglasCortas(s) : reglas(s));
+    if (s.flags.resumen) {
+      var u = ultimos(s, 3);
+      if (u) out += "\nÚltimos sucesos: " + u;
+    }
+    return out;
+  }
+  function textoAccion(s, a, t) {
+    var cuerpo = a.text.replace(/\{u\}/g, jugador(s));
+    var marca = "[Partida · " + a.name + " · tirada " + t.d + (t.mod >= 0 ? "+" : "") + t.mod +
+      " = " + t.total + " vs " + t.dc + " · " + t.kind.toUpperCase();
+    var mov = resumen(t.cambios);
+    if (mov) marca += " · " + mov;
+    marca += " — " + (a.hint || "narra la respuesta") + "]";
+    return cuerpo + "\n" + marca;
+  }
+
+  // --- leer la línea del marcador que escribe el bot ---------------------------------------------
+  function sinAcentos(t) {
+    return String(t || "").toLowerCase()
+      .replace(/[áàäâ]/g, "a").replace(/[éèëê]/g, "e").replace(/[íìïî]/g, "i")
+      .replace(/[óòöô]/g, "o").replace(/[úùüû]/g, "u").replace(/ñ/g, "n");
+  }
+  function extraerTag(texto) {
+    var m = /\[\s*RPG\b([^\]]*)\]/i.exec(String(texto || ""));
+    if (!m) return null;
+    var cuerpo = m[1];
+    var plano = sinAcentos(cuerpo);
+    var d = {};
+    ["afecto", "confianza", "deseo", "tension", "tensión"].forEach(function (k) {
+      var clave = sinAcentos(k);
+      var re = new RegExp(clave + "\\s*[:=]?\\s*([+-]?\\d+)", "g");
+      var r = re.exec(plano);
+      if (r) d[k === "tensión" ? "tension" : k] = recorta(parseInt(r[1], 10) || 0);
+    });
+    var e = /etapa\s*[:=]?\s*([a-z]+)/.exec(plano);
+    var etapa = "";
+    if (e) {
+      ETAPAS.forEach(function (nombre) {
+        if (sinAcentos(nombre) === e[1]) etapa = nombre;
+        else if (sinAcentos(nombre).slice(0, 4) === e[1].slice(0, 4) && !etapa) etapa = nombre;
+      });
+    }
+    return { raw: m[0], d: d, etapa: etapa };
+  }
+  // Aplica la línea del bot (lo que él propone, recortado por el reglamento).
+  function aplicarTag(s, tag) {
+    if (!tag) return null;
+    var deltas = tag.d || {};
+    // la tensión se enfría sola si el bot no la movió
+    if (!deltas.tension) deltas.tension = -1;
+    var hechos = aplicar(s, deltas, null);
+    s.turnos++;
+    if (tag.etapa) {
+      var idx = ETAPAS.indexOf(tag.etapa);
+      if (idx > s.etapa) {
+        s.etapa = idx;
+        hechos.etapa = ETAPAS[idx];
+      }
+    }
+    var mov = resumen(hechos);
+    apuntar(s, "suceso", (mov ? mov + " — " : "") + "el bot marcó " + (tag.raw || "").slice(0, 60), { tag: tag.raw });
+    guardar();
+    return hechos;
+  }
+
+  // --- hablar con la página: escribir la acción en su caja de texto ------------------------------
+  // La caja del chat no lleva id ni clase estable, así que se busca por forma: el campo de texto
+  // visible más grande que esté más abajo de la pantalla (su chat la tiene abajo). Si no aparece,
+  // se copia al portapapeles y se avisa: nunca se pierde la tirada.
+  function cajaDeTexto() {
+    var cands = [];
+    var nodos = document.querySelectorAll("textarea, input[type=text], [contenteditable='true']");
+    Array.prototype.forEach.call(nodos, function (n) {
+      if (n.id === "em-root" || n.closest("#em-root")) return;
+      if (n.disabled || n.readOnly) return;
+      var r = n.getBoundingClientRect();
+      if (r.width < 70 || r.height < 14) return;
+      var st = getComputedStyle(n);
+      if (st.visibility === "hidden" || st.display === "none" || st.opacity === "0") return;
+      cands.push({ n: n, area: r.width * r.height, bottom: r.bottom });
+    });
+    if (!cands.length) return null;
+    cands.sort(function (a, b) { return (b.bottom - a.bottom) || (b.area - a.area); });
+    return cands[0].n;
+  }
+  function escribirEn(n, texto) {
+    n.focus();
+    if (n.tagName === "TEXTAREA" || n.tagName === "INPUT") {
+      n.value = texto;
+    } else {
+      try {
+        n.textContent = "";
+        var sel = window.getSelection();
+        var rango = document.createRange();
+        rango.selectNodeContents(n);
+        rango.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(rango);
+        document.execCommand("insertText", false, texto);
+      } catch (e) {
+        n.textContent = texto;
+      }
+    }
+    ["input", "change", "keyup"].forEach(function (ev) {
+      try { n.dispatchEvent(new Event(ev, { bubbles: true })); } catch (e) {}
+    });
+  }
+  function pulsarEnviar(n) {
+    var form = n.closest ? n.closest("form") : null;
+    if (form) {
+      if (typeof form.requestSubmit === "function") {
+        try { form.requestSubmit(); return "form"; } catch (e) {}
+      }
+      var b = form.querySelector("button[type=submit]:not([disabled])") ||
+        form.querySelector("button:not([disabled])");
+      if (b) { b.click(); return "botón del formulario"; }
+    }
+    var cont = n.parentElement;
+    for (var salto = 0; cont && salto < 4; salto++, cont = cont.parentElement) {
+      var bots = cont.querySelectorAll("button:not([disabled])");
+      for (var i = bots.length - 1; i >= 0; i--) {
+        var b2 = bots[i];
+        var r = b2.getBoundingClientRect();
+        if (r.width < 10 || r.height < 10) continue;
+        var pista = ((b2.getAttribute("aria-label") || "") + " " + (b2.title || "") + " " + (b2.className || "")).toLowerCase();
+        if (/send|enviar|submit/.test(pista) || b2.querySelector("svg")) {
+          b2.click();
+          return "botón de enviar";
+        }
+      }
+    }
+    try {
+      ["keydown", "keypress", "keyup"].forEach(function (tipo) {
+        n.dispatchEvent(new KeyboardEvent(tipo, { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true }));
+      });
+      return "Enter";
+    } catch (e) {
+      return "";
+    }
+  }
+  function alPortapapeles(texto) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(texto);
+        return true;
+      }
+    } catch (e) {}
+    try {
+      var t = document.createElement("textarea");
+      t.value = texto;
+      t.style.position = "fixed";
+      t.style.left = "-9999px";
+      (document.body || document.documentElement).appendChild(t);
+      t.select();
+      document.execCommand("copy");
+      t.remove();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+  function mandarAlChat(texto) {
+    var caja = cajaDeTexto();
+    if (!caja) {
+      var copiado = alPortapapeles(texto);
+      return { ok: false, why: copiado ? "no encontré la caja del chat; te lo he copiado al portapapeles para que lo pegues" : "no encontré la caja del chat" };
+    }
+    escribirEn(caja, texto);
+    if (!state.sheet || !state.sheet.flags.autoenviar) return { ok: true, why: "escrito en el chat (pulsa enviar tú)" };
+    var via = pulsarEnviar(caja);
+    return { ok: true, why: via ? "enviado al chat (" + via + ")" : "escrito, pero no encontré cómo enviarlo" };
+  }
+
+  // --- leer el marcador del bot sin tocar la pantalla -------------------------------------------
+  // Se busca en el JSON del historial cualquier lista de mensajes (objetos con `role` y `content`),
+  // porque la forma exacta de la respuesta no la conocemos: así da igual cómo venga envuelto.
+  function sacarMensajes(obj, out, hondo) {
+    out = out || [];
+    hondo = hondo || 0;
+    if (!obj || typeof obj !== "object" || hondo > 7 || out.length > 400) return out;
+    if (Array.isArray(obj)) {
+      var parece = obj.length && obj.every(function (x) {
+        return x && typeof x === "object" && ("content" in x) && ("role" in x);
+      });
+      if (parece) {
+        Array.prototype.push.apply(out, obj);
+        return out;
+      }
+      obj.forEach(function (x) { sacarMensajes(x, out, hondo + 1); });
+      return out;
+    }
+    Object.keys(obj).forEach(function (k) { sacarMensajes(obj[k], out, hondo + 1); });
+    return out;
+  }
+  function leer() {
+    var s = ficha();
+    if (!s || !s.promptId) return Promise.resolve({ ok: false, why: "todavía no sé con qué bot juegas" });
+    if (cola) return Promise.resolve({ ok: false, why: "ya estaba leyendo" });
+    cola = true;
+    return EM.api.historial(s.promptId)
+      .catch(function () { return EM.api.historialV1(s.promptId); })
+      .catch(function () { return EM.api.ultimaConversacion(s.promptId); })
+      .then(function (res) {
+        cola = false;
+        state.raw = JSON.stringify(res).slice(0, 6000);
+        var msgs = sacarMensajes(res);
+        var elegido = null;
+        for (var i = msgs.length - 1; i >= 0; i--) {
+          var m = msgs[i];
+          var txt = String((m && (m.content || m.displayContent)) || "");
+          if (/\[\s*RPG/i.test(txt)) {
+            elegido = { m: m, i: i, txt: txt, tag: extraerTag(txt) };
+            break;
+          }
+        }
+        if (!elegido) {
+          return { ok: false, why: "no he visto ninguna línea [RPG …] en los últimos " + msgs.length + " mensajes", n: msgs.length };
+        }
+        var clave = String(elegido.m.id || "") + "@" + elegido.i;
+        if (clave === s.visto) return { ok: false, why: "sin novedades desde la última vez", n: msgs.length };
+        s.visto = clave;
+        var hechos = aplicarTag(s, elegido.tag);
+        render();
+        return { ok: true, cambios: hechos, tag: elegido.tag.raw, n: msgs.length };
+      })
+      .catch(function (e) {
+        cola = false;
+        return { ok: false, why: "no pude leer el historial: " + (e && e.message) };
+      });
+  }
+
+  // --- escribir el reglamento en la memoria del bot ----------------------------------------------
+  // Se guarda antes lo que había (para poder devolverlo) y se prueba el campo `memory`; si el
+  // servidor contesta que no, se prueban otros nombres. Lo que conteste se enseña tal cual: sin
+  // sesión no se puede probar, así que el panel no se lo inventa.
+  var CAMPOS = ["memory", "content", "text", "memoryText", "remark"];
+  function probarCampos(s, texto, i, errores) {
+    i = i || 0;
+    errores = errores || [];
+    if (i >= CAMPOS.length) {
+      return Promise.resolve({ ok: false, why: "el servidor no aceptó ninguno de estos campos: " + CAMPOS.join(", "), errores: errores });
+    }
+    return EM.api.ponMemoriaDeBot(s.promptId, CAMPOS[i], texto).then(function (res) {
+      s.memoria.campo = CAMPOS[i];
+      s.memoria.texto = texto;
+      s.memoria.at = Date.now();
+      s.memoria.error = "";
+      apuntar(s, "memoria", "reglamento escrito en la memoria de " + (s.bot || "el bot") + " (" + texto.length + " caracteres, campo `" + CAMPOS[i] + "`)");
+      guardar();
+      render();
+      return { ok: true, campo: CAMPOS[i], res: res, length: texto.length };
+    }).catch(function (e) {
+      errores.push(CAMPOS[i] + " → " + (e && e.message));
+      return probarCampos(s, texto, i + 1, errores);
+    });
+  }
+  function inyectar() {
+    var s = ficha();
+    if (!s || !s.promptId) return Promise.resolve({ ok: false, why: "todavía no sé con qué bot juegas" });
+    var texto = memoriaTexto(s);
+    if (texto.length > LIMITE) {
+      return Promise.resolve({ ok: false, why: "el bloque ocupa " + texto.length + " caracteres y el tope que me he puesto es " + LIMITE + ": prueba «memoria corta»", length: texto.length });
+    }
+    state.busy = true;
+    render();
+    return EM.api.memoriaDeBot(s.promptId).then(function (res) {
+      if (s.memoria.original == null) {
+        var previo = textoDeMemoria(res);
+        s.memoria.original = previo == null ? "" : previo;
+        guardar();
+      }
+      return probarCampos(s, texto, 0);
+    }).catch(function (e) {
+      // si no se puede ni leer, se intenta escribir igual (a lo mejor solo falla la lectura)
+      return probarCampos(s, texto, 0).then(function (r) {
+        if (r.ok) return r;
+        return { ok: false, why: "leer la memoria falló (" + (e && e.message) + ") y escribir tampoco: " + r.why, errores: r.errores };
+      });
+    }).then(function (r) {
+      state.busy = false;
+      aviso(r.ok ? "🧠 Reglamento dentro (campo `" + r.campo + "`, " + r.length + " caracteres)." : "No pude inyectar: " + r.why, !r.ok, r.errores);
+      render();
+      return r;
+    });
+  }
+  function quitar() {
+    var s = ficha();
+    if (!s || !s.promptId) return Promise.resolve({ ok: false, why: "todavía no sé con qué bot juegas" });
+    if (s.memoria.original == null) return Promise.resolve({ ok: false, why: "no guardé la memoria que había antes: mírala y quítala a mano" });
+    state.busy = true;
+    render();
+    return EM.api.ponMemoriaDeBot(s.promptId, s.memoria.campo || "memory", s.memoria.original).then(function () {
+      s.memoria.texto = "";
+      s.memoria.at = 0;
+      apuntar(s, "memoria", "memoria del bot devuelta a como estaba");
+      guardar();
+      state.busy = false;
+      aviso("🧹 Memoria devuelta a como estaba.", false);
+      render();
+      return { ok: true };
+    }).catch(function (e) {
+      state.busy = false;
+      aviso("No pude devolverla: " + (e && e.message), true);
+      render();
+      return { ok: false, why: e && e.message };
+    });
+  }
+  function textoDeMemoria(res) {
+    if (res == null) return "";
+    if (typeof res === "string") return res;
+    var encontrado = null;
+    ["memory", "content", "text", "memoryText", "remark"].forEach(function (k) {
+      if (encontrado == null && typeof res[k] === "string") encontrado = res[k];
+    });
+    if (encontrado == null && res.data != null) encontrado = textoDeMemoria(res.data);
+    return encontrado == null ? "" : encontrado;
+  }
+  function tokens() {
+    var s = ficha();
+    if (!s || !s.promptId) return Promise.resolve(null);
+    return EM.api.memoriaTokens(s.promptId, "").catch(function () { return null; });
+  }
+
+  // --- la partida: tirar una acción ---------------------------------------------------------------
+  function hacerAccion(a) {
+    var s = ficha();
+    if (!s || !s.promptId) {
+      aviso("Abre el chat de un bot y espera un segundo: necesito su id para apuntar la partida.", true);
+      render();
+      return null;
+    }
+    var t = tirada(s, a);
+    var antes = { etapa: s.etapa };
+    aplicar(s, t.cambios, null);
+    if (s.etapa !== antes.etapa) t.cambios.etapa = ETAPAS[s.etapa];
+    apuntar(s, "tirada", "🎲 " + a.name + " · " + t.d + (t.mod >= 0 ? "+" : "") + t.mod + " = " + t.total +
+      " vs " + t.dc + " · " + t.kind + (resumen(t.cambios) ? " · " + resumen(t.cambios) : ""), { accion: a.id });
+    guardar();
+    state.roll = t;
+    var texto = textoAccion(s, a, t);
+    var r = mandarAlChat(texto);
+    aviso((t.kind === "crítico" ? "✨ " : t.kind === "pifia" ? "💥 " : "🎲 ") + a.name + ": " +
+      t.d + (t.mod >= 0 ? "+" : "") + t.mod + " = " + t.total + " vs " + t.dc + " · " + t.kind.toUpperCase() +
+      (resumen(t.cambios) ? " — " + resumen(t.cambios) : "") + (r && r.why ? " · " + r.why : ""), !r || !r.ok);
+    render();
+    return t;
+  }
+  function aviso(text, bad, extra) {
+    state.msg = { text: text, bad: !!bad, extra: extra || null };
+  }
+
+  // --- la interfaz -------------------------------------------------------------------------------
+  function btn(text, cls, onclick, extra) {
+    return el("button", Object.assign({ type: "button", class: cls || "em-btn", text: text, onclick: onclick }, extra || {}));
+  }
+  function barra(id) {
+    var s = state.sheet;
+    var v = s ? s.stats[id] || 0 : 0;
+    var st = null;
+    STATS.forEach(function (x) { if (x.id === id) st = x; });
+    return el("div", { class: "em-stat" }, [
+      el("span", { class: "em-stat-ico", text: (st && st.icon) || "" }),
+      el("span", { class: "em-stat-name", text: (st && st.label) || id }),
+      el("span", { class: "em-bar" }, [el("i", { class: "em-bar-fill", style: { width: Math.max(0, Math.min(100, v)) + "%" } })]),
+      el("b", { class: "em-stat-num", text: String(v) })
+    ]);
+  }
+  function accionBtn(a) {
+    var s = state.sheet;
+    var mod = s ? modificador(s, a) : 0;
+    var bloqueada = !!(a.min != null && s && s.etapa < a.min);
+    return el("button", {
+      type: "button",
+      class: "em-acc" + (bloqueada ? " em-acc-lock" : ""),
+      title: etiqueta(a.stat) + " · dificultad " + a.dc + (bloqueada ? " · antes de tiempo cuesta -3" : ""),
+      onclick: function () { hacerAccion(a); }
+    }, [
+      el("span", { class: "em-acc-ico", text: a.icon }),
+      el("span", { class: "em-acc-name", text: a.name }),
+      el("span", { class: "em-acc-meta", text: etiqueta(a.stat).split(" ")[0] + " " + (mod >= 0 ? "+" : "") + mod + " · DC " + a.dc })
+    ]);
+  }
+  function interruptor(id, text, titulo) {
+    var s = state.sheet;
+    var on = !!(s && s.flags[id]);
+    return btn((on ? "✓ " : "· ") + text, "em-toggle" + (on ? " em-toggle-on" : ""), function () {
+      var f = ficha();
+      if (!f) return;
+      f.flags[id] = !f.flags[id];
+      guardar();
+      render();
+    }, { title: titulo || text });
+  }
+  function vista() {
+    var out = el("div", { class: "em-rpg" });
+    var s = state.sheet;
+    if (!s || !s.promptId) {
+      out.appendChild(el("div", { class: "em-note em-note-bad" }, [
+        el("p", { text: "Todavía no sé con qué bot juegas." }),
+        el("small", { class: "em-hint", text: "Abre el chat de un personaje (o manda un mensaje) y en un segundo lo sabré: su app manda su id en sus peticiones y yo lo copio." })
+      ]));
+      return out;
+    }
+    // quién juega
+    out.appendChild(el("div", { class: "em-rpg-head" }, [
+      el("span", { class: "em-rpg-bot", text: s.bot || "este bot" }),
+      el("span", { class: "em-rpg-note", text: (s.player ? "tú: " + s.player : "tú: el jugador") + " · " + s.turnos + " turnos · " + s.vinculo + " de vínculo" })
+    ]));
+    // el marcador
+    var ficha6 = el("div", { class: "em-ficha" });
+    STATS.forEach(function (st) { ficha6.appendChild(barra(st.id)); });
+    ficha6.appendChild(el("div", { class: "em-etapa" }, [
+      el("span", { class: "em-etapa-badge", text: nombreEtapa(s) }),
+      el("span", { class: "em-etapa-tip", text: ETAPA_TIP[nombreEtapa(s)] || "" })
+    ]));
+    out.appendChild(ficha6);
+    // la tirada de antes
+    if (state.roll) {
+      var t = state.roll;
+      out.appendChild(el("div", { class: "em-roll em-roll-" + t.kind }, [
+        el("b", { text: "🎲 " + t.name + ": " + t.d + (t.mod >= 0 ? "+" : "") + t.mod + " = " + t.total }),
+        el("span", { text: " vs " + t.dc + " · " + t.kind.toUpperCase() + (resumen(t.cambios) ? " — " + resumen(t.cambios) : "") })
+      ]));
+    }
+    if (state.msg) out.appendChild(el("div", { class: "em-rpg-msg" + (state.msg.bad ? " em-rpg-msg-bad" : ""), text: state.msg.text }));
+    // las acciones
+    out.appendChild(el("h4", { class: "em-h", text: "Acciones — tira el dado y se lo manda al chat" }));
+    var rej = el("div", { class: "em-accs" });
+    ACCIONES.forEach(function (a) { rej.appendChild(accionBtn(a)); });
+    out.appendChild(rej);
+    // la memoria
+    out.appendChild(el("h4", { class: "em-h", text: "El reglamento dentro del bot" }));
+    var txt = memoriaTexto(s);
+    var dentro = !!s.memoria.texto;
+    out.appendChild(el("div", { class: "em-mem" }, [
+      el("span", { class: "em-mem-state", text: dentro ? (s.memoria.campo === "memory" ? "🧠 inyectado" : "🧠 inyectado (campo `" + s.memoria.campo + "`)") : "sin inyectar" }),
+      el("span", { class: "em-mem-len" + (txt.length > LIMITE ? " em-mem-over" : ""), text: txt.length + " caracteres" }),
+      el("span", { class: "em-grow" }),
+      el("span", { class: "em-hint", text: "se escribe en la memoria del bot: lo lee en todos los mensajes, también en el primero" })
+    ]));
+    var acts = el("div", { class: "em-acts" }, [
+      btn(state.busy ? "…" : "🧠 Inyectar en el bot", "em-btn em-btn-main", function () { inyectar(); }, { disabled: state.busy }),
+      btn("🧹 Devolver su memoria", "em-btn", function () { quitar(); }, { disabled: state.busy }),
+      btn("📖 Leer del chat", "em-btn", function () {
+        aviso("Leyendo el chat…", false);
+        render();
+        leer().then(function (r) {
+          aviso(r.ok ? "📖 Aplicado: " + (resumen(r.cambios) || "nada que cambiar") + " (línea del bot: " + r.tag + ")" : "📖 " + r.why, !r.ok);
+          render();
+        });
+      }),
+      btn("♻ Reiniciar partida", "em-btn em-btn-bad", function () {
+        var f = ficha();
+        if (!f) return;
+        f.stats = { afecto: 0, confianza: 0, deseo: 0, tension: 0 };
+        f.etapa = 0;
+        f.turnos = 0;
+        f.vinculo = 0;
+        f.log = [];
+        f.visto = "";
+        state.roll = null;
+        apuntar(f, "nota", "partida reiniciada a cero");
+        guardar();
+        aviso("♻ Partida a cero.", false);
+        render();
+      })
+    ]);
+    out.appendChild(acts);
+    // ajustes
+    out.appendChild(el("h4", { class: "em-h", text: "Ajustes de la partida" }));
+    out.appendChild(el("div", { class: "em-toggles" }, [
+      interruptor("lujuria", "🔥 lujuria", "El deseo cuenta en las tiradas; si lo apagas, cuesta -2"),
+      interruptor("explicito", "🍓 explícito", "El reglamento pide escenas íntimas con detalle"),
+      interruptor("compacto", "📏 memoria corta", "Solo el estado y cuatro reglas (para memorias pequeñas)"),
+      interruptor("resumen", "📜 continuidad", "Añade los últimos sucesos a la memoria"),
+      interruptor("autoenviar", "✍ enviar solo", "Pulsa enviar por ti; apágalo si prefieres revisarlo antes"),
+      interruptor("autoleer", "🔁 leer solo", "Mira el chat cada pocos segundos y aplica la línea del bot")
+    ]));
+    // lo que se le escribe, a la vista
+    out.appendChild(el("details", { class: "em-det" }, [
+      el("summary", { text: "Ver exactamente lo que se le escribe al bot" }),
+      el("pre", { class: "em-pre", text: txt })
+    ]));
+    if (state.raw) {
+      out.appendChild(el("details", { class: "em-det" }, [
+        el("summary", { text: "Ver lo último que contestó su API" }),
+        el("pre", { class: "em-pre", text: state.raw })
+      ]));
+    }
+    // el registro
+    out.appendChild(el("h4", { class: "em-h", text: "Registro" }));
+    var log = el("div", { class: "em-log" });
+    if (!s.log.length) log.appendChild(el("div", { class: "em-hint", text: "Nada todavía. Tira una acción o inyecta el reglamento." }));
+    s.log.slice(0, 16).forEach(function (e) {
+      log.appendChild(el("div", { class: "em-log-item" }, [
+        el("span", { class: "em-log-ico", text: e.kind === "tirada" ? "🎲" : e.kind === "suceso" ? "📈" : e.kind === "memoria" ? "🧠" : "•" }),
+        el("span", { class: "em-log-txt", text: e.text })
+      ]));
+    });
+    out.appendChild(log);
+    return out;
+  }
+  function render() {
+    state.sheet = ficha();
+    var host = state.host;
+    if (!host) return;
+    EM.clear(host);
+    host.appendChild(vista());
+  }
+
+  // --- enganche con el resto del panel ------------------------------------------------------------
+  EM.rpg = {
+    render: function (host) {
+      state.host = host;
+      state.visible = true;
+      state.sheet = ficha();
+      render();
+      return true;
+    },
+    setVisible: function (v) { state.visible = !!v; },
+    // para probar desde la consola / el laboratorio
+    ficha: ficha,
+    acciones: ACCIONES,
+    etapas: ETAPAS,
+    stats: STATS,
+    tirada: function (id) {
+      var s = ficha();
+      var a = null;
+      ACCIONES.forEach(function (x) { if (x.id === id) a = x; });
+      if (!s || !a) return null;
+      return tirada(s, a);
+    },
+    hacerAccion: function (id) {
+      var a = null;
+      ACCIONES.forEach(function (x) { if (x.id === id) a = x; });
+      return a ? hacerAccion(a) : null;
+    },
+    extraerTag: extraerTag,
+    reglas: reglas,
+    reglasCortas: reglasCortas,
+    memoriaTexto: memoriaTexto,
+    textoAccion: textoAccion,
+    etapaQue: etapaQue,
+    aplicar: aplicar,
+    aplicarTag: aplicarTag,
+    inyectar: inyectar,
+    quitar: quitar,
+    leer: leer,
+    tokens: tokens,
+    estado: function () { return state.sheet; },
+    log: function () { return state.sheet ? state.sheet.log.slice() : []; }
+  };
+
+  cargar();
+  // el nombre del jugador (su rol principal) para que los mensajes no digan "el jugador"
+  function buscarJugador() {
+    return EM.api.personas().then(function (res) {
+      var lista = [];
+      sacarLista(res, lista);
+      var elegido = null;
+      lista.forEach(function (p) {
+        if (!elegido && p && (p.isPrimary || p.personaEnabled) && p.name) elegido = p;
+      });
+      if (elegido) {
+        state.jugador = elegido.name;
+        Object.keys(store.bots).forEach(function (k) {
+          if (!store.bots[k].player) store.bots[k].player = elegido.name;
+        });
+        guardar();
+      }
+    }).catch(function () {});
+  }
+  function sacarLista(obj, out) {
+    if (!obj || typeof obj !== "object") return out;
+    if (Array.isArray(obj)) {
+      if (obj.length && obj.every(function (x) { return x && typeof x === "object" && ("personaId" in x); })) {
+        Array.prototype.push.apply(out, obj);
+        return out;
+      }
+      obj.forEach(function (x) { sacarLista(x, out); });
+      return out;
+    }
+    Object.keys(obj).forEach(function (k) { sacarLista(obj[k], out); });
+    return out;
+  }
+  EM.onBot.push(function () {
+    state.sheet = ficha();
+    if (state.visible) render();
+  });
+  setInterval(function () {
+    if (!state.visible) return;
+    var s = ficha();
+    if (!s || !s.promptId || !s.flags.autoleer) return;
+    leer().then(function (r) {
+      if (r.ok) {
+        aviso("📖 Aplicado: " + (resumen(r.cambios) || "nada que cambiar"), false);
+        render();
+      }
+    });
+  }, TICK);
+  try { buscarJugador(); } catch (e) {}
+})();
+
+/* =============================================================================================
    emochi.com — el panel de roles (🎭).
 
    Los "roles" son lo que la web llama *personas*: la ficha del papel que haces TÚ en el roleplay
@@ -793,6 +1705,7 @@
 
   var state = {
     open: false,
+    tab: "roles",     // roles | rpg (las dos caras del panel)
     view: "list",     // list | form | tags
     list: null,       // null = cargando
     draft: null,      // la ficha que se está editando
@@ -805,7 +1718,7 @@
     tagQuery: ""      // el filtro del selector
   };
 
-  var root, fab, panel, bodyEl, statusEl, msgEl, titleEl, footEl;
+  var root, fab, panel, bodyEl, statusEl, msgEl, titleEl, footEl, tabsEl, tabRolesEl, tabRpgEl;
 
   // --- el borrador: lo que estás escribiendo no se pierde si cierras ---------------------------
   function draftKey() {
@@ -1421,6 +2334,23 @@
 
   function render() {
     if (!panel) return;
+    if (state.tab === "rpg") {
+      titleEl.textContent = "Juego de rol";
+      statusEl.textContent = "";
+      msgEl.hidden = true;
+      if (footEl) footEl.hidden = true;
+      var keepScroll = bodyEl.scrollTop;
+      EM.clear(bodyEl);
+      if (!EM.rpg) {
+        bodyEl.appendChild(el("div", { class: "em-note em-note-bad", text: "La capa de juego no se ha cargado (falta rpg.js en el manifest)." }));
+      } else {
+        var host = el("div", { class: "em-rpg-host" });
+        bodyEl.appendChild(host);
+        EM.rpg.render(host);
+        bodyEl.scrollTop = keepScroll;
+      }
+      return;
+    }
     titleEl.textContent =
       state.view === "tags" ? "Etiquetas" :
       state.view === "form" ? (state.isNew ? "Nuevo rol" : "Editar rol") : "Mis roles";
@@ -1438,6 +2368,11 @@
     state.open = true;
     panel.hidden = false;
     fab.setAttribute("aria-expanded", "true");
+    if (state.tab === "rpg") {
+      if (EM.rpg) EM.rpg.setVisible(true);
+      render();
+      return;
+    }
     if (state.list === null) load();
     else render();
   }
@@ -1445,6 +2380,15 @@
     state.open = false;
     panel.hidden = true;
     fab.setAttribute("aria-expanded", "false");
+    if (EM.rpg) EM.rpg.setVisible(false);
+  }
+  // Dos pestañas: los roles (🎭) y la partida (🎲). La segunda vive en rpg.js.
+  function setTab(t) {
+    state.tab = t === "rpg" ? "rpg" : "roles";
+    if (tabRolesEl) tabRolesEl.className = "em-tab" + (state.tab === "roles" ? " em-tab-on" : "");
+    if (tabRpgEl) tabRpgEl.className = "em-tab" + (state.tab === "rpg" ? " em-tab-on" : "");
+    if (EM.rpg) EM.rpg.setVisible(state.tab === "rpg" && state.open);
+    render();
   }
 
   // Dónde se planta el panel. **Fuera de <body>**, colgado de <html>: su web es una SPA de React
@@ -1495,6 +2439,12 @@
     }, [el("span", { text: "🎭" })]);
 
     var head = el("header", { class: "em-head" });
+    // Las dos caras del panel: los roles (🎭) y la partida (🎲).
+    tabsEl = el("div", { class: "em-tabs" });
+    tabRolesEl = el("button", { type: "button", class: "em-tab em-tab-on", text: "🎭 Roles", onclick: function () { setTab("roles"); } });
+    tabRpgEl = el("button", { type: "button", class: "em-tab", text: "🎲 Juego", title: "Estadísticas, tiradas y acciones", onclick: function () { setTab("rpg"); } });
+    tabsEl.appendChild(tabRolesEl);
+    tabsEl.appendChild(tabRpgEl);
     titleEl = el("b", { class: "em-title", text: "Mis roles" });
     statusEl = el("span", { class: "em-count" });
     head.appendChild(titleEl);
@@ -1509,7 +2459,7 @@
     footEl = el("footer", { class: "em-foot" });
     footEl.appendChild(el("button", { class: "em-btn em-btn-main", text: "＋ Nuevo rol", onclick: newPersona }));
 
-    panel = el("aside", { id: "em-panel", hidden: true, "aria-label": "Mis roles" }, [head, msgEl, bodyEl, footEl]);
+    panel = el("aside", { id: "em-panel", hidden: true, "aria-label": "Mis roles" }, [tabsEl, head, msgEl, bodyEl, footEl]);
     root.appendChild(fab);
     root.appendChild(panel);
     EM.whenBody(function () {
