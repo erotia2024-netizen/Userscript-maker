@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.38
+// @version      0.9.39
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -887,7 +887,8 @@
     memAut: true,      // refrescar la memoria del bot sola cuando cambia la etapa
     explicito: false,  // la nota pide escenas íntimas con detalle
     larga: true,       // prueba antes el bloque completo, por si su plan deja más de 300
-    autoenviar: true   // (✍) pulsa enviar por ti
+    autoenviar: true,  // (✍) pulsa enviar por ti
+    aceroReinicia: false // (💗 A cero) reiniciar también el chat, con su botón «Reiniciar»
   };
 
   // --- estado -----------------------------------------------------------------------------------
@@ -1439,6 +1440,7 @@
     if (!s || !s.flags.medir) return;
     var b = e.target && e.target.closest ? e.target.closest("button, [role='button']") : null;
     if (!b || (b.closest && b.closest("#em-root"))) return;
+    if (esBotonReiniciar(b)) return;   // su «Reiniciar» no manda ningún mensaje
     var caja = cajaDeTexto();
     if (!caja) return;
     var suyo = caja.closest ? caja.closest("form") : null;
@@ -1451,6 +1453,73 @@
       if (r && !r.repetido) gancho();
     }, 350);
   }
+  // --- reiniciar su chat --------------------------------------------------------------------------
+  // El botón de reiniciar de su chat no lleva id ni clase estable (sus clases son utilidades de
+  // Tailwind y cambian), pero sí `aria-label="Reiniciar"` y un <span> con ese texto. Eso es lo que
+  // no cambia, así que se busca por ahí: primero por `aria-label`, y por el texto solo si el botón
+  // no tiene `aria-label` (para no pulsar el «Reiniciar» de un formulario cualquiera).
+  function esBotonReiniciar(b) {
+    if (!b || !b.getAttribute) return false;
+    var aria = (b.getAttribute("aria-label") || "") + " " + (b.getAttribute("title") || "");
+    aria = aria.replace(/\s+/g, " ").trim();
+    if (/^(reiniciar|restart)\b/i.test(aria)) return true;
+    if (aria) return false;
+    var txt = (b.textContent || "").replace(/\s+/g, " ").trim();
+    return /^(reiniciar|restart|nueva conversaci[oó]n|empezar de nuevo)\b/i.test(txt);
+  }
+  function seVe(n) {
+    if (!n) return false;
+    var r = n.getBoundingClientRect();
+    if (r.width < 6 || r.height < 6) return false;
+    var st = getComputedStyle(n);
+    return st.visibility !== "hidden" && st.display !== "none" && st.opacity !== "0";
+  }
+  // Los visibles primero: si su menú está abierto y hay dos, se pulsa el que se ve.
+  function botonesReiniciar() {
+    var nodos = document.querySelectorAll("button, [role='button']");
+    var visibles = [], ocultos = [];
+    Array.prototype.forEach.call(nodos, function (n) {
+      if (n.closest && n.closest("#em-root")) return;
+      if (!esBotonReiniciar(n)) return;
+      (seVe(n) ? visibles : ocultos).push(n);
+    });
+    return visibles.concat(ocultos);
+  }
+  function botonReiniciar() { return botonesReiniciar()[0] || null; }
+  // Pulsa su botón de «Reiniciar». Si está escondido dentro de un menú suyo se pulsa igual (su
+  // React tiene el manejador puesto); si no está en la página (menú sin montar), se dice claro.
+  function pulsarReiniciar(opts) {
+    var o = opts || {};
+    var s = ficha();
+    var bots = botonesReiniciar();
+    var b = bots[0] || null;
+    if (!b) {
+      aviso("♻ Todavía no veo su botón de «Reiniciar»: abre el menú del chat donde esté y vuelve a pulsar «♻ Reiniciar el chat».", true);
+      render();
+      return { ok: false, why: "sin botón" };
+    }
+    var oculto = !seVe(b);
+    if (o.confirmar !== false) {
+      var texto = "¿Reiniciar el chat con " + ((s && s.bot) || "el bot") + "?\n\nSe borra su conversación (la ficha 💗 y las barras no se tocan).";
+      if (oculto) texto += "\n\n(Ahora mismo su botón está oculto: lo pulso igual.)";
+      if (!window.confirm(texto)) return { ok: false, why: "cancelado" };
+    }
+    try {
+      b.click();
+    } catch (e) {
+      aviso("♻ No he podido pulsarlo: " + (e && e.message), true);
+      render();
+      return { ok: false, why: "error" };
+    }
+    if (s) {
+      apuntar(s, "nota", "chat reiniciado" + (oculto ? " (su botón estaba oculto)" : ""));
+      guardar();
+    }
+    aviso("♻ Chat reiniciado: con este bot se empieza de cero." + (bots.length > 1 ? " (Había " + bots.length + " botones así y he pulsado el primero.)" : ""), false);
+    render();
+    return { ok: true, oculto: oculto, n: bots.length };
+  }
+
   function gancho() {
     aviso("", false);
     render();
@@ -2108,13 +2177,16 @@
       interruptor("memAut", "🔄 memoria sola", "Pone al día la nota del bot cuando la relación cambia de etapa"),
       interruptor("explicito", "🍓 explícito", "La nota pide escenas íntimas con detalle"),
       interruptor("larga", "📚 nota larga", "Prueba antes la nota completa, por si tu plan deja más de 300 caracteres"),
-      interruptor("autoenviar", "✍ enviar solo", "Al usar ✍, pulsa enviar por ti")
+      interruptor("autoenviar", "✍ enviar solo", "Al usar ✍, pulsa enviar por ti"),
+      interruptor("aceroReinicia", "♻ A cero reinicia su chat", "Al pulsar «💗 A cero», pulsa también el botón «Reiniciar» del chat (borra la conversación del bot)")
     ]));
     aj.appendChild(el("div", { class: "em-acts" }, [
       btn("💗 A cero", "em-btn em-btn-mini em-btn-bad", function () {
-        if (!window.confirm("¿Empezar la partida de cero con este bot?")) return;
         var f = ficha();
         if (!f) return;
+        var conChat = !!f.flags.aceroReinicia;
+        if (!window.confirm("¿Empezar la partida de cero con este bot? (las barras y la ficha)" +
+          (conChat ? "\n\nY se reinicia también su chat: se borra la conversación del bot." : "\n\n(El chat no se toca: para eso, «♻ Reiniciar el chat».)"))) return;
         f.stats = { afecto: 0, confianza: 0, deseo: 0, tension: 0 };
         f.etapa = 0;
         f.turnos = 0;
@@ -2126,7 +2198,9 @@
         guardar();
         aviso("💗 Partida a cero.", false);
         render();
-      })
+        if (conChat) pulsarReiniciar({ confirmar: false });
+      }),
+      btn("♻ Reiniciar el chat", "em-btn em-btn-mini em-btn-bad", function () { pulsarReiniciar(); }, { title: "Pulsa el botón «Reiniciar» de su chat: borra la conversación del bot (la ficha 💗 no se toca)" })
     ]));
     cuerpo.appendChild(aj);
 
@@ -2267,6 +2341,10 @@
     cajaDeTexto: cajaDeTexto,
     columnaChat: columnaChat,
     capturar: capturar,
+    botonesReiniciar: botonesReiniciar,
+    botonReiniciar: botonReiniciar,
+    esBotonReiniciar: esBotonReiniciar,
+    pulsarReiniciar: pulsarReiniciar,
     estado: function () { return state; },
     log: function () { return state.sheet ? state.sheet.log.slice() : []; }
   };
