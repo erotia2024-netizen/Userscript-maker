@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.5
+// @version      0.9.6
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -39,6 +39,100 @@
   }
 })();
 // ---- emochi-com ----
+/* =============================================================================================
+   emochi.com — las etiquetas de la persona ("MI ROL").
+
+   La lista es la DE ELLOS, sacada de sus dos endpoints públicos: `explore/all/tags` (los 68
+   nombres y sus cuatro grupos) y `config/creator/tags` (las traducciones, aquí el español).
+   `core.js` la vuelve a pedir cuando hace falta y, si la red falla, tira de esta copia: por eso
+   el panel funciona igual aunque su API no conteste.
+
+   Generado el 2026-09-25 (68 etiquetas). No editar a mano: se regenera desde la API.
+   ============================================================================================= */
+(function () {
+  "use strict";
+
+  window.emochiLabTags = {
+    max: 5, // su editor no deja marcar más de cinco: "Confirmar (3/5)"
+    groups: {
+      theme: "Tema",
+      personality: "Personalidad",
+      relationship: "Relación",
+      identity: "Identidad",
+    },
+    labels: [
+      ["theme", "Romance", "Romance"],
+      ["theme", "Drama", "Drama"],
+      ["theme", "Bl", "BL"],
+      ["theme", "Comedy", "Comedia"],
+      ["theme", "Slice of life", "Vida cotidiana"],
+      ["theme", "Dark romance", "Romance oscuro"],
+      ["theme", "School", "Escuela"],
+      ["theme", "Coming of age", "Mayoría de edad"],
+      ["theme", "Forced marriage", "Matrimonio forzado"],
+      ["theme", "Family", "Familia"],
+      ["theme", "Conflict", "Conflicto"],
+      ["theme", "Fantasy", "Fantasía"],
+      ["theme", "Supernatural", "Sobrenatural"],
+      ["theme", "Friendship", "Amistad"],
+      ["theme", "Adventure", "Aventura"],
+      ["theme", "Horror", "Terror"],
+      ["theme", "Crime", "Delito"],
+      ["personality", "Possessive", "Posesivo"],
+      ["personality", "Loyal", "Leal"],
+      ["personality", "Playful", "Juguetón"],
+      ["personality", "Protective", "Protector"],
+      ["personality", "Flirty", "Coqueto"],
+      ["personality", "Emotional", "Emocional"],
+      ["personality", "Secretive", "Reservado"],
+      ["personality", "Teasing", "Broma"],
+      ["personality", "Arrogant", "Arrogante"],
+      ["personality", "Affectionate", "Cariñoso"],
+      ["personality", "Kind", "Amable"],
+      ["personality", "Gentle", "Gentil"],
+      ["personality", "Dominant", "Dominante"],
+      ["personality", "Violent", "Violento"],
+      ["personality", "Strong-willed", "De voluntad fuerte"],
+      ["personality", "Manipulative", "Manipulador"],
+      ["personality", "Jealous", "Celoso"],
+      ["personality", "Shy", "Tímido"],
+      ["personality", "Introverted", "Introvertido"],
+      ["personality", "Seductive", "Seductor"],
+      ["personality", "Hostile", "Hostil"],
+      ["relationship", "Love interest", "Interés amoroso"],
+      ["relationship", "Spouse", "Cónyuge"],
+      ["relationship", "Potential love interest", "Amor Potencial"],
+      ["relationship", "Friend", "Amigo"],
+      ["relationship", "Stranger", "Extraño"],
+      ["relationship", "Boyfriend", "Novio"],
+      ["relationship", "Romantic partner", "Pareja Romántica"],
+      ["relationship", "Enemy", "Enemigo"],
+      ["relationship", "Forbidden love interest", "Amor prohibido"],
+      ["relationship", "Obsessive lover", "Amante Obsesivo"],
+      ["relationship", "Classmate", "Compañero de clase"],
+      ["relationship", "Protector", "Protector"],
+      ["relationship", "Captor", "Capturador"],
+      ["relationship", "Roommate", "Compañero de cuarto"],
+      ["relationship", "Rival", "Rival"],
+      ["relationship", "Sibling", "Hermano/a"],
+      ["identity", "Student", "Alumno"],
+      ["identity", "Youngadult", "JovenAdulto"],
+      ["identity", "Husband", "Esposo"],
+      ["identity", "Mafia", "Mafia"],
+      ["identity", "Wealthy", "Adinerado"],
+      ["identity", "Ceo", "Director ejecutivo"],
+      ["identity", "Aristocrat", "Aristócrata"],
+      ["identity", "Teenager", "Adolescente"],
+      ["identity", "Criminal", "Criminal"],
+      ["identity", "Hero", "Héroe"],
+      ["identity", "Parent", "Padre/madre"],
+      ["identity", "Adult", "Adulto"],
+      ["identity", "Worker", "Obrero"],
+      ["identity", "Leader", "Líder"]
+    ]
+  };
+})();
+
 /* =============================================================================================
    emochi.com — el núcleo del userscript: ajustes, el cliente de la API del propio sitio y las
    piezas que comparten los demás módulos.
@@ -362,6 +456,97 @@
     return call("DELETE", path, opts);
   };
 
+  // --- las etiquetas de "MI ROL" ----------------------------------------------------------------
+  // Son las de ellos, y las sirven en dos endpoints públicos: `explore/all/tags` (los 68 nombres,
+  // repartidos en cuatro grupos) y `config/creator/tags` (sus traducciones; aquí interesa el
+  // español). Se piden una vez y se guardan una semana. Si la red falla -o su CORS, que en la
+  // vista previa del laboratorio no está- se usa la copia de `tags.js`, que es exactamente la
+  // misma lista: así el formulario de etiquetas nunca se queda en blanco.
+  var TAGS_KEY = "emochi-lab:tags:v1";
+  var TAGS_TTL = 7 * 24 * 60 * 60 * 1000;
+  var tagsMem = null;
+
+  function embeddedTags() {
+    var t = window.emochiLabTags || {};
+    return {
+      max: t.max || 5,
+      groups: t.groups || {},
+      labels: (t.labels || []).map(function (r) {
+        return { group: r[0], name: r[1], label: r[2] };
+      })
+    };
+  }
+  function cachedTags() {
+    try {
+      var box = JSON.parse(localStorage.getItem(TAGS_KEY) || "null");
+      if (box && box.labels && box.labels.length && Date.now() - (box.at || 0) < TAGS_TTL) {
+        return { max: box.max || 5, groups: box.groups || {}, labels: box.labels };
+      }
+    } catch (e) {}
+    return null;
+  }
+  function plainGet(path) {
+    return fetch(BACKEND + path, {
+      headers: { Accept: "application/json", "x-flow-language": navigator.language || "es" },
+      credentials: "omit"
+    }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    });
+  }
+  function fetchTags() {
+    return Promise.all([plainGet("/explore/all/tags"), plainGet("/config/creator/tags")]).then(function (r) {
+      var all = r[0] || {};
+      var es = {};
+      (r[1] || []).forEach(function (t) {
+        var tr = t.translation || {};
+        es[t.name] = tr.es_ES || tr.es || t.name;
+      });
+      var base = embeddedTags();
+      var labels = [];
+      Object.keys(all).forEach(function (g) {
+        var box = all[g] || {};
+        (box.items || []).forEach(function (it) {
+          if (!it || !it.name) return;
+          labels.push({ group: g, name: it.originalName || it.name, label: es[it.name] || es[it.originalName] || it.name });
+        });
+      });
+      if (!labels.length) throw new Error("sin etiquetas");
+      var out = { max: base.max, groups: base.groups, labels: labels };
+      tagsMem = out;
+      try {
+        localStorage.setItem(TAGS_KEY, JSON.stringify({ at: Date.now(), max: out.max, groups: out.groups, labels: out.labels }));
+      } catch (e) {}
+      return out;
+    });
+  }
+  EM.tags = {
+    // lo que se puede pintar ya, sin esperar a la red
+    now: function () {
+      return tagsMem || cachedTags() || embeddedTags();
+    },
+    load: function (force) {
+      if (tagsMem && !force) return Promise.resolve(tagsMem);
+      var c = cachedTags();
+      if (c && !force) {
+        tagsMem = c;
+        fetchTags().catch(function () {}); // y de fondo se refresca
+        return Promise.resolve(c);
+      }
+      return fetchTags().catch(function (e) {
+        EM.log("etiquetas: tiro de la copia de tags.js (" + e.message + ")");
+        tagsMem = embeddedTags();
+        return tagsMem;
+      });
+    },
+    // el nombre que se enseña de una etiqueta (la API guarda el suyo, en inglés)
+    labelOf: function (name) {
+      var list = EM.tags.now().labels;
+      var m = list.filter(function (l) { return l.name === name || l.label === name; })[0];
+      return m ? m.label : name;
+    }
+  };
+
   // --- los roles (lo que la web llama "personas") --------------------------------------------
   // Cuerpo que manda su propio formulario (`savePersonaInfo`), comprobado en su JavaScript:
   //   { userId, personaId, name, backgroundStory, imageURL, gender, isPrimary, personaEnabled,
@@ -414,6 +599,10 @@
     // los modelos del sitio (es público): útil para el chat anónimo y para saber qué hay
     models: function () {
       return EM.get("/models/settings-list");
+    },
+    // las etiquetas de "MI ROL" (68, en cuatro grupos, traducidas al español)
+    tags: function (force) {
+      return EM.tags.load(force);
     }
   };
   EM.personaBody = personaBody;
@@ -558,23 +747,28 @@
   if (!EM) return;
 
   var el = EM.el;
+  // Los mismos tres que pone su editor (y los mismos valores que guarda su API).
   var GENDERS = [
-    ["", "—"],
-    ["Male", "Hombre"],
-    ["Female", "Mujer"],
+    ["Male", "Masculino"],
+    ["Female", "Femenino"],
     ["Other", "Otro"]
   ];
+  // Los topes de su formulario, copiados de su editor: el nombre 40, la descripción de la persona
+  // 3000, y apariencia/gustos/disgustos 100. Las etiquetas: cinco como mucho.
+  var LIMITS = { name: 40, backgroundStory: 3000, appearance: 100, likes: 100, dislikes: 100 };
 
   var state = {
     open: false,
-    view: "list",     // list | form
+    view: "list",     // list | form | tags
     list: null,       // null = cargando
     draft: null,      // la ficha que se está editando
     isNew: false,
     botRole: "",      // personaId del rol elegido para el bot actual
     busy: false,
     msg: null,        // { text, bad }
-    error: ""
+    error: "",
+    tagDraft: null,   // las etiquetas que estás marcando en el selector (hasta que confirmes)
+    tagQuery: ""      // el filtro del selector
   };
 
   var root, fab, panel, bodyEl, statusEl, msgEl, titleEl;
@@ -613,8 +807,7 @@
     rasgo: ["fría por fuera y protectora por dentro", "habla poco y mira mucho", "sarcástica hasta que duele", "demasiado educada para ser sincera", "impulsiva y luego arrepentida", "cuida a los demás y se olvida de sí misma", "siempre está en otra parte con la cabeza", "rivaliza por deporte"],
     secreto: ["debe dinero a la persona equivocada", "es la única superviviente de algo que no cuenta", "cambió su nombre hace años", "tiene un hermano del que nadie sabe nada", "firma sus obras con otro nombre", "guarda una carta que nunca envió", "una vez dejó morir a alguien y no lo confesó"],
     gustos: ["el café solo y a deshoras", "la lluvia en las ventanas", "los libros con anotaciones ajenas", "las motos viejas", "las partidas de cartas por dinero", "dormir hasta tarde", "las tormentas"],
-    disgustos: ["esperar", "la gente que presume", "los ruidos de boca", "que le den órdenes", "los ascensores", "el calor", "mentir sin motivo"],
-    etiqueta: ["drama", "romance", "misterio", "nocturno", "lento", "intenso", "sobrenatural", "cotidiano", "cómico", "peligroso"]
+    disgustos: ["esperar", "la gente que presume", "los ruidos de boca", "que le den órdenes", "los ascensores", "el calor", "mentir sin motivo"]
   };
   function pick(a) {
     return a[Math.floor(Math.random() * a.length)];
@@ -628,6 +821,13 @@
   function ideaList(a, n) {
     return pickSome(a, n).join(", ");
   }
+  // Las etiquetas de las ideas salen de la lista DE ELLOS (las mismas del selector), no de una
+  // inventada: lo que rellenes vale tal cual y no hay que corregirlo antes de guardar.
+  function ideaTags(n) {
+    var all = EM.tags.now().labels;
+    if (!all.length) return [];
+    return pickSome(all.map(function (l) { return l.name; }), n);
+  }
   // Rellena solo los campos que estén vacíos: las ideas son para arrancar, no para pisar lo tuyo.
   function fillIdeas() {
     var d = state.draft;
@@ -639,7 +839,7 @@
     if (!d.appearance.trim()) d.appearance = "De pie firme y mirada de cansancio contenido; ropa práctica, marcada por el uso.";
     if (!d.likes.trim()) d.likes = ideaList(IDEAS.gustos, 3);
     if (!d.dislikes.trim()) d.dislikes = ideaList(IDEAS.disgustos, 3);
-    if (!d.label.length) d.label = pickSome(IDEAS.etiqueta, 3);
+    if (!d.label.length) d.label = ideaTags(3);
     if (!d.gender) d.gender = pick(["Male", "Female", "Other"]);
     if (!(d.age > 0)) d.age = 19 + Math.floor(Math.random() * 27);
     saveDraft();
