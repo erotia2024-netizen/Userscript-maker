@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.15
+// @version      0.9.16
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -603,6 +603,40 @@
     // las etiquetas de "MI ROL" (68, en cuatro grupos, traducidas al español)
     tags: function (force) {
       return EM.tags.load(force);
+    },
+
+    // --- lo que hace falta para la capa de juego (rpg.js) -----------------------------------
+    // La MEMORIA del bot: es el único sitio del que tenemos constancia donde se puede escribir
+    // algo que el modelo lee en *todos* los mensajes (desde el primero). El cuerpo del POST no lo
+    // hemos podido ver (su ventana de memoria vive en un trozo de su web que no se descarga sin
+    // sesión), así que se manda `memory` y, si el servidor se queja, rpg.js prueba otros nombres.
+    memoriaDeBot: function (promptId) {
+      return EM.get("/user/prompt/memory", { query: { promptId: String(promptId) } });
+    },
+    ponMemoriaDeBot: function (promptId, campo, texto) {
+      var body = { promptId: String(promptId) };
+      body[campo || "memory"] = texto;
+      return EM.post("/user/prompt/memory", body);
+    },
+    // cuánto ocupa la memoria (su web lo cuenta en "tokens"; sirve para no pasarse)
+    memoriaTokens: function (promptId, conversationId) {
+      return EM.get("/conversation/memory/tokens", {
+        query: { promptId: String(promptId), conversationId: String(conversationId || "") }
+      });
+    },
+    // el historial del bot (para leer lo que ha contestado sin tocar la pantalla)
+    historial: function (promptId) {
+      return EM.get("/conversation/prompt-history-v2", { query: { promptId: String(promptId) } });
+    },
+    historialV1: function (promptId) {
+      return EM.get("/conversation/prompt-history", { query: { promptId: String(promptId) } });
+    },
+    ultimaConversacion: function (promptId) {
+      return EM.get("/conversation/latest", { query: { promptId: String(promptId) } });
+    },
+    // la ficha pública del personaje (título, intro, etc.)
+    personaje: function (promptId) {
+      return EM.get("/prompt/" + encodeURIComponent(promptId));
     }
   };
   EM.personaBody = personaBody;
