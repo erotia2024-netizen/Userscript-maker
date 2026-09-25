@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.25
+// @version      0.9.26
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -807,6 +807,15 @@
     "Tensión": "provocador: se acerca y se aleja, te deja con ganas",
     "Amantes": "íntimo; el deseo ya no se esconde"
   };
+  // La misma idea, en tres palabras, para cuando el espacio es el que es (la memoria del bot).
+  var TIP_CORTO = {
+    "Desconocidos": "frío y cortés",
+    "Conocidos": "amable",
+    "Amistad": "cálido",
+    "Cercanía": "cariñoso y coqueto",
+    "Tensión": "esquivo y provocador",
+    "Amantes": "apasionado, sin freno"
+  };
   var STATS = [
     { id: "afecto", label: "Afecto", icon: "💗" },
     { id: "confianza", label: "Confianza", icon: "🤝" },
@@ -1100,12 +1109,12 @@
     var st = s.stats;
     var cab = "[PARTIDA · afecto " + st.afecto + " · confianza " + st.confianza + " · deseo " + st.deseo +
       " · tensión " + st.tension + " · etapa " + nombreEtapa(s) + "]";
-    var nucleo = "\nAl final de CADA respuesta escribe [RPG afecto+2 confianza0 deseo+1 tension+2 etapa=Cercanía]" +
-      " con deltas -3..+3 (0 si no cambia).";
+    var nucleo = "\nAl final de CADA respuesta: [RPG afecto+2 confianza0 deseo+1 tension+2 etapa=Cercanía]" +
+      " (deltas -3..+3, 0 si no cambia).";
     var extras = [
-      { p: 1, t: "\nSi un mensaje trae [Partida · tirada · ÉXITO/FALLO], narra ese resultado." },
-      { p: 2, t: "\nEtapas: " + ETAPAS.join("→") + "." },
-      { p: 3, t: "\nEres " + (ETAPA_TIP[nombreEtapa(s)] || "") + "." },
+      { p: 1, t: "\nSi trae [Partida · tirada · ÉXITO/FALLO], narra el resultado." },
+      { p: 2, t: "\nEres " + (TIP_CORTO[nombreEtapa(s)] || ETAPA_TIP[nombreEtapa(s)] || "") + "." },
+      { p: 3, t: "\nEtapas: " + ETAPAS.join("→") + "." },
       { p: 4, t: s.flags.explicito ? "\nContenido adulto explícito permitido." : "\nÍntimas: solo insinuadas." },
       { p: 5, t: "\nNo decidas por " + jugador(s) + ": solo narras lo tuyo." }
     ].sort(function (a, b) { return a.p - b.p; });
@@ -1113,7 +1122,7 @@
     function largo() {
       var t = cab + nucleo;
       usados.forEach(function (e) { t += e.t; });
-      return t;
+      return t.length;
     }
     while (usados.length && largo() > tope) usados.pop();
     var out = cab + nucleo;
