@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.35
+// @version      0.9.36
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1931,6 +1931,19 @@
     d.appendChild(el("summary", { text: titulo }));
     return d;
   }
+  // Un bloque plegable que recuerda si estaba abierto: al abrirlo se pinta su contenido y al
+  // cerrarlo se quita (así el textarea de las palabras no se queda por medio).
+  function plegable(titulo, clave) {
+    var d = details(titulo, state.seccion === clave);
+    d.addEventListener("toggle", function () {
+      var nuevo = d.open ? clave : "";
+      if (nuevo !== state.seccion) {
+        state.seccion = nuevo;
+        render();
+      }
+    });
+    return d;
+  }
 
   function vista() {
     var out = el("div", { class: "em-dock-in" });
@@ -2017,9 +2030,8 @@
     ]));
 
     // la tabla de palabras clave
-    var pal = details("🔑 Palabras clave (" + tabla().length + ")", state.seccion === "palabras");
-    pal.addEventListener("toggle", function () { state.seccion = pal.open ? "palabras" : ""; });
-    if (state.seccion === "palabras" || pal.open) {
+    var pal = plegable("🔑 Palabras clave (" + tabla().length + ")", "palabras");
+    if (state.seccion === "palabras") {
       var ta = el("textarea", { class: "em-input em-pal-edit", rows: 14, spellcheck: "false" });
       ta.value = state.edicion != null ? state.edicion : tablaTexto();
       ta.addEventListener("input", function () { state.edicion = ta.value; });
@@ -2057,8 +2069,7 @@
     cuerpo.appendChild(pal);
 
     // la nota que se le deja al bot
-    var mem = details("🧠 Lo que recibe el bot", state.seccion === "memoria");
-    mem.addEventListener("toggle", function () { state.seccion = mem.open ? "memoria" : ""; });
+    var mem = plegable("🧠 Lo que recibe el bot", "memoria");
     var txt = esGrande(s) ? memoriaBot(s) : minimo(s, s.memoria.tope || LIMITE_MEM);
     var txtChat = recortaA(memoriaTexto(s), LIMITE_CHAT);
     var topeMax = s.memoria.tope || LIMITE_MEM;
@@ -2083,8 +2094,7 @@
     cuerpo.appendChild(mem);
 
     // ajustes
-    var aj = details("⚙ Ajustes", state.seccion === "ajustes");
-    aj.addEventListener("toggle", function () { state.seccion = aj.open ? "ajustes" : ""; });
+    var aj = plegable("⚙ Ajustes", "ajustes");
     aj.appendChild(el("div", { class: "em-toggles" }, [
       interruptor("medir", "💗 medir lo que escribo", "Mueve las barras leyendo las palabras clave de tus mensajes"),
       interruptor("memAut", "🔄 memoria sola", "Pone al día la nota del bot cuando la relación cambia de etapa"),
@@ -2113,8 +2123,7 @@
     cuerpo.appendChild(aj);
 
     // el registro
-    var reg = details("📜 Registro (" + s.log.length + ")", state.seccion === "registro");
-    reg.addEventListener("toggle", function () { state.seccion = reg.open ? "registro" : ""; });
+    var reg = plegable("📜 Registro (" + s.log.length + ")", "registro");
     var log = el("div", { class: "em-log" });
     if (!s.log.length) log.appendChild(el("div", { class: "em-hint", text: "Nada todavía. Escribe en el chat y mira cómo se mueven las barras." }));
     s.log.slice(0, 24).forEach(function (e) {
