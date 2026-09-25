@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.32
+// @version      0.9.33
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1832,13 +1832,22 @@
     var col = columnaChat(!!fresco);
     var left, top, alto;
     if (col) {
-      // se ensancha lo que deje el hueco que hay entre el borde de la pantalla (o su barra
-      // lateral) y la columna del chat: así nunca la pisa, y si hay sitio de sobra manda el
-      // ancho que haya elegido el jugador.
-      var hueco = Math.round(col.left - 20);
-      var ancho = state.colapsado ? 34 : Math.max(140, Math.min(state.ancho || ANCHO, hueco));
-      left = Math.round(col.left - 12 - ancho);
-      if (left < 8) left = 8;
+      // La barra lateral de su web ocupa el borde izquierdo: si entre ella y la columna del chat
+      // hay sitio, la ficha va ahí (que es donde el jugador la espera); si no lo hay, se pone al
+      // borde de la pantalla, por encima de la barra (y se puede plegar para verla).
+      var limite = Math.max(8, barraIzquierda(col.left) + 8);
+      var libre = Math.round(col.left - 12 - limite);
+      var ancho;
+      if (state.colapsado) {
+        ancho = 34;
+        left = Math.max(limite, col.left - 12 - ancho);
+      } else if (libre >= 150) {
+        ancho = Math.min(state.ancho || ANCHO, libre);
+        left = Math.round(col.left - 12 - ancho);
+      } else {
+        ancho = Math.min(state.ancho || ANCHO, Math.max(140, Math.round(col.left - 20)));
+        left = 8;
+      }
       top = Math.round(Math.max(8, col.top));
       alto = Math.round(Math.min(vh - top - 16, Math.max(240, col.bottom - top)));
       if (left < 110) alto = Math.min(alto, vh - top - 92);   // no pisar el botón flotante
@@ -1854,6 +1863,27 @@
     d.style.top = top + "px";
     d.style.height = alto + "px";
     d.style.maxHeight = alto + "px";
+  }
+  // Hasta dónde llega la barra lateral de su web (si es que hay una): un elemento pegado al borde
+  // izquierdo, de casi toda la altura de la pantalla y estrecho.
+  function barraIzquierda(limite) {
+    var mejor = 0;
+    var vh = window.innerHeight || 0;
+    var vw = window.innerWidth || 1200;
+    var nodos = document.querySelectorAll("aside, nav, [class*='sidebar'], [class*='Sidebar']");
+    for (var i = 0; i < nodos.length && i < 40; i++) {
+      var n = nodos[i];
+      if (n.closest && n.closest("#em-root")) continue;
+      var st = getComputedStyle(n);
+      if (st.position !== "fixed" && st.position !== "absolute" && st.position !== "sticky") continue;
+      if (st.visibility === "hidden" || st.display === "none") continue;
+      var r = n.getBoundingClientRect();
+      if (r.width < 20 || r.width > vw * 0.45) continue;
+      if (r.height < vh * 0.7) continue;
+      if (r.left > limite) continue;
+      if (r.right > mejor) mejor = r.right;
+    }
+    return mejor;
   }
 
   // --- la interfaz de la ficha --------------------------------------------------------------------
@@ -1900,6 +1930,7 @@
     out.appendChild(el("div", { class: "em-dock-head" }, [
       btn(state.colapsado ? "▶" : "◀", "em-icon em-dock-fold", function () {
         state.colapsado = !state.colapsado;
+        state.aMano = true;
         render();
         colocar();
       }, { title: state.colapsado ? "Desplegar la ficha" : "Plegar la ficha" }),
@@ -1911,7 +1942,7 @@
     ]));
 
     if (state.colapsado) {
-      out.appendChild(el("div", { class: "em-dock-mini", onclick: function () { state.colapsado = false; render(); colocar(); } }, [
+      out.appendChild(el("div", { class: "em-dock-mini", onclick: function () { state.colapsado = false; state.aMano = true; render(); colocar(); } }, [
         el("span", { class: "em-dock-mini-ico", text: "💗" }),
         el("span", { class: "em-dock-mini-txt", text: s ? nombreEtapa(s) : "partida" })
       ]));
