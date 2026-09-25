@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.42
+// @version      0.9.43
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1606,7 +1606,109 @@
     document.addEventListener("click", alClicar, true);
   }
 
-  // --- leer el chat por la API (red de seguridad, cuando el enganche no basta) --------------------
+  // --- leer el chat de la pantalla (lo que de verdad hay) -----------------------------------------
+  // Su chat pinta cada mensaje en una fila que se distingue por `justify-end` (tú) o `justify-start`
+  // (el bot), y cada fila trae su menú «⋯» — `button[data-part="trigger"][data-scope="menu"]` —, que
+  // sirve de ancla (hay uno por mensaje). La burbuja es el `div` con `border-radius` en línea.
+  // Y se reconstruyen los asteriscos que su markdown se ha comido (`<em>` → *así*, `<strong>` →
+  // **así**): es justo lo que distingue una acción (cuenta entero) de un pensamiento (la mitad).
+  function textoDeBurbuja(el) {
+    if (!el) return "";
+    var out = "";
+    var anda = function (n) {
+      if (n.nodeType === 3) { out += n.nodeValue; return; }
+      if (n.nodeType !== 1) return;
+      var t = n.tagName;
+      if (t === "BR") { out += " "; return; }
+      var marca = t === "EM" || t === "I" ? "*"
+        : t === "STRONG" || t === "B" ? "**"
+        : t === "CODE" ? "`"
+        : t === "DEL" || t === "S" ? "~~" : "";
+      if (marca) out += marca;
+      Array.prototype.forEach.call(n.childNodes, anda);
+      if (marca) out += marca;
+    };
+    anda(el);
+    return out.replace(/\s+/g, " ").trim();
+  }
+  function claseDe(n) { return (n && typeof n.className === "string") ? n.className : ""; }
+  // La fila del mensaje. Ojo: la barrita del menú también lleva `justify-center`, así que la fila de
+  // verdad es la que va con `justify-end`/`justify-start` **y** `w-full` (como la suya).
+  function filaDeMensaje(nodo) {
+    var n = nodo, otra = null;
+    for (var i = 0; n && i < 9; i++, n = n.parentElement) {
+      var c = claseDe(n);
+      if (!/justify-(end|start)\b/.test(c)) continue;
+      if (/\bw-full\b/.test(c)) return n;
+      if (!otra) otra = n;
+    }
+    return otra;
+  }
+  // La burbuja: de las cajas con esquinas redondeadas de la fila, la que más texto tenga.
+  function burbujaDe(fila) {
+    var divs = fila.querySelectorAll('[style*="border-radius"], [style*="borderRadius"]');
+    var mejor = null, largo = 0;
+    Array.prototype.forEach.call(divs, function (d) {
+      var t = textoDeBurbuja(d);
+      if (t.length > largo) { largo = t.length; mejor = d; }
+    });
+    return (mejor && largo > 0) ? mejor : fila;
+  }
+  // Los mensajes que hay ahora mismo en el chat, de arriba abajo.
+  function mensajesDeLaPantalla() {
+    var filas = [], vistos = [], i;
+    var guarda = function (n) {
+      if (!n || n.closest("#em-root")) return;
+      if (vistos.indexOf(n) !== -1) return;
+      vistos.push(n);
+      filas.push(n);
+    };
+    var anclas = document.querySelectorAll("button[data-part='trigger'], button[data-scope='menu']");
+    Array.prototype.forEach.call(anclas, function (b) { guarda(filaDeMensaje(b)); });
+    if (!filas.length) {
+      // por si su menú cambiara de forma: cualquier burbuja con texto que esté en una fila alineada
+      var cajas = document.querySelectorAll('[style*="border-radius"], [style*="borderRadius"]');
+      Array.prototype.forEach.call(cajas, function (d) { if (textoDeBurbuja(d)) guarda(filaDeMensaje(d)); });
+    }
+    for (i = 0; i < filas.length; i++) {
+      filas[i].__emArriba = filas[i].getBoundingClientRect().top;   // el orden del DOM no vale con su virtualización
+    }
+    filas.sort(function (a, b) { return a.__emArriba - b.__emArriba; });
+    return filas.map(function (f) {
+      return { yo: /justify-end/.test(claseDe(f)), txt: textoDeBurbuja(burbujaDe(f)), fila: f };
+    });
+  }
+  // Mide una lista de mensajes del jugador ([{txt}]) y devuelve el resumen de siempre.
+  function medirLista(s, lista, fuente, leidos) {
+    var nuevos = 0, movidos = {};
+    lista.slice(-24).forEach(function (m) {
+      var txt = String((m && m.txt) || "").trim();
+      if (!txt) return;
+      var h = huella(txt);
+      if (!h || yaVisto(s, h)) return;
+      var r = medir(txt);
+      s.turnos++;
+      if (r.entrada && Object.keys(r.mov).length) {
+        var hechos = aplicar(s, r.mov, null);
+        Object.keys(hechos).forEach(function (k) { movidos[k] = red1((movidos[k] || 0) + hechos[k]); });
+        apuntar(s, "palabra", "💗 " + r.entrada.nombre + " — " + resumen(r.mov) + " · " + fuente);
+      }
+      nuevos++;
+    });
+    if (!nuevos) return { ok: false, why: "sin mensajes nuevos tuyos", n: 0, vistos: leidos };
+    var antesEtapa = s.etapa;
+    s.etapa = Math.max(s.etapa, etapaQue(s.stats));
+    if (s.etapa !== antesEtapa) {
+      movidos.etapa = ETAPAS[s.etapa];
+      apuntar(s, "etapa", "✨ La relación pasa a «" + ETAPAS[s.etapa] + "»");
+      if (s.flags.memAut) refrescarMemoria(s);
+    }
+    guardar();
+    render();
+    return { ok: true, n: nuevos, cambios: movidos, vistos: leidos };
+  }
+
+  // --- leer el chat por su API (red de seguridad, si en pantalla no hay nada) ---------------------
   // Se busca en el JSON del historial cualquier lista de mensajes (objetos con `role` y `content`),
   // porque la forma exacta de la respuesta no la conocemos: así da igual cómo venga envuelto.
   function sacarMensajes(obj, out, hondo) {
@@ -1629,7 +1731,18 @@
   }
   function leer() {
     var s = ficha();
-    if (!s || !s.promptId) return Promise.resolve({ ok: false, why: "todavía no sé con qué bot juegas (abre su chat un momento)" });
+    if (!s) return Promise.resolve({ ok: false, why: "abre el chat de un bot y espera un segundo" });
+    // 1) lo que hay en pantalla: es lo que ves, y siempre está
+    var filas = mensajesDeLaPantalla();
+    var mios = filas.filter(function (m) { return m.yo && m.txt; });
+    if (mios.length) return Promise.resolve(medirLista(s, mios, "de la pantalla", filas.length));
+    if (!s.promptId) {
+      return Promise.resolve({
+        ok: false,
+        why: filas.length ? "no veo mensajes tuyos en el chat" : "no veo el chat: abre la conversación con el bot"
+      });
+    }
+    // 2) su API, de reserva
     if (cola) return Promise.resolve({ ok: false, why: "ya estaba leyendo" });
     cola = true;
     return EM.api.historial(s.promptId)
@@ -1639,40 +1752,21 @@
         cola = false;
         state.raw = JSON.stringify(res).slice(0, 6000);
         var msgs = sacarMensajes(res);
-        var mios = msgs.filter(function (m) {
+        var suyos = msgs.filter(function (m) {
           return /user|human/i.test(String((m && m.role) || ""));
-        });
-        if (!mios.length) {
-          return { ok: false, why: "no he visto tus mensajes en el historial (" + msgs.length + " mensajes leídos)", n: msgs.length };
-        }
-        var nuevos = 0;
-        var movidos = {};
-        var ultimos = mios.slice(-12);
-        ultimos.forEach(function (m) {
-          var txt = String((m && (m.content || m.displayContent)) || "");
-          if (!txt.trim()) return;
-          var h = huella(txt);
-          if (yaVisto(s, h)) return;
-          var r = medir(txt);
-          s.turnos++;
-          if (r.entrada && Object.keys(r.mov).length) {
-            var hechos = aplicar(s, r.mov, null);
-            Object.keys(hechos).forEach(function (k) { movidos[k] = red1((movidos[k] || 0) + hechos[k]); });
-            apuntar(s, "palabra", "💗 " + r.entrada.nombre + " — " + resumen(r.mov) + " · del historial");
+        }).map(function (m) {
+          var t = String((m && (m.content || m.displayContent)) || "");
+          if (/<[a-z][\s\S]*>/i.test(t)) {          // si viene en HTML, se le devuelven los asteriscos
+            var caja = document.createElement("div");
+            caja.innerHTML = t;
+            t = textoDeBurbuja(caja);
           }
-          nuevos++;
+          return { txt: t };
         });
-        if (!nuevos) return { ok: false, why: "sin mensajes nuevos tuyos", n: msgs.length };
-        var antesEtapa = s.etapa;
-        s.etapa = Math.max(s.etapa, etapaQue(s.stats));
-        if (s.etapa !== antesEtapa) {
-          movidos.etapa = ETAPAS[s.etapa];
-          apuntar(s, "etapa", "✨ La relación pasa a «" + ETAPAS[s.etapa] + "»");
-          if (s.flags.memAut) refrescarMemoria(s);
+        if (!suyos.length) {
+          return { ok: false, why: "no veo tus mensajes ni en el chat ni en el historial (" + msgs.length + " mensajes leídos de su API)" };
         }
-        guardar();
-        render();
-        return { ok: true, n: nuevos, cambios: movidos, vistos: msgs.length };
+        return medirLista(s, suyos, "del historial", msgs.length);
       })
       .catch(function (e) {
         cola = false;
@@ -2168,13 +2262,13 @@
       btn(state.busy ? "…" : (s.memoria.texto && s.memoria.etapa === s.etapa ? "🧠 Al día" : "🧠 Poner en su memoria"),
         "em-btn em-btn-main em-btn-mini", function () { inyectar(); }, { disabled: state.busy, title: "Escribe la nota en la memoria del bot (lo único que lee en todos los mensajes)" }),
       btn("📖 Leer del chat", "em-btn em-btn-mini", function () {
-        aviso("Leyendo tus mensajes del chat…", false);
+        aviso("Leyendo los mensajes del chat…", false);
         render();
         leer().then(function (r) {
           aviso(r.ok ? "📖 Medidos " + r.n + " mensajes: " + (resumen(r.cambios) || "nada que cambiar") : "📖 " + r.why, !r.ok);
           render();
         });
-      }, { title: "Repasa el historial y mide los mensajes que se le hayan escapado al enganche" }),
+      }, { title: "Mira los mensajes que hay ahora mismo en el chat y mide los que se le hayan escapado al enganche" }),
       btn("⤢", "em-btn em-btn-mini", function () {
         state.ancho = state.ancho === ANCHO ? ANCHO_GRANDE : ANCHO;
         render();
@@ -2417,6 +2511,9 @@
     cajaDeTexto: cajaDeTexto,
     columnaChat: columnaChat,
     capturar: capturar,
+    mensajesDeLaPantalla: mensajesDeLaPantalla,
+    textoDeBurbuja: textoDeBurbuja,
+    medirLista: medirLista,
     botonesReiniciar: botonesReiniciar,
     botonReiniciar: botonReiniciar,
     esBotonReiniciar: esBotonReiniciar,
