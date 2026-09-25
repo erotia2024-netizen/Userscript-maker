@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.26
+// @version      0.9.27
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1677,6 +1677,9 @@
       el("span", { class: "em-mem-len" + (txt.length > tope ? " em-mem-over" : ""), text: txt.length + " / " + tope + " caracteres" })
     ]));
     out.appendChild(el("div", { class: "em-hint", text: "Su servidor solo deja " + tope + " caracteres en la memoria del bot, así que ahí va la versión reducida: el estado, las etapas y el formato del marcador. El bot lo lee en todos los mensajes, también en el primero; el reglamento completo (con el detalle de cada etapa) se manda al chat con ✍." }));
+    if (dentro && s.memoria.texto !== txt) {
+      out.appendChild(el("div", { class: "em-hint", text: "⚠ Dentro tiene el estado de cuando la inyectaste. Pulsa «🧠 Inyectar en el bot» para ponerlo al día: el bloque se recorta solo a lo que deja su servidor." }));
+    }
     var acts = el("div", { class: "em-acts" }, [
       btn(state.busy ? "…" : "🧠 Inyectar en el bot", "em-btn em-btn-main", function () { inyectar(); }, { disabled: state.busy }),
       btn("🧹 Devolver su memoria", "em-btn", function () { quitar(); }, { disabled: state.busy }),
