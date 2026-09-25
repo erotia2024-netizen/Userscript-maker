@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.21
+// @version      0.9.22
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1442,6 +1442,30 @@
   function aviso(text, bad, extra) {
     state.msg = { text: text, bad: !!bad, extra: extra || null };
   }
+  // Plan B para inyectar: si su memoria no deja escribir (planes, permisos, campos distintos), el
+  // reglamento se deja escrito en la caja del chat para mandarlo como primer mensaje de la charla.
+  function ponerEnElChat() {
+    var s = ficha();
+    if (!s || !s.promptId) {
+      aviso("Abre el chat de un bot y espera un segundo: necesito su id.", true);
+      render();
+      return { ok: false, why: "sin bot" };
+    }
+    var texto = memoriaTexto(s);
+    var caja = cajaDeTexto();
+    if (!caja) {
+      var copiado = alPortapapeles(texto);
+      aviso(copiado ? "No encontré la caja del chat: te lo he copiado al portapapeles; pégalo como primer mensaje." : "No encontré la caja del chat.", true);
+      render();
+      return { ok: false, why: "sin caja" };
+    }
+    escribirEn(caja, texto);
+    apuntar(s, "memoria", "reglamento puesto en la caja del chat para mandarlo como primer mensaje");
+    guardar();
+    aviso("✍ Reglamento escrito en el chat: mándalo como primer mensaje. (Quedará en el historial; si puedes, mejor inyéctalo en su memoria.)", false);
+    render();
+    return { ok: true };
+  }
 
   // --- la interfaz -------------------------------------------------------------------------------
   function btn(text, cls, onclick, extra) {
@@ -1538,13 +1562,13 @@
     var dentro = !!s.memoria.texto;
     out.appendChild(el("div", { class: "em-mem" }, [
       el("span", { class: "em-mem-state", text: dentro ? (s.memoria.campo === "memory" ? "🧠 inyectado" : "🧠 inyectado (campo `" + s.memoria.campo + "`)") : "sin inyectar" }),
-      el("span", { class: "em-mem-len" + (txt.length > LIMITE ? " em-mem-over" : ""), text: txt.length + " caracteres" }),
-      el("span", { class: "em-grow" }),
-      el("span", { class: "em-hint", text: "se escribe en la memoria del bot: lo lee en todos los mensajes, también en el primero" })
+      el("span", { class: "em-mem-len" + (txt.length > LIMITE ? " em-mem-over" : ""), text: txt.length + " caracteres" })
     ]));
+    out.appendChild(el("div", { class: "em-hint", text: "Se escribe en la memoria del bot: lo lee en todos los mensajes, también en el primero." }));
     var acts = el("div", { class: "em-acts" }, [
       btn(state.busy ? "…" : "🧠 Inyectar en el bot", "em-btn em-btn-main", function () { inyectar(); }, { disabled: state.busy }),
       btn("🧹 Devolver su memoria", "em-btn", function () { quitar(); }, { disabled: state.busy }),
+      btn("✍ Poner en el chat", "em-btn", function () { ponerEnElChat(); }, { title: "Si su memoria no deja escribir: deja el reglamento en la caja del chat para que lo mandes como primer mensaje" }),
       btn("📖 Leer del chat", "em-btn", function () {
         aviso("Leyendo el chat…", false);
         render();
@@ -1584,6 +1608,13 @@
     out.appendChild(el("details", { class: "em-det" }, [
       el("summary", { text: "Ver exactamente lo que se le escribe al bot" }),
       el("pre", { class: "em-pre", text: txt })
+    ]));
+    out.appendChild(el("details", { class: "em-det" }, [
+      el("summary", { text: "¿Cómo funciona esto?" }),
+      el("div", {
+        class: "em-hint",
+        html: "El bot no sabe nada de números: se le escribe un reglamento en <b>su memoria</b> (lo lee en todos los mensajes, desde el primero) y se le pide que cierre cada respuesta con una línea de marcador, por ejemplo <code>[RPG afecto+2 deseo+1]</code>. La cuenta de verdad la lleva el panel, por bot: lee esa línea, la recorta a lo que permite el reglamento (deltas de -3 a +3) y reescribe su memoria con el estado nuevo. Al pulsar una acción se tira 1d20 + lo que hayas ganado: 20 natural es crítico (dobla lo bueno), 1 es pifia (dobla lo malo), y la tirada va dentro del mensaje para que el bot narre el resultado."
+      })
     ]));
     if (state.raw) {
       out.appendChild(el("details", { class: "em-det" }, [
@@ -1649,6 +1680,7 @@
     aplicarTag: aplicarTag,
     inyectar: inyectar,
     quitar: quitar,
+    ponerEnElChat: ponerEnElChat,
     leer: leer,
     tokens: tokens,
     estado: function () { return state.sheet; },
