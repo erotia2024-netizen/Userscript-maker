@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.40
+// @version      0.9.41
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1479,17 +1479,28 @@
     var st = getComputedStyle(n);
     return st.visibility !== "hidden" && st.display !== "none" && st.opacity !== "0";
   }
-  // Orden: los que llevan el aria-label (primero los visibles), y solo después los del texto.
+  // Orden: primero el suyo de verdad. Su tarjeta lleva el aria-label («Reiniciar»), un <span> con
+  // ese texto, un svg grande y los ids de la propia tarjeta (`restart-card_svg__…`), así que se
+  // puntúan esas señales y se pulsa la que más tiene: los visibles, y a igualdad, el aria-label.
   function botonesReiniciar() {
     var nodos = document.querySelectorAll("button, [role='button']");
-    var grupos = { ariaSi: [], ariaNo: [], txtSi: [], txtNo: [] };
+    var lista = [];
     Array.prototype.forEach.call(nodos, function (n) {
       if (n.closest && n.closest("#em-root")) return;
-      var via = ariaReiniciar(n) ? "aria" : (textoReiniciar(n) ? "txt" : "");
-      if (!via) return;
-      grupos[via + (seVe(n) ? "Si" : "No")].push(n);
+      var aria = ariaReiniciar(n), txt = textoReiniciar(n);
+      if (!aria && !txt) return;
+      var r = n.getBoundingClientRect();
+      var html = n.innerHTML || "";
+      var puntos = 0;
+      if (/restart-card/i.test(html)) puntos += 8;      // los ids de su propia tarjeta
+      if (aria) puntos += 4;
+      if (seVe(n)) puntos += 2;
+      if (r.height >= 56 && r.width >= 56) puntos += 1;  // su tarjeta es alta, no un botoncito
+      if (txt) puntos += 1;
+      lista.push({ n: n, puntos: puntos, orden: lista.length });
     });
-    return grupos.ariaSi.concat(grupos.ariaNo, grupos.txtSi, grupos.txtNo);
+    lista.sort(function (a, b) { return (b.puntos - a.puntos) || (a.orden - b.orden); });
+    return lista.map(function (x) { return x.n; });
   }
   function botonReiniciar() { return botonesReiniciar()[0] || null; }
   // Pulsa su botón de «Reiniciar». Si está escondido dentro de un menú suyo se pulsa igual (su
@@ -1521,7 +1532,9 @@
       apuntar(s, "nota", "chat reiniciado" + (oculto ? " (su botón estaba oculto)" : ""));
       guardar();
     }
-    aviso("♻ Chat reiniciado: con este bot se empieza de cero." + (bots.length > 1 ? " (Había " + bots.length + " botones así y he pulsado el primero.)" : ""), false);
+    aviso(oculto
+      ? "♻ He pulsado su «Reiniciar» (estaba oculto, dentro de un menú suyo). Si el chat no se ha vaciado, ábreme ese menú y dale otra vez."
+      : "♻ Chat reiniciado: con este bot se empieza de cero." + (bots.length > 1 ? " (Había " + bots.length + " botones así y he pulsado el primero.)" : ""), false);
     render();
     return { ok: true, oculto: oculto, n: bots.length };
   }
