@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.30
+// @version      0.9.31
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -850,33 +850,36 @@
     "# Una entrada por línea:  nombre : palabras : movimientos",
     "#   palabras → grupos con |  ·  todas las palabras del grupo con +  ·  alternativas con /",
     "#   movimientos → afecto / confianza / deseo / tension y cuánto (admite 2.5 y negativos)",
+    "# Si dos entradas cuadran en el mismo mensaje y piden lo mismo, gana la de más arriba:",
+    "# por eso las cosas concretas van primero y las genéricas (Beso, Caricia, Tocar) al final.",
     "",
     "Beso con lengua : lengua+beso/besar/besito | frances | morreo : deseo 5, afecto 1, tension 2",
     "Beso en los labios : labio + beso/besar/besito : deseo 2, afecto 1",
     "Beso en el cuello : cuello + beso/besar/besito : deseo 2, tension 1",
     "Beso en la mejilla : mejilla/cachete + beso/besar/besito : deseo 1, afecto 1.5",
-    "Beso : beso/besar/besito/muac : deseo 1, afecto 0.5",
     "Lamer la aureola : aureola + lamer/chupar/lengua : deseo 1, tension 1",
     "Lamer el pezón : pezon/teton + lamer/chupar : deseo 2, tension 1",
     "Caricia en la mejilla : mejilla/cachete + acariciar/caricia/roce : deseo 2.5, afecto 1",
-    "Caricia : acariciar/caricia/roce/roces/tocar : deseo 1, tension 1",
-    "Desnudar : desnudar/desnuda/desnudo | quitar+ropa : deseo 3, tension 2",
+    "Desnudar : desnudar/desnuda/desnudo | quitar/quito/quita+ropa : deseo 3, tension 2",
     "Pechos : pecho/pechos/senos/tetas/busto : deseo 2, tension 1",
     "Culo : culo/nalgas/trasero : deseo 2, tension 1",
     "Muslos : muslo/muslos/pierna/piernas : deseo 1.5",
     "Gemir : gemir/gemido/gemidos : deseo 2, tension 1",
-    "Abrazo : abrazo/abrazar : afecto 1.5, confianza 0.5",
+    "Dormir juntos : cama + dormir/duerme/duermo/durmiendo | abrazo + dormir/duerme/duermo : afecto 2, confianza 1, deseo 1",
     "Coger de la mano : mano + coger/tomar/agarrar/sujetar : afecto 1.5, confianza 1",
+    "Abrazo : abrazo/abrazar : afecto 1.5, confianza 0.5",
     "Te quiero : te+quiero | te+amo | te+adoro | enamorad : afecto 3, confianza 1",
     "Me encantas : encantas/gustas : afecto 1.5, tension 0.5",
     "Halago : guapa/guapo/hermosa/hermoso/preciosa/precioso/bella/bello/linda/lindo : afecto 1, tension 0.5",
-    "Dormir juntos : cama + dormir/duerme/duermo/durmiendo | abrazo + dormir/duerme/duermo : afecto 2, confianza 1, deseo 1",
     "Celos : celos/celosa/celoso : tension 2, confianza -1",
     "Disculpa : perdon/perdona/disculpa/siento : afecto 0.5, confianza 1, tension -1",
     "Gracias : gracias : afecto 0.5, confianza 0.5",
     "Preguntar por él : como+estas | que+tal : afecto 0.5, confianza 1",
     "Insulto : idiota/imbecil/estupida/estupido/tonta/tonto/gilipollas : afecto -2, confianza -1, tension 1.5",
-    "Adiós : adios | me+voy | hasta+luego : afecto -0.5, tension 1"
+    "Adiós : adios | me+voy | hasta+luego : afecto -0.5, tension 1",
+    "Tocar : tocar/toco/toca/tocando : deseo 0.5, tension 0.5",
+    "Caricia : acariciar/caricia/rozar/rozo/roce/roces : deseo 1, tension 1",
+    "Beso : beso/besar/besito/muac : deseo 1, afecto 0.5"
   ].join("\n");
 
   var FLAGS_POR_DEFECTO = {
@@ -1057,15 +1060,20 @@
     return out;
   }
   // La raíz de una palabra: quita terminaciones (plurales, gerundios, participios, diminutivos) y
-  // la vocal final. Así `beso`, `besos`, `besar` y `besito` caen todos en `bes`.
+  // la vocal final. Así `beso`, `besos`, `besar` y `besito` caen todos en `bes`. Cada corte se hace
+  // solo si aún queda palabra detrás: si no, `quito` se quedaría en `qu` (por el `-ito`).
   function clave(w) {
     w = norm(w).replace(/[^a-z0-9]/g, "");
-    w = w.replace(/(andose|iendose|ando|iendo)$/, "");
-    w = w.replace(/(ados|adas|idos|idas|ado|ada|ido|ida)$/, "");
-    w = w.replace(/(arse|erse|irme|arte|arlo|arla|arme|arnos|arlos|arlas)$/, "");
-    w = w.replace(/(ar|er|ir)$/, "");
-    w = w.replace(/(itos|itas|ito|ita|icos|icas|ico|ica)$/, "");
-    w = w.replace(/(ones|os|as|es|s)$/, "");
+    function corta(re, min) {
+      var t = w.replace(re, "");
+      if (t.length >= (min || 4)) w = t;
+    }
+    corta(/(andose|iendose|ando|iendo)$/, 4);
+    corta(/(ados|adas|idos|idas|ado|ada|ido|ida)$/, 4);
+    corta(/(arse|erse|irme|arte|arlo|arla|arme|arnos|arlos|arlas)$/, 4);
+    corta(/(ar|er|ir)$/, 3);
+    corta(/(itos|itas|ito|ita|icos|icas|ico|ica)$/, 4);
+    corta(/(ones|os|as|es|s)$/, 3);
     if (w.length > 3 && /[aeo]$/.test(w)) w = w.slice(0, -1);
     return w;
   }
