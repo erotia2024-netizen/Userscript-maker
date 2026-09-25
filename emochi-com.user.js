@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.23
+// @version      0.9.24
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1099,13 +1099,14 @@
     var st = s.stats;
     var cab = "[PARTIDA · afecto " + st.afecto + " · confianza " + st.confianza + " · deseo " + st.deseo +
       " · tensión " + st.tension + " · etapa " + nombreEtapa(s) + "]";
-    var nucleo = "\nAl final de CADA respuesta escribe una línea " +
-      "[RPG afecto+2 confianza0 deseo+1 tension+2 etapa=Cercanía] (deltas -3..+3, 0 si no cambia). No la comentes.";
+    var nucleo = "\nAl final de CADA respuesta escribe [RPG afecto+2 confianza0 deseo+1 tension+2 etapa=Cercanía]" +
+      " con deltas -3..+3 (0 si no cambia).";
     var extras = [
-      { p: 1, t: "\nEtapas: " + ETAPAS.join(", ") + " (etapa= solo si cambia de etapa)." },
-      { p: 2, t: "\nEres " + (ETAPA_TIP[nombreEtapa(s)] || "") + "." },
-      { p: 3, t: "\nNo decidas por " + jugador(s) + ": solo narras lo tuyo." },
-      { p: 4, t: s.flags.explicito ? "\nContenido adulto explícito permitido." : "\nEscenas íntimas: solo insinuadas." }
+      { p: 1, t: "\nSi un mensaje trae [Partida · tirada · ÉXITO/FALLO], narra ese resultado." },
+      { p: 2, t: "\nEtapas: " + ETAPAS.join("→") + "." },
+      { p: 3, t: "\nEres " + (ETAPA_TIP[nombreEtapa(s)] || "") + "." },
+      { p: 4, t: s.flags.explicito ? "\nContenido adulto explícito permitido." : "\nÍntimas: solo insinuadas." },
+      { p: 5, t: "\nNo decidas por " + jugador(s) + ": solo narras lo tuyo." }
     ].sort(function (a, b) { return a.p - b.p; });
     var usados = extras.slice();
     function largo() {
@@ -1668,7 +1669,7 @@
     var acts = el("div", { class: "em-acts" }, [
       btn(state.busy ? "…" : "🧠 Inyectar en el bot", "em-btn em-btn-main", function () { inyectar(); }, { disabled: state.busy }),
       btn("🧹 Devolver su memoria", "em-btn", function () { quitar(); }, { disabled: state.busy }),
-      btn("✍ Poner en el chat", "em-btn", function () { ponerEnElChat(); }, { title: "Si su memoria no deja escribir: deja el reglamento en la caja del chat para que lo mandes como primer mensaje" }),
+      btn("✍ Poner en el chat", "em-btn", function () { ponerEnElChat(); }, { title: "Deja el reglamento COMPLETO (el que no cabe en su memoria) en la caja del chat, para mandarlo como primer mensaje de la charla" }),
       btn("📖 Leer del chat", "em-btn", function () {
         aviso("Leyendo el chat…", false);
         render();
@@ -1699,21 +1700,25 @@
     out.appendChild(el("div", { class: "em-toggles" }, [
       interruptor("lujuria", "🔥 lujuria", "El deseo cuenta en las tiradas; si lo apagas, cuesta -2"),
       interruptor("explicito", "🍓 explícito", "El reglamento pide escenas íntimas con detalle"),
-      interruptor("compacto", "📏 memoria corta", "Solo el estado y cuatro reglas (para memorias pequeñas)"),
+      interruptor("larga", "📚 memoria larga", "Primero prueba el reglamento entero, por si tu plan deja más de 300 caracteres; si su servidor lo rechaza, baja al reducido y lo apunta"),
       interruptor("resumen", "📜 continuidad", "Añade los últimos sucesos a la memoria"),
       interruptor("autoenviar", "✍ enviar solo", "Pulsa enviar por ti; apágalo si prefieres revisarlo antes"),
       interruptor("autoleer", "🔁 leer solo", "Mira el chat cada pocos segundos y aplica la línea del bot")
     ]));
-    // lo que se le escribe, a la vista
+    // lo que se le escribe, a la vista (las dos versiones: la de su memoria y la del chat)
     out.appendChild(el("details", { class: "em-det" }, [
-      el("summary", { text: "Ver exactamente lo que se le escribe al bot" }),
+      el("summary", { text: "Ver exactamente lo que se le escribe en su memoria (" + txt.length + " caracteres)" }),
       el("pre", { class: "em-pre", text: txt })
+    ]));
+    out.appendChild(el("details", { class: "em-det" }, [
+      el("summary", { text: "Ver el reglamento completo (" + txtChat.length + " caracteres, el que va con ✍)" }),
+      el("pre", { class: "em-pre", text: txtChat })
     ]));
     out.appendChild(el("details", { class: "em-det" }, [
       el("summary", { text: "¿Cómo funciona esto?" }),
       el("div", {
         class: "em-hint",
-        html: "El bot no sabe nada de números: se le escribe un reglamento en <b>su memoria</b> (lo lee en todos los mensajes, desde el primero) y se le pide que cierre cada respuesta con una línea de marcador, por ejemplo <code>[RPG afecto+2 deseo+1]</code>. La cuenta de verdad la lleva el panel, por bot: lee esa línea, la recorta a lo que permite el reglamento (deltas de -3 a +3) y reescribe su memoria con el estado nuevo. Al pulsar una acción se tira 1d20 + lo que hayas ganado: 20 natural es crítico (dobla lo bueno), 1 es pifia (dobla lo malo), y la tirada va dentro del mensaje para que el bot narre el resultado."
+        html: "El bot no sabe nada de números: se le escribe un reglamento en <b>su memoria</b> (lo lee en todos los mensajes, desde el primero) y se le pide que cierre cada respuesta con una línea de marcador, por ejemplo <code>[RPG afecto+2 deseo+1]</code>. La cuenta de verdad la lleva el panel, por bot: lee esa línea, la recorta a lo que permite el reglamento (deltas de -3 a +3) y reescribe su memoria con el estado nuevo. Al pulsar una acción se tira 1d20 + lo que hayas ganado: 20 natural es crítico (dobla lo bueno), 1 es pifia (dobla lo malo), y la tirada va dentro del mensaje para que el bot narre el resultado.<br><br><b>El tope de 300:</b> el servidor de emochi no deja más de 300 caracteres en la memoria del bot, así que ahí va la versión reducida (estado + etapas + formato del marcador). El reglamento completo se queda en «✍ Poner en el chat» —que no tiene tope— y queda en el historial, así que el bot también lo lee. Si tu plan permite más memoria (en su web venden tramos de 600, 1000 y 2000), enciende «📚 memoria larga»: el panel prueba primero el texto completo, aprende el tope real del mensaje de error del servidor y se adapta solo."
       })
     ]));
     if (state.raw) {
@@ -1774,6 +1779,13 @@
     reglas: reglas,
     reglasCortas: reglasCortas,
     memoriaTexto: memoriaTexto,
+    memoriaMedia: memoriaMedia,
+    memoriaBot: memoriaBot,
+    minimo: minimo,
+    recortaA: recortaA,
+    candidatos: candidatos,
+    LIMITE_MEM: LIMITE_MEM,
+    LIMITE_CHAT: LIMITE_CHAT,
     textoAccion: textoAccion,
     etapaQue: etapaQue,
     aplicar: aplicar,
