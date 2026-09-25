@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.22
+// @version      0.9.23
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -779,6 +779,12 @@
    acciones: la tirada se manda al chat dentro del mensaje, así que el bot narra el resultado.
 
    Nada de esto toca la partida del sitio: es una capa nuestra encima.
+
+   OJO — el tope de su servidor: la memoria del bot solo acepta 300 caracteres (su propio error lo
+   dice: "Memory input is too long, max length is 300"), así que ese reglamento se arma por piezas
+   y se escribe en versión reducida: estado, formato del marcador y etapas. Lo que se cae por el
+   camino (el detalle de cada etapa, las reglas de narración) se recupera con «✍ Poner en el chat»,
+   que no tiene tope, y el panel lleva la cuenta igual.
    ============================================================================================= */
 (function () {
   "use strict";
@@ -787,7 +793,8 @@
 
   var el = EM.el;
   var KEY = "emochi-lab:rpg:v1";
-  var LIMITE = 2000;      // tope prudente del bloque que se escribe en la memoria; se avisa si se pasa
+  var LIMITE_MEM = 300;   // lo que deja SU servidor en la memoria del bot (lo dice su error)
+  var LIMITE_CHAT = 2000; // el tope que me pongo para el reglamento que se manda al chat con ✍
   var TICK = 6000;        // cada cuánto se mira el chat si el modo "leer solo" está encendido
 
   // --- el juego ---------------------------------------------------------------------------------
@@ -863,7 +870,7 @@
   var FLAGS_POR_DEFECTO = {
     lujuria: true,     // el deseo cuenta en las tiradas (si se apaga, -2 a las de deseo)
     explicito: false,  // el reglamento pide escenas íntimas detalladas
-    compacto: false,   // memoria corta (solo estado), para planes con poco espacio
+    larga: true,       // intenta el reglamento entero primero, por si su plan deja más de 300
     resumen: true,     // añade los últimos sucesos a la memoria (continuidad)
     autoenviar: true,  // además de escribir la acción en el chat, pulsa enviar
     autoleer: false    // mira el chat cada pocos segundos y aplica lo que ponga el bot
@@ -904,7 +911,7 @@
       vinculo: 0,
       flags: flags,
       log: log,
-      memoria: { original: null, campo: "", texto: "", at: 0, error: "" },
+      memoria: { original: null, campo: "", texto: "", at: 0, error: "", tope: 0 },
       visto: ""
     };
   }
@@ -922,7 +929,8 @@
     STATS.forEach(function (st) { if (typeof s.stats[st.id] !== "number") s.stats[st.id] = 0; });
     if (!s.flags) s.flags = Object.assign({}, FLAGS_POR_DEFECTO);
     if (!s.log) s.log = [];
-    if (!s.memoria) s.memoria = { original: null, campo: "", texto: "", at: 0, error: "" };
+    if (!s.memoria) s.memoria = { original: null, campo: "", texto: "", at: 0, error: "", tope: 0 };
+    if (typeof s.memoria.tope !== "number") s.memoria.tope = 0;
     if (EM.bot.title) s.bot = EM.bot.title;
     return s;
   }
@@ -1071,14 +1079,69 @@
       " etapa solo si cambia (" + ETAPAS.join(", ") + "). No la comentes. Comportamiento según la etapa: " +
       (ETAPA_TIP[nombreEtapa(s)] || "") + ".";
   }
+  // El reglamento completo (el que se manda al chat con ✍, que no tiene tope) y el reducido.
   function memoriaTexto(s) {
-    var out = estadoLinea(s) + "\n" + (s.flags.compacto ? reglasCortas(s) : reglas(s));
+    var out = estadoLinea(s) + "\n" + reglas(s);
     if (s.flags.resumen) {
       var u = ultimos(s, 3);
       if (u) out += "\nÚltimos sucesos: " + u;
     }
     return out;
   }
+  function memoriaMedia(s) {
+    return estadoLinea(s) + "\n" + reglasCortas(s);
+  }
+  // El bloque de la memoria del bot tiene un tope duro (300 en su plan): se arma por piezas y se
+  // van cayendo las menos importantes (el último detalle, la regla de narración, el aviso de
+  // explícito) hasta que quepa. El estado y el formato del marcador nunca se caen.
+  function minimo(s, tope) {
+    tope = tope || LIMITE_MEM;
+    var st = s.stats;
+    var cab = "[PARTIDA · afecto " + st.afecto + " · confianza " + st.confianza + " · deseo " + st.deseo +
+      " · tensión " + st.tension + " · etapa " + nombreEtapa(s) + "]";
+    var nucleo = "\nAl final de CADA respuesta escribe una línea " +
+      "[RPG afecto+2 confianza0 deseo+1 tension+2 etapa=Cercanía] (deltas -3..+3, 0 si no cambia). No la comentes.";
+    var extras = [
+      { p: 1, t: "\nEtapas: " + ETAPAS.join(", ") + " (etapa= solo si cambia de etapa)." },
+      { p: 2, t: "\nEres " + (ETAPA_TIP[nombreEtapa(s)] || "") + "." },
+      { p: 3, t: "\nNo decidas por " + jugador(s) + ": solo narras lo tuyo." },
+      { p: 4, t: s.flags.explicito ? "\nContenido adulto explícito permitido." : "\nEscenas íntimas: solo insinuadas." }
+    ].sort(function (a, b) { return a.p - b.p; });
+    var usados = extras.slice();
+    function largo() {
+      var t = cab + nucleo;
+      usados.forEach(function (e) { t += e.t; });
+      return t;
+    }
+    while (usados.length && largo() > tope) usados.pop();
+    var out = cab + nucleo;
+    usados.forEach(function (e) { out += e.t; });
+    return out.length > tope ? recortaA(out, tope) : out;
+  }
+  function recortaA(t, tope) {
+    t = String(t || "");
+    if (!tope || t.length <= tope) return t;
+    var corte = t.slice(0, tope - 1);
+    var esp = corte.lastIndexOf(" ");
+    if (esp > tope * 0.6) corte = corte.slice(0, esp);
+    return corte.replace(/[\s,;·:]+$/, "") + "…";
+  }
+  // Los textos que se intentan, de más rico a más corto. Si ya sabemos su tope, no se prueba lo
+  // que no cabe (y así no se le manda al servidor una petición condenada).
+  function candidatos(s) {
+    var real = s.memoria.tope || 0;
+    var corto = minimo(s, real || LIMITE_MEM);
+    var out = [];
+    if (s.flags.larga || real > LIMITE_MEM) {
+      [memoriaTexto(s), memoriaMedia(s)].forEach(function (t) {
+        if (!real || t.length <= real) out.push(t);
+      });
+    }
+    out.push(corto);
+    return out.filter(function (t, i) { return out.indexOf(t) === i; });
+  }
+  // Lo que se le va a escribir en la memoria si se pulsa «Inyectar».
+  function memoriaBot(s) { return candidatos(s)[0]; }
   function textoAccion(s, a, t) {
     var cuerpo = a.text.replace(/\{u\}/g, jugador(s));
     var marca = "[Partida · " + a.name + " · tirada " + t.d + (t.mod >= 0 ? "+" : "") + t.mod +
@@ -1315,11 +1378,16 @@
   }
 
   // --- escribir el reglamento en la memoria del bot ----------------------------------------------
-  // Se guarda antes lo que había (para poder devolverlo) y se prueba el campo `memory`; si el
-  // servidor contesta que no, se prueban otros nombres. Lo que conteste se enseña tal cual: sin
-  // sesión no se puede probar, así que el panel no se lo inventa.
+  // Se guarda antes lo que había (para poder devolverlo) y se prueba el campo `memory` (el suyo:
+  // su error de validación pedía `memory` por su nombre); si el servidor contesta que ese campo no
+  // existe, se prueban otros nombres. Si contesta que el texto es largo, se APRENDE el tope (viene
+  // en su propio mensaje: "max length is 300") y se reintenta más corto, sin volver a pasarse.
   var CAMPOS = ["memory", "content", "text", "memoryText", "remark"];
-  function probarCampos(s, texto, i, errores) {
+  function topeDelError(msg) {
+    var m = /max(?:imum)?\s*length\s*is\s*(\d+)/i.exec(String(msg || ""));
+    return m ? parseInt(m[1], 10) : 0;
+  }
+  function escribir(s, texto, i, errores) {
     i = i || 0;
     errores = errores || [];
     if (i >= CAMPOS.length) {
@@ -1340,17 +1408,43 @@
       if (/sin sesi[oó]n|\(401\)|\(403\)/.test(msg)) {
         return { ok: false, why: "necesitas entrar en emochi.com con tu cuenta: sin sesión no puedo tocar la memoria del bot", sesion: true, errores: errores };
       }
+      var tope = topeDelError(msg);
+      if (tope) return { ok: false, largo: true, tope: tope, why: msg, errores: errores };
       errores.push(CAMPOS[i] + " → " + msg);
-      return probarCampos(s, texto, i + 1, errores);
+      return escribir(s, texto, i + 1, errores);
     });
+  }
+  // Prueba el texto más rico que quepa. Si su servidor dice que es largo, guarda el tope, arma el
+  // bloque reducido a esa medida y lo reintenta (una sola vez: ya sabe cuánto deja).
+  function escribirConAjuste(s) {
+    var cands = candidatos(s);
+    var errores = [];
+    var bajo = false;
+    function intento(i) {
+      if (i >= cands.length) {
+        return Promise.resolve({ ok: false, why: "ni la versión corta cabe en la memoria de este bot", errores: errores });
+      }
+      var texto = cands[i];
+      return escribir(s, texto, 0, errores).then(function (r) {
+        if (r.ok) { r.ajustado = bajo; return r; }
+        if (r.largo && !bajo) {
+          bajo = true;
+          s.memoria.tope = r.tope || LIMITE_MEM;
+          guardar();
+          // de aquí en adelante, solo lo que de verdad cabe en lo que ha dicho su servidor
+          var cabe = cands.slice(i + 1).filter(function (t) { return t.length <= s.memoria.tope; });
+          if (!cabe.length) cabe = [minimo(s, s.memoria.tope)];
+          cands = cabe;
+          return intento(0);
+        }
+        return r;
+      });
+    }
+    return intento(0);
   }
   function inyectar() {
     var s = ficha();
     if (!s || !s.promptId) return Promise.resolve({ ok: false, why: "todavía no sé con qué bot juegas" });
-    var texto = memoriaTexto(s);
-    if (texto.length > LIMITE) {
-      return Promise.resolve({ ok: false, why: "el bloque ocupa " + texto.length + " caracteres y el tope que me he puesto es " + LIMITE + ": prueba «memoria corta»", length: texto.length });
-    }
     state.busy = true;
     render();
     return EM.api.memoriaDeBot(s.promptId).then(function (res) {
@@ -1359,20 +1453,24 @@
         s.memoria.original = previo == null ? "" : previo;
         guardar();
       }
-      return probarCampos(s, texto, 0);
+      return escribirConAjuste(s);
     }).catch(function (e) {
       var msg = (e && e.message) || "";
       if (/sin sesi[oó]n|\(401\)|\(403\)/.test(msg)) {
         return { ok: false, why: "necesitas entrar en emochi.com con tu cuenta: sin sesión no puedo ni leer ni escribir la memoria del bot", sesion: true };
       }
       // si no se puede ni leer, se intenta escribir igual (a lo mejor solo falla la lectura)
-      return probarCampos(s, texto, 0).then(function (r) {
+      return escribirConAjuste(s).then(function (r) {
         if (r.ok) return r;
         return { ok: false, why: "leer la memoria falló (" + msg + ") y escribir tampoco: " + r.why, errores: r.errores };
       });
     }).then(function (r) {
       state.busy = false;
-      aviso(r.ok ? "🧠 Reglamento dentro (campo `" + r.campo + "`, " + r.length + " caracteres)." : "No pude inyectar: " + r.why, !r.ok, r.errores);
+      aviso(r.ok
+        ? (r.ajustado
+          ? "🧠 Reglamento dentro, en versión reducida (" + r.length + " caracteres): su memoria solo deja " + (s.memoria.tope || LIMITE_MEM) + ", así que el bot recibe el estado, las etapas y el formato del marcador. El texto completo está en «Ver el reglamento completo»."
+          : "🧠 Reglamento dentro (campo `" + r.campo + "`, " + r.length + " caracteres).")
+        : "No pude inyectar: " + r.why, !r.ok, r.errores);
       render();
       return r;
     });
@@ -1451,7 +1549,7 @@
       render();
       return { ok: false, why: "sin bot" };
     }
-    var texto = memoriaTexto(s);
+    var texto = recortaA(memoriaTexto(s), LIMITE_CHAT);
     var caja = cajaDeTexto();
     if (!caja) {
       var copiado = alPortapapeles(texto);
@@ -1558,13 +1656,15 @@
     out.appendChild(rej);
     // la memoria
     out.appendChild(el("h4", { class: "em-h", text: "El reglamento dentro del bot" }));
-    var txt = memoriaTexto(s);
+    var txt = memoriaBot(s);                                // lo que se le escribe en su memoria
+    var txtChat = recortaA(memoriaTexto(s), LIMITE_CHAT);   // el completo, el que va con ✍ al chat
+    var tope = s.memoria.tope || LIMITE_MEM;
     var dentro = !!s.memoria.texto;
     out.appendChild(el("div", { class: "em-mem" }, [
-      el("span", { class: "em-mem-state", text: dentro ? (s.memoria.campo === "memory" ? "🧠 inyectado" : "🧠 inyectado (campo `" + s.memoria.campo + "`)") : "sin inyectar" }),
-      el("span", { class: "em-mem-len" + (txt.length > LIMITE ? " em-mem-over" : ""), text: txt.length + " caracteres" })
+      el("span", { class: "em-mem-state", text: dentro ? (s.memoria.campo && s.memoria.campo !== "memory" ? "🧠 inyectado (campo `" + s.memoria.campo + "`)" : "🧠 inyectado") : "sin inyectar" }),
+      el("span", { class: "em-mem-len" + (txt.length > tope ? " em-mem-over" : ""), text: txt.length + " / " + tope + " caracteres" })
     ]));
-    out.appendChild(el("div", { class: "em-hint", text: "Se escribe en la memoria del bot: lo lee en todos los mensajes, también en el primero." }));
+    out.appendChild(el("div", { class: "em-hint", text: "Su servidor solo deja " + tope + " caracteres en la memoria del bot, así que ahí va la versión reducida: el estado, las etapas y el formato del marcador. El bot lo lee en todos los mensajes, también en el primero; el reglamento completo (con el detalle de cada etapa) se manda al chat con ✍." }));
     var acts = el("div", { class: "em-acts" }, [
       btn(state.busy ? "…" : "🧠 Inyectar en el bot", "em-btn em-btn-main", function () { inyectar(); }, { disabled: state.busy }),
       btn("🧹 Devolver su memoria", "em-btn", function () { quitar(); }, { disabled: state.busy }),
