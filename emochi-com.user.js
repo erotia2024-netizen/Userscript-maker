@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.52
+// @version      0.9.53
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1805,7 +1805,7 @@
   // se mete dentro de su <img> (su React reconstruye sus nodos cuando quiere): se cuelga del <body>,
   // en `position: fixed`, y se va recolocando sobre la foto. Se quita sola si se apaga el interruptor,
   // si desaparece la foto o si no hay ninguna que valga.
-  var vivo = { caja: null, img: null, reloj: null, sello: "", vuelta: 0 };
+  var vivo = { caja: null, img: null, reloj: null, sello: "", chequeo: 0 };
 
   function retratoNodoDeLaPantalla() {
     var imgs = document.querySelectorAll("img");
@@ -1827,7 +1827,6 @@
     vivo.caja = null;
     vivo.img = null;
     vivo.sello = "";
-    vivo.vuelta = 0;
   }
   // Cuánto hay que estirar el gesto: el de la ficha está pensado para 64 px. Con tope, que en una
   // foto de 1000 px los corazones no salgan como puertas.
