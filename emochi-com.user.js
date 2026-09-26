@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.59
+// @version      0.9.60
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -920,7 +920,6 @@
     retratoPedido: {},  // a quién se le ha preguntado ya por el retrato, y cuándo
     retratoUrl: "",     // lo que el jugador está pegando a mano
     ultimaOrden: 0,     // cuándo se pegó la orden por última vez (evita pegarla dos veces)
-    edicionOrden: null, // el borrador de la orden mientras la escribes
     raw: ""            // lo último que contestó su API
   };
   var cola = false;
@@ -2735,7 +2734,7 @@
     var numOrd = el("span", { class: "em-count-num" });
     var taOrd = el("textarea", { class: "em-input em-ord-edit", rows: 3, spellcheck: "false",
       placeholder: "seguimos en el sofá del salón, es de noche, estoy sentada encima de ti y no nos hemos movido de sitio" });
-    taOrd.value = state.edicionOrden != null ? state.edicionOrden : (s.orden || "");
+    taOrd.value = s.orden || "";   // la orden es por bot y se guarda al escribir: sin borradores sueltos
     var pintarNumOrd = function () {
       var t = String(s.orden || "").replace(/\s+/g, " ").trim();
       numOrd.textContent = t.length + " / " + LIMITE_ORDEN;
@@ -2743,7 +2742,6 @@
     };
     taOrd.addEventListener("input", function () {
       s.orden = taOrd.value;
-      state.edicionOrden = taOrd.value;
       guardar();
       pintarNumOrd();
     });
