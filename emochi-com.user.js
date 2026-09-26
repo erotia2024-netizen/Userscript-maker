@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.54
+// @version      0.9.55
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1871,6 +1871,9 @@
     if (!s || !s.flags.retrato || !s.flags.retratoGrande) { quitarDeLaWeb(); return false; }
     if (!vivo.caja) return pintarEnLaWeb();
     if (!vivo.img || !vivo.img.isConnected) { quitarDeLaWeb(); return pintarEnLaWeb(); }
+    var u = urlDeImagen(vivo.img.currentSrc || vivo.img.getAttribute("src") || "");
+    var apuntado = (s && s.retrato) || "";
+    if (!valeDeRetrato(u) && !(apuntado && u === apuntado)) { quitarDeLaWeb(); return pintarEnLaWeb(); }
     var r = vivo.img.getBoundingClientRect();
     if (r.width < 8 || r.height < 8) { quitarDeLaWeb(); return false; }
     ponerSitio(r);
