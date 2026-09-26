@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.67
+// @version      0.9.68
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -10,7 +10,6 @@
 // @match        *://emochi.com/*
 // @match        *://*.emochi.com/*
 // @run-at       document-start
-// @noframes
 // @grant        unsafeWindow
 // @grant        GM_xmlhttpRequest
 // @connect      *
@@ -1755,6 +1754,75 @@
       return false;
     }
   }
+  // --- 🖥 La página, para la vista previa de perchance --------------------------------------------
+  // El laboratorio de perchance trabaja sobre COPIAS del HTML de la web. En una web como esta, la copia
+  // que se descarga del servidor llega VACÍA: su HTML solo trae el menú, porque el chat lo pinta su
+  // React después. Lo que sirve para trabajar es la página YA PINTADA, y eso solo se puede coger desde
+  // aquí, con su web funcionando. Este botón clona el documento, quita lo que es nuestro (el panel,
+  // nuestro CSS, la capa del retrato) y los <script> (en el laboratorio no hacen falta: la copia ya
+  // está pintada), le pone un <base> para que sus imágenes y su CSS sigan apuntando a su sitio, y lo
+  // manda al laboratorio:
+  //   · dentro de un marco (el laboratorio puede enseñar la web de verdad en un iframe → «🌐 marco
+  //     real»): se envía por `postMessage` y el laboratorio la guarda como una página más, sin copiar
+  //     y pegar nada.
+  //   · en una pestaña normal: se copia al portapapeles (o se descarga el .html) y se pega allí en
+  //     «📄 Pegar / editar el HTML» / «📄 Abrir archivo .html…».
+  var TIPO_PINTADA = "r34g-lab-pagina-pintada";
+  function limpiarCopia(nodo) {
+    Array.prototype.forEach.call(nodo.querySelectorAll("script,noscript"), function (n) { n.remove(); });
+    ["#r34g-styles", "#em-root", ".em-live", "#em-dock", "#em-fab", "#em-panel"].forEach(function (sel) {
+      Array.prototype.forEach.call(nodo.querySelectorAll(sel), function (n) { n.remove(); });
+    });
+    return nodo;
+  }
+  function paginaPintada() {
+    var doc = limpiarCopia(document.documentElement.cloneNode(true));
+    var head = doc.querySelector("head") || doc;
+    var base = doc.querySelector("base");
+    if (!base) {
+      base = document.createElement("base");
+      head.insertBefore(base, head.firstChild);
+    }
+    // De dónde es la página: con esto el laboratorio sabe de qué sitio son sus rutas (/imagenes/…) y
+    // sus imágenes.
+    base.setAttribute("href", location.origin + "/");
+    return "<!DOCTYPE html>\n" + doc.outerHTML;
+  }
+  function enUnMarco() {
+    try { return window.top !== window.self; } catch (e) { return true; }   // si no se puede mirar, es que sí
+  }
+  function enviarPintada() {
+    var html = paginaPintada();
+    var enviado = false;
+    // Al PADRE, no al `top`: quien escucha es el laboratorio, y el laboratorio es el marco que nos
+    // contiene (arriba del todo está la página de perchance, que no escucha nada).
+    if (enUnMarco() && window.parent && window.parent !== window.self) {
+      try {
+        window.parent.postMessage({ tipo: TIPO_PINTADA, html: html, url: location.href, titulo: document.title }, "*");
+        enviado = true;
+      } catch (e) {}
+    }
+    var copiado = false;
+    try { copiado = alPortapapeles(html); } catch (e) {}
+    return { bytes: html.length, enviado: enviado, copiado: copiado };
+  }
+  function descargarPintada() {
+    try {
+      var html = paginaPintada();
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+      a.download = String(EM.bot.uri || "emochi").replace(/[^\w.-]+/g, "_") + ".html";
+      (document.body || document.documentElement).appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 20000);
+      return html.length;
+    } catch (e) {
+      return 0;
+    }
+  }
+  function kbDe(n) { return Math.max(1, Math.round((Number(n) || 0) / 1024)) + " KB"; }
+
   // Al enviar, se mide lo que iba en la caja. Se engancha UNA vez a la página entera (en captura,
   // así da igual cómo sea su formulario) y se compara el objetivo con la caja del chat.
   var ultimoEnvio = { txt: "", at: 0 };
@@ -3165,6 +3233,25 @@
     ]));
     cuerpo.appendChild(aj);
 
+    // 🖥 llevar la página al laboratorio de perchance (webs que se pintan con su JavaScript)
+    var lab = plegable("🖥 Para la vista previa de perchance", "laboratorio");
+    lab.appendChild(el("div", { class: "em-hint", text: "La copia que se descarga de esta web llega vacía (su HTML solo trae el menú: el chat lo pinta su React), así que en el laboratorio no se ve nada. Este botón copia la página YA PINTADA -con su chat, sus fotos y sus burbujas- y con eso el laboratorio trabaja igual que con cualquier otra web. Si la web está abierta DENTRO del laboratorio (su «🌐 marco real»), se le manda sola." }));
+    lab.appendChild(el("div", { class: "em-acts" }, [
+      btn("📸 Copiar la página pintada", "em-btn em-btn-mini em-btn-main", function () {
+        var r = enviarPintada();
+        if (r.enviado) aviso("📤 Página pintada enviada al laboratorio (" + kbDe(r.bytes) + ").", false);
+        else if (r.copiado) aviso("📸 Copiada (" + kbDe(r.bytes) + "): pégala en el laboratorio con «📄 Pegar / editar el HTML».", false);
+        else aviso("No se pudo copiar; usa «⬇ Descargarla (.html)».", true);
+        render();
+      }, { title: "Copia el documento tal como está ahora (ya pintado) para llevarlo al laboratorio de perchance" }),
+      btn("⬇ Descargarla (.html)", "em-btn em-btn-mini", function () {
+        var n = descargarPintada();
+        aviso(n ? "⬇ Descargada (" + kbDe(n) + "): impórtala en el laboratorio con «📄 Abrir archivo .html…»." : "No se pudo descargar.", !n);
+        render();
+      }, { title: "Se guarda como archivo .html, para importarlo en el laboratorio con «📄 Abrir archivo .html…»" })
+    ]));
+    cuerpo.appendChild(lab);
+
     // el registro
     var reg = plegable("📜 Registro (" + s.log.length + ")", "registro");
     var log = el("div", { class: "em-log" });
@@ -3335,6 +3422,12 @@
     resetEscena: resetEscena,
     deTextoEscena: deTextoEscena,
     ESC_CAMPOS: ESC_CAMPOS,
+    // la página, para el laboratorio de perchance
+    paginaPintada: paginaPintada,
+    enviarPintada: enviarPintada,
+    descargarPintada: descargarPintada,
+    limpiarCopia: limpiarCopia,
+    TIPO_PINTADA: TIPO_PINTADA,
     botonesReiniciar: botonesReiniciar,
     botonReiniciar: botonReiniciar,
     esBotonReiniciar: esBotonReiniciar,
