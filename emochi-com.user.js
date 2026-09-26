@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.61
+// @version      0.9.62
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -805,6 +805,70 @@
   var ANCHO_GRANDE = 400;                 // y el ancho cuando la estiras (⤢) para editar cómodo
   var MAX_LOG = 120;
 
+  // --- 📍 la escena: los cuatro datos que el bot se inventa si no se los dices --------------------
+  var ESC_KEY = "emochi-lab:escena:v1";     // la tabla de la escena, si la has editado
+  var ESC_CAMPOS = [
+    { id: "lugar", label: "Dónde", ph: "en el sofá del salón" },
+    { id: "postura", label: "Postura", ph: "sentada encima de ti" },
+    { id: "ropa", label: "Ropa", ph: "en ropa interior" },
+    { id: "ambiente", label: "Ambiente", ph: "es de noche" }
+  ];
+  var ESC_ETIQUETA = { lugar: "Dónde", postura: "Postura", ropa: "Ropa", ambiente: "Ambiente" };
+  var ESC_ALIAS = {
+    lugar: "lugar", sitio: "lugar", donde: "lugar", escenario: "lugar",
+    postura: "postura", posicion: "postura", cuerpo: "postura", gesto: "postura",
+    ropa: "ropa", vestuario: "ropa", vestimenta: "ropa", traje: "ropa",
+    ambiente: "ambiente", momento: "ambiente", luz: "ambiente", tiempo: "ambiente", clima: "ambiente"
+  };
+  // Una línea por entrada:  nombre : palabras : campo : lo que se apunta ·  los grupos van con |,
+  // las palabras de un grupo con +, los sinónimos con /, y el campo es lugar/postura/ropa/ambiente.
+  var ESCENA_TEXTO = [
+    "Sofá : sofa | sofas | sillón : lugar : en el sofá del salón",
+    "Cama : cama | camas | lecho : lugar : en la cama",
+    "Habitación : habitacion | cuarto | dormitorio : lugar : en la habitación",
+    "Salón : salon | salita : lugar : en el salón",
+    "Cocina : cocina : lugar : en la cocina",
+    "Baño : bano | banos | ducha | bano+de+casa : lugar : en el baño",
+    "Coche : coche | auto | asiento+del+coche : lugar : dentro del coche",
+    "Calle : calle | acera | callejon : lugar : en la calle",
+    "Parque : parque | jardin : lugar : en el parque",
+    "Bar : bar | barra+del+bar | taberna : lugar : en el bar",
+    "Oficina : oficina | despacho : lugar : en la oficina",
+    "Terraza : terraza | balcon : lugar : en la terraza",
+    "Hotel : hotel | motel : lugar : en el hotel",
+    "Portal : portal | recibidor | escalera : lugar : en el portal de casa",
+    "Ascensor : ascensor : lugar : en el ascensor",
+    "Gimnasio : gimnasio | vestuario+del+gimnasio : lugar : en el gimnasio",
+
+    "Sentada : se+sienta | se+sento | me+siento | me+sente | sentada | sentado | toma+asiento : postura : sentada",
+    "Encima de ti : encima+de+ti | encima+de+mi | sobre+ti | en+mi+regazo | en+tu+regazo | a+caballito : postura : sentada encima de ti",
+    "Tumbada : se+tumba | se+tumbo | tumbada | tumbado | se+recuesta | recostada | acostada | acostado : postura : tumbada",
+    "De pie : de+pie | se+levanta | se+puso+de+pie | se+endereza : postura : de pie",
+    "De rodillas : de+rodillas | se+arrodilla : postura : de rodillas",
+    "Abrazada : abrazada | abrazado | me+abraza | te+abrazo | entre+tus+brazos : postura : abrazada a ti",
+    "Bailando : bailando | bailamos | un+baile : postura : bailando contigo",
+    "Contra la pared : contra+la+pared | me+empuja+contra : postura : contra la pared",
+    "Caminando : caminando | andando | paseando | paseamos : postura : caminando",
+    "Boca abajo : boca+abajo | boca+arriba : postura : tumbada boca abajo",
+
+    "Desnuda : desnuda | desnudo | sin+ropa | se+desnuda | se+quito+la+ropa | se+quita+la+ropa : ropa : desnuda",
+    "Ropa interior : ropa+interior | sujetador | bragas | calzoncillos | lenceria | tanga : ropa : en ropa interior",
+    "Camiseta : camiseta | camison | pijama | top : ropa : con una camiseta (y nada debajo)",
+    "Vestido : vestido | falda | vestido+corto : ropa : con un vestido",
+    "Abrigo : abrigo | chaqueta | bufanda : ropa : con el abrigo puesto",
+    "Toalla : toalla | saliendo+de+la+ducha : ropa : con una toalla",
+    "Uniforme : uniforme | traje | corbata : ropa : con el uniforme puesto",
+
+    "Noche : es+de+noche | anochece | anochecio | medianoche | de+madrugada | nocturno : ambiente : es de noche",
+    "Amanecer : amanece | amanecer | al+amanecer : ambiente : está amaneciendo",
+    "Mañana : por+la+manana | es+de+dia | buenos+dias : ambiente : es por la mañana",
+    "Tarde : es+de+tarde | por+la+tarde | buenas+tardes : ambiente : es por la tarde",
+    "Lluvia : llueve | lloviendo | lluvia | tormenta : ambiente : está lloviendo",
+    "Frío : hace+frio | tiritando | frio : ambiente : hace frío",
+    "Calor : hace+calor | bochorno | sofocante : ambiente : hace calor",
+    "Luz tenue : velas | a+oscuras | penumbra | media+luz | luz+tenue : ambiente : con luz tenue"
+  ].join("\n");
+
   // --- las etapas y las barras ------------------------------------------------------------------
   var ETAPAS = ["Desconocidos", "Conocidos", "Amistad", "Cercanía", "Tensión", "Amantes"];
   var ETAPA_TIP = {
@@ -915,6 +979,8 @@
     brinco: {},        // barras que acaban de moverse (para el destello)
     prueba: "",        // el texto de la cajita de pruebas
     edicion: null,     // el borrador de la tabla mientras la editas
+    escenaPalabras: false, // ¿está abierta la tablita de palabras de la escena?
+    edicionEscena: null,   // su borrador
     vigilando: false,  // esperando a que salga su botón de «Reiniciar»
     pidiendoRetrato: false,
     retratoPedido: {},  // a quién se le ha preguntado ya por el retrato, y cuándo
@@ -955,6 +1021,13 @@
       flags: flags,
       log: log,
       vistos: [],
+      escena: { lugar: "", postura: "", ropa: "", ambiente: "" },
+      escenaEnOrden: false,
+      escenaSug: null,
+      orden: "",
+      ordenCada: 4,
+      ordenN: 0,
+      ordenPoner: false,
       memoria: { original: null, campo: "", texto: "", at: 0, error: "", tope: 0, rico: 0, etapa: -1, turno: 0 },
       visto: ""
     };
@@ -976,6 +1049,12 @@
     Object.keys(FLAGS_POR_DEFECTO).forEach(function (k) { if (typeof s.flags[k] !== "boolean") s.flags[k] = FLAGS_POR_DEFECTO[k]; });
     if (!s.log) s.log = [];
     if (!s.vistos) s.vistos = [];
+    if (!s.escena || typeof s.escena !== "object") s.escena = { lugar: "", postura: "", ropa: "", ambiente: "" };
+    ESC_CAMPOS.forEach(function (c) { if (typeof s.escena[c.id] !== "string") s.escena[c.id] = ""; });
+    if (typeof s.escenaEnOrden !== "boolean") s.escenaEnOrden = false;
+    if (typeof s.orden !== "string") s.orden = "";
+    if (typeof s.ordenN !== "number") s.ordenN = 0;
+    if (typeof s.ordenPoner !== "boolean") s.ordenPoner = false;
     if (!s.memoria) s.memoria = { original: null, campo: "", texto: "", at: 0, error: "", tope: 0, rico: 0, etapa: -1, turno: 0 };
     if (typeof s.memoria.tope !== "number") s.memoria.tope = 0;
     if (typeof s.memoria.rico !== "number") s.memoria.rico = 0;
@@ -1187,6 +1266,20 @@
   }
 
   // --- la tabla: texto <-> entradas --------------------------------------------------------------
+  // «a+b | c/d» → [[["a"],["b"]], [["c","d"]]]  (los grupos con |, las palabras de un grupo con +,
+  // los sinónimos de una palabra con /). Es lo mismo que usan las palabras clave y la escena.
+  function gruposDe(palabras) {
+    var grupos = [];
+    String(palabras || "").split("|").forEach(function (g) {
+      var slots = [];
+      g.split("+").forEach(function (sl) {
+        var alts = sl.split("/").map(function (a) { return norm(a).replace(/[^a-z0-9]/g, ""); }).filter(Boolean);
+        if (alts.length) slots.push(alts);
+      });
+      if (slots.length) grupos.push(slots);
+    });
+    return grupos;
+  }
   function deTexto(txt) {
     var out = [];
     String(txt || "").split(/\r?\n/).forEach(function (linea, idx) {
@@ -1195,17 +1288,8 @@
       var partes = l.split(":");
       if (partes.length < 2) return;
       var nombre = partes[0].replace(/^\s+|\s+$/g, "");
-      var palabras = partes[1];
       var movs = partes.slice(2).join(":");
-      var grupos = [];
-      palabras.split("|").forEach(function (g) {
-        var slots = [];
-        g.split("+").forEach(function (sl) {
-          var alts = sl.split("/").map(function (a) { return norm(a).replace(/[^a-z0-9]/g, ""); }).filter(Boolean);
-          if (alts.length) slots.push(alts);
-        });
-        if (slots.length) grupos.push(slots);
-      });
+      var grupos = gruposDe(partes[1]);
       var mov = {};
       movs.split(",").forEach(function (m) {
         var r = /^\s*([a-z]+)\s*([+-]?\d+(?:\.\d+)?)\s*$/.exec(norm(m));
@@ -1229,6 +1313,137 @@
       return e.nombre + " : " + palabras + " : " + movs;
     }).join("\n");
   }
+  // --- 📍 la escena: leerla de los mensajes, apuntarla y proponerla ---------------------------------
+  function deTextoEscena(txt) {
+    var out = [];
+    String(txt || "").split(/\r?\n/).forEach(function (linea, idx) {
+      var l = linea.replace(/^\s+|\s+$/g, "");
+      if (!l || l.charAt(0) === "#") return;
+      var partes = l.split(":");
+      if (partes.length < 4) return;
+      var campo = ESC_ALIAS[norm(partes[2]).replace(/[^a-z]/g, "")];
+      var valor = partes.slice(3).join(":").trim();
+      var grupos = gruposDe(partes[1]);
+      var nombre = partes[0].replace(/^\s+|\s+$/g, "");
+      if (!campo || !valor || !grupos.length) return;
+      out.push({ id: "s" + idx, nombre: nombre, campo: campo, valor: valor, grupos: grupos });
+    });
+    return out;
+  }
+  var escCache = null;
+  function escenaTabla() {
+    if (!escCache) {
+      var guardada = null;
+      try { guardada = localStorage.getItem(ESC_KEY); } catch (e) {}
+      escCache = deTextoEscena(guardada != null && guardada !== "" ? guardada : ESCENA_TEXTO);
+      if (!escCache.length) escCache = deTextoEscena(ESCENA_TEXTO);
+    }
+    return escCache;
+  }
+  function escenaTablaTexto() {
+    var guardada = null;
+    try { guardada = localStorage.getItem(ESC_KEY); } catch (e) {}
+    return guardada != null && guardada !== "" ? guardada : ESCENA_TEXTO;
+  }
+  function setEscenaTablaTexto(txt) {
+    try { localStorage.setItem(ESC_KEY, String(txt || "")); } catch (e) {}
+    escCache = null;
+  }
+  function resetEscena() {
+    try { localStorage.removeItem(ESC_KEY); } catch (e) {}
+    escCache = null;
+  }
+  function escenaEsBase() {
+    try { return localStorage.getItem(ESC_KEY) == null; } catch (e) { return true; }
+  }
+  // Qué dice un mensaje sobre la escena: por cada campo, la entrada que gana (la más específica).
+  // Lo que va dentro de `( … )` no cuenta: `busca` salta los tokens OOC, así que la orden que
+  // llevamos pegada a los mensajes no se lee como si fuera la escena.
+  function escenaDe(texto) {
+    var an = analizar(texto);
+    if (!an.tokens.length) return [];
+    var porCampo = {};
+    escenaTabla().forEach(function (e) {
+      var r = cuadra(e, an.tokens);
+      if (!r) return;
+      var p = porCampo[e.campo];
+      if (!p || r.slots > p.slots) porCampo[e.campo] = { campo: e.campo, valor: e.valor, nombre: e.nombre, slots: r.slots };
+    });
+    return Object.keys(porCampo).map(function (k) { return porCampo[k]; });
+  }
+  function escenaLinea(s) {
+    var e = (s && s.escena) || {};
+    return ESC_CAMPOS.map(function (c) { return String(e[c.id] || "").trim(); }).filter(Boolean).join(", ");
+  }
+  function ponerEscena(s, campo, valor, de) {
+    if (!s) return false;
+    var vale = ESC_CAMPOS.some(function (c) { return c.id === campo; });
+    if (!vale) return false;
+    valor = String(valor == null ? "" : valor).trim();
+    if (String(s.escena[campo] || "") === valor) return false;
+    s.escena[campo] = valor;
+    s.escena.at = Date.now();
+    s.escenaSug = null;
+    guardar();
+    apuntar(s, "escena", "📍 " + ESC_ETIQUETA[campo] + " → " + (valor || "(vacío)") + (de ? " · " + de : ""));
+    return true;
+  }
+  // Lo que se ha leído se apunta solo (si el interruptor lo dice) o se propone y decide él. De las
+  // lecturas se manda la última: si dice «nos vamos al dormitorio», el sitio pasa a ser el dormitorio.
+  function sugerirEscena(s, cambios, de) {
+    if (!s || !cambios.length) return null;
+    var nuevos = cambios.filter(function (c) { return String(s.escena[c.campo] || "") !== c.valor; });
+    if (!nuevos.length) return null;
+    if (s.flags.escenaAuto) {
+      var hechos = 0;
+      nuevos.forEach(function (c) { if (ponerEscena(s, c.campo, c.valor, de)) hechos++; });
+      if (hechos) { aviso("📍 Escena: " + escenaLinea(s), false); render(); }
+      return hechos ? { aplicado: hechos } : null;
+    }
+    s.escenaSug = { at: Date.now(), de: de || "", cambios: nuevos.slice(0, 3) };
+    guardar();
+    return s.escenaSug;
+  }
+  function mirarEscenaLista(s, lista, fuente) {
+    var cambios = [];
+    for (var i = 0; i < lista.length; i++) {
+      var txt = String((lista[i] && lista[i].txt) || "").trim();
+      if (!txt) continue;
+      escenaDe(txt).forEach(function (c) {
+        for (var j = cambios.length - 1; j >= 0; j--) if (cambios[j].campo === c.campo) cambios.splice(j, 1);
+        cambios.push(c);
+      });
+    }
+    return sugerirEscena(s, cambios, fuente);
+  }
+  // «🔍 Mirar el chat»: solo la escena, sin tocar las barras.
+  function mirarEscenaDelChat(decir) {
+    var s = ficha();
+    if (!s) return null;
+    var filas = mensajesDeLaPantalla();
+    if (!filas.length) {
+      if (decir) { aviso("No veo el chat: abre la conversación con el bot.", true); render(); }
+      return null;
+    }
+    var r = mirarEscenaLista(s, filas, "del chat");
+    if (decir) {
+      if (!r) aviso("📍 Nada nuevo en la escena.", false);
+      else if (r.aplicado) aviso("📍 Escena: " + escenaLinea(s), false);
+      else aviso("📍 Mira lo que he leído y dime.", false);
+      render();
+    }
+    return r;
+  }
+  function olvidarEscena(decir) {
+    var s = ficha();
+    if (!s) return false;
+    ESC_CAMPOS.forEach(function (c) { s.escena[c.id] = ""; });
+    s.escenaSug = null;
+    guardar();
+    if (decir) { aviso("🧹 Escena vacía.", false); render(); }
+    return true;
+  }
+
   var tablaCache = null;
   function tabla() {
     if (!tablaCache) {
@@ -1301,6 +1516,11 @@
       if (s.flags.memAut) refrescarMemoria(s);
     }
     if (s.flags.memAut && !hechos.etapa && s.memoria.texto && s.turnos - (s.memoria.turno || 0) >= 15) refrescarMemoria(s);
+    // y de paso, la escena: lo que acabas de escribir también dice dónde estáis
+    if (opts.escena !== false) {
+      var sug = mirarEscenaLista(s, [{ txt: txt }], opts.fuente || null);
+      if (sug && !sug.aplicado) render();      // hay algo que proponer: que se vea
+    }
     return { entrada: r.entrada, mov: r.mov, hechos: hechos, peso: r.peso, slots: r.slots };
   }
 
@@ -1377,8 +1597,17 @@
     return String((s && s.orden) || "").replace(/\s+/g, " ").trim().slice(0, LIMITE_ORDEN);
   }
   function firmaDeOrden(s) {
+    var partes = [];
+    if (s && s.escenaEnOrden) {
+      var e = escenaLinea(s);
+      if (e) partes.push(e);
+    }
     var t = ordenTexto(s);
-    return t ? "(OOC: " + t + ")" : "";
+    if (t) partes.push(t);
+    if (!partes.length) return "";
+    var dentro = partes.join(" · ");
+    if (dentro.length > LIMITE_ORDEN) dentro = dentro.slice(0, LIMITE_ORDEN).replace(/[\s,;·]+$/, "") + "…";
+    return "(OOC: " + dentro + ")";
   }
   function cadenciaDeOrden(s, cada) {
     var n = Number(cada != null ? cada : (s && s.ordenCada));
@@ -2118,6 +2347,8 @@
     if (!s) return Promise.resolve({ ok: false, why: "abre el chat de un bot y espera un segundo" });
     // 1) lo que hay en pantalla: es lo que ves, y siempre está
     var filas = mensajesDeLaPantalla();
+    // la escena la miran los dos lados: el sitio y la postura los cambia él la mitad de las veces
+    mirarEscenaLista(s, filas, "de la pantalla");
     var mios = filas.filter(function (m) { return m.yo && m.txt; });
     if (mios.length) return Promise.resolve(medirLista(s, mios, "de la pantalla", filas.length));
     if (!s.promptId) {
@@ -2165,7 +2396,8 @@
     var st = s.stats;
     return "(OOC · partida de rol) afecto " + fmt(st.afecto) + "/100 · confianza " + fmt(st.confianza) +
       "/100 · deseo " + fmt(st.deseo) + "/100 · tensión " + fmt(st.tension) + "/100 · etapa " +
-      nombreEtapa(s) + " · " + s.turnos + " mensajes";
+      nombreEtapa(s) + " · " + s.turnos + " mensajes" +
+      (escenaLinea(s) ? " · escena: " + escenaLinea(s) : "");
   }
   function reglas(s) {
     var jug = jugador(s);
@@ -2199,6 +2431,7 @@
       " · etapa " + nombreEtapa(s) + ".";
     var nucleo = " Tu tono: " + (TIP_CORTO[nombreEtapa(s)] || ETAPA_TIP[nombreEtapa(s)] || "") + ".)";
     var extras = [
+      { p: 0, t: escenaLinea(s) ? " Escena: " + escenaLinea(s) + "." : "" },
       { p: 1, t: " No decidas por " + jugador(s) + "." },
       { p: 2, t: " Íntimas: " + (s.flags.explicito ? "explícitas" : "solo insinuadas") + "." },
       { p: 3, t: " Etapas: " + ETAPAS.join("→") + "." }
