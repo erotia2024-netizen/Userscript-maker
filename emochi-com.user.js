@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.70
+// @version      0.9.71
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1837,18 +1837,34 @@
   }
   function enviarPintada() {
     var html = paginaPintada();
-    var enviado = false;
-    // Al PADRE, no al `top`: quien escucha es el laboratorio, y el laboratorio es el marco que nos
-    // contiene (arriba del todo está la página de perchance, que no escucha nada).
-    if (enUnMarco() && window.parent && window.parent !== window.self) {
-      try {
-        window.parent.postMessage({ tipo: TIPO_PINTADA, html: html, url: location.href, titulo: document.title }, "*");
-        enviado = true;
-      } catch (e) {}
-    }
     var copiado = false;
     try { copiado = alPortapapeles(html); } catch (e) {}
-    return { bytes: html.length, enviado: enviado, copiado: copiado };
+    // Al PADRE, no al `top`: quien escucha es el laboratorio, y el laboratorio es el marco que nos
+    // contiene (arriba del todo está la página de perchance, que no escucha nada). Y no se da por
+    // enviada hasta que el laboratorio CONTESTA: si estamos en un marco de otra cosa, esto no llegará
+    // a nadie, y más vale decir la verdad y quedarse con la copia del portapapeles.
+    if (!enUnMarco() || !window.parent || window.parent === window.self) {
+      return Promise.resolve({ bytes: html.length, enviado: false, copiado: copiado, html: html });
+    }
+    return new Promise(function (resolve) {
+      var acuse = false;
+      function oye(ev) {
+        var d = ev && ev.data;
+        if (!d || d.tipo !== "r34g-lab-recibida") return;
+        acuse = true;
+        fin(true);
+      }
+      function fin(enviado) {
+        window.removeEventListener("message", oye);
+        clearTimeout(reloj);
+        resolve({ bytes: html.length, enviado: enviado, copiado: copiado, html: html });
+      }
+      var reloj = setTimeout(function () { if (!acuse) fin(false); }, 900);
+      window.addEventListener("message", oye);
+      try {
+        window.parent.postMessage({ tipo: TIPO_PINTADA, html: html, url: location.href, titulo: tituloDeLaPagina() }, "*");
+      } catch (e) {}
+    });
   }
   function descargarPintada() {
     try {
@@ -3282,11 +3298,14 @@
     lab.appendChild(el("div", { class: "em-hint", text: "La copia que se descarga de esta web llega vacía (su HTML solo trae el menú: el chat lo pinta su React), así que en el laboratorio no se ve nada. Este botón copia la página YA PINTADA -con su chat, sus fotos y sus burbujas- y con eso el laboratorio trabaja igual que con cualquier otra web. Si la web está abierta DENTRO del laboratorio (su «🌐 marco real»), se le manda sola." }));
     lab.appendChild(el("div", { class: "em-acts" }, [
       btn("📸 Copiar la página pintada", "em-btn em-btn-mini em-btn-main", function () {
-        var r = enviarPintada();
-        if (r.enviado) aviso("📤 Página pintada enviada al laboratorio (" + kbDe(r.bytes) + ").", false);
-        else if (r.copiado) aviso("📸 Copiada (" + kbDe(r.bytes) + "): pégala en el laboratorio con «📄 Pegar / editar el HTML».", false);
-        else aviso("No se pudo copiar; usa «⬇ Descargarla (.html)».", true);
+        aviso("📸 Copiando la página…", false);
         render();
+        enviarPintada().then(function (r) {
+          if (r.enviado) aviso("📤 Página pintada enviada al laboratorio (" + kbDe(r.bytes) + ").", false);
+          else if (r.copiado) aviso("📸 Copiada (" + kbDe(r.bytes) + "): pégala en el laboratorio con «📄 Pegar / editar el HTML».", false);
+          else aviso("No se pudo copiar; usa «⬇ Descargarla (.html)».", true);
+          render();
+        });
       }, { title: "Copia el documento tal como está ahora (ya pintado) para llevarlo al laboratorio de perchance" }),
       btn("⬇ Descargarla (.html)", "em-btn em-btn-mini", function () {
         var n = descargarPintada();
