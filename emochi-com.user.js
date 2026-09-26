@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.63
+// @version      0.9.64
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -859,7 +859,7 @@
     "Toalla : toalla | saliendo+de+la+ducha : ropa : con una toalla",
     "Uniforme : uniforme | traje | corbata : ropa : con el uniforme puesto",
 
-    "Noche : es+de+noche | anochece | anochecio | medianoche | de+madrugada | nocturno : ambiente : es de noche",
+    "Noche : es+de+noche | anochece | anochecio | medianoche | de+madrugada | nocturno | noche | noches : ambiente : es de noche",
     "Amanecer : amanece | amanecer | al+amanecer : ambiente : está amaneciendo",
     "Mañana : por+la+manana | es+de+dia | buenos+dias : ambiente : es por la mañana",
     "Tarde : es+de+tarde | por+la+tarde | buenas+tardes : ambiente : es por la tarde",
