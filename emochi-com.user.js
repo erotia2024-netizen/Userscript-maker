@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.68
+// @version      0.9.69
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1773,19 +1773,55 @@
     ["#r34g-styles", "#em-root", ".em-live", "#em-dock", "#em-fab", "#em-panel"].forEach(function (sel) {
       Array.prototype.forEach.call(nodo.querySelectorAll(sel), function (n) { n.remove(); });
     });
+    // El <base> que hubiera se va también: puede ser el de la plataforma (`target="_parent"`, que
+    // haría que los enlaces abriesen el marco de arriba). El nuestro lo pone `paginaPintada`.
+    Array.prototype.forEach.call(nodo.querySelectorAll("base"), function (n) { n.remove(); });
     return nodo;
+  }
+  // De dónde es la página. En su web es `location.origin`, pero la copia del laboratorio vive en el
+  // dominio del laboratorio, así que ahí manda lo que declara la propia página (canonical / og:url).
+  function origenDeLaPagina() {
+    var pats = [
+      ['link[rel="canonical"]', "href"],
+      ['meta[property="og:url"]', "content"],
+      ['meta[name="twitter:url"]', "content"]
+    ];
+    for (var i = 0; i < pats.length; i++) {
+      var n = document.querySelector(pats[i][0]);
+      var v = n && (pats[i][1] === "href" ? n.href : n.getAttribute("content"));
+      if (v && /^https?:/i.test(v)) {
+        try { return new URL(v).origin; } catch (e) {}
+      }
+    }
+    return location.origin;
+  }
+  // El título de la página: el suyo, no el que le haya puesto quien la esté enseñando.
+  function tituloDeLaPagina() {
+    var t = document.querySelector("title");
+    var txt = t && t.textContent ? t.textContent.trim() : "";
+    if (!txt) {
+      var m = document.querySelector('meta[property="og:title"]');
+      txt = m && m.getAttribute("content") ? String(m.getAttribute("content")).trim() : "";
+    }
+    return txt || document.title || "";
   }
   function paginaPintada() {
     var doc = limpiarCopia(document.documentElement.cloneNode(true));
     var head = doc.querySelector("head") || doc;
-    var base = doc.querySelector("base");
-    if (!base) {
-      base = document.createElement("base");
-      head.insertBefore(base, head.firstChild);
+    var base = document.createElement("base");
+    // De dónde es la página: con esto el laboratorio sabe de qué sitio son sus rutas (/imagenes/…), sus
+    // imágenes y su CSS.
+    base.setAttribute("href", origenDeLaPagina() + "/");
+    head.insertBefore(base, head.firstChild);
+    var titulo = tituloDeLaPagina();
+    if (titulo) {
+      var t = doc.querySelector("title");
+      if (!t) {
+        t = document.createElement("title");
+        head.appendChild(t);
+      }
+      if (!t.textContent.trim()) t.textContent = titulo;
     }
-    // De dónde es la página: con esto el laboratorio sabe de qué sitio son sus rutas (/imagenes/…) y
-    // sus imágenes.
-    base.setAttribute("href", location.origin + "/");
     return "<!DOCTYPE html>\n" + doc.outerHTML;
   }
   function enUnMarco() {
