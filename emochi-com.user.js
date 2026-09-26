@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.51
+// @version      0.9.52
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1860,6 +1860,7 @@
       document.body.appendChild(vivo.caja);
       vivo.reloj = setInterval(seguirEnLaWeb, 400);   // su web se mueve (scroll, su propio layout)
     }
+    engancharAlMovimiento();
     vivo.img = img;
     vivo.sello = sello;
     var caja = vivo.caja;
@@ -1881,11 +1882,21 @@
     var r = vivo.img.getBoundingClientRect();
     if (r.width < 8 || r.height < 8) { quitarDeLaWeb(); return false; }
     ponerSitio(r);
-    if (++vivo.vuelta % 8 === 0) {                    // de vez en cuando, ¿hay otra foto mejor?
+    if (!vivo.chequeo || Date.now() - vivo.chequeo > 3000) {   // de vez en cuando, ¿hay otra foto mejor?
+      vivo.chequeo = Date.now();
       var n = retratoNodoDeLaPantalla();
       if (n && n !== vivo.img) { quitarDeLaWeb(); return pintarEnLaWeb(); }
     }
     return true;
+  }
+  // Sobre su foto se recoloca sola cada 400 ms, pero en cuanto la web se mueve (scroll, ventana) se
+  // le da un empujón para que no vaya con retraso.
+  function engancharAlMovimiento() {
+    if (state.oyentes) return;
+    state.oyentes = true;
+    var empujon = function () { if (vivo.caja) seguirEnLaWeb(); };
+    window.addEventListener("scroll", empujon, { passive: true, capture: true });
+    window.addEventListener("resize", empujon, { passive: true });
   }
 
   function gancho() {
