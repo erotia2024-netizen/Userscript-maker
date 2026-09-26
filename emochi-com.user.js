@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.83
+// @version      0.9.84
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1988,8 +1988,11 @@
   function comoEstaElRetrato(s, img, r) {
     var ajuste = (s && s.cara) || { y: 42, x: 15 };
     var capa = vivo && vivo.caja;
-    var mancha = capa ? capa.querySelector(".em-rubor") : null;
-    var rm = mancha ? mancha.getBoundingClientRect() : null;
+    // las dos manchas, cada una por su lado: la izquierda cae a `50% - x` y la derecha a `50% + x`
+    var ni = capa ? capa.querySelector(".em-rubor-i") : null;
+    var nd = capa ? capa.querySelector(".em-rubor-d") : null;
+    var ri = ni ? ni.getBoundingClientRect() : null;
+    var rd = nd ? nd.getBoundingClientRect() : null;
     // Dónde caen las mejillas con el ajuste puesto, sin depender de que haya rubor pintado (el ánimo
     // tranquilo no pinta ninguno y entonces no hay nada que medir): las manchas miden 26% de ancho, así
     // que su centro cae en 50% ± x; y miden 17% de alto, así que su centro cae en `y` + 8,5%. En %.
@@ -2004,14 +2007,14 @@
       ajuste: { y: ay, x: ax },
       probando: probandoGesto(),
       calculado: { xIzq: Number((50 - ax).toFixed(1)), xDer: Number((50 + ax).toFixed(1)), yCentro: Number((ay + 8.5).toFixed(1)), ancho: 26, alto: 17 },
-      // dónde cae de verdad el rubor sobre la foto (en tanto por uno de su caja): así se ve si hay
+      // dónde caen de verdad las manchas sobre la foto (en tanto por uno de su caja): así se ve si hay
       // que mover los botones ⬆⬇⬅➡ o si el ajuste de serie vale para su retrato.
-      rubor: (rm && r && r.width) ? {
-        xIzq: Number(((rm.left - r.left + rm.width / 2) / r.width).toFixed(3)),
-        xDer: Number(((rm.right - r.left - rm.width / 2) / r.width).toFixed(3)),
-        y: Number(((rm.top - r.top + rm.height / 2) / r.height).toFixed(3)),
-        ancho: Number((rm.width / r.width).toFixed(3)),
-        alto: Number((rm.height / r.height).toFixed(3))
+      rubor: (ri && rd && r && r.width) ? {
+        xIzq: Number((((ri.left + ri.width / 2) - r.left) / r.width).toFixed(3)),
+        xDer: Number((((rd.left + rd.width / 2) - r.left) / r.width).toFixed(3)),
+        y: Number((((ri.top + ri.height / 2) - r.top) / r.height).toFixed(3)),
+        ancho: Number((ri.width / r.width).toFixed(3)),
+        alto: Number((ri.height / r.height).toFixed(3))
       } : null,
       apuntadoAMano: (s && s.retrato) || ""
     };
