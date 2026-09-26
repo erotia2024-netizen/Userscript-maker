@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.69
+// @version      0.9.70
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1795,15 +1795,23 @@
     }
     return location.origin;
   }
-  // El título de la página: el suyo, no el que le haya puesto quien la esté enseñando.
+  // El título de la página: el suyo, no el que le haya puesto quien la esté enseñando (en el
+  // laboratorio, el <title> del <head> es el suyo, no el de la web; el de la web, si está copiada,
+  // vive dentro del <body>).
   function tituloDeLaPagina() {
-    var t = document.querySelector("title");
-    var txt = t && t.textContent ? t.textContent.trim() : "";
-    if (!txt) {
-      var m = document.querySelector('meta[property="og:title"]');
-      txt = m && m.getAttribute("content") ? String(m.getAttribute("content")).trim() : "";
+    var metas = ['meta[property="og:title"]', 'meta[name="twitter:title"]'];
+    for (var i = 0; i < metas.length; i++) {
+      var m = document.querySelector(metas[i]);
+      var v = m && m.getAttribute("content") ? String(m.getAttribute("content")).trim() : "";
+      if (v) return v;
     }
-    return txt || document.title || "";
+    var titulos = document.querySelectorAll("title");
+    for (var j = titulos.length - 1; j >= 0; j--) {
+      var t = titulos[j];
+      var txt = t && t.textContent ? t.textContent.trim() : "";
+      if (txt && !(t.closest && t.closest("head"))) return txt;
+    }
+    return (document.title || "").trim();
   }
   function paginaPintada() {
     var doc = limpiarCopia(document.documentElement.cloneNode(true));
@@ -1820,7 +1828,7 @@
         t = document.createElement("title");
         head.appendChild(t);
       }
-      if (!t.textContent.trim()) t.textContent = titulo;
+      t.textContent = titulo;
     }
     return "<!DOCTYPE html>\n" + doc.outerHTML;
   }
