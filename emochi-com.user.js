@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.73
+// @version      0.9.74
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1793,7 +1793,20 @@
         try { return new URL(v).origin; } catch (e) {}
       }
     }
-    return location.origin;
+    // Sin canonical (las portadas muchas veces no lo traen): se mira de dónde son sus hojas de estilo y
+    // sus scripts, que son suyos. De las imágenes no, que esas suelen vivir en su CDN.
+    var cuenta = {};
+    var mejor = "";
+    Array.prototype.forEach.call(document.querySelectorAll("link[href],script[src]"), function (n) {
+      var u = n.getAttribute("href") || n.getAttribute("src") || "";
+      if (!/^https?:\/\//i.test(u)) return;
+      var h = "";
+      try { h = new URL(u).origin; } catch (e) { return; }
+      if (h === location.origin) return;
+      cuenta[h] = (cuenta[h] || 0) + 1;
+      if (!mejor || cuenta[h] > cuenta[mejor]) mejor = h;
+    });
+    return mejor || location.origin;
   }
   // El título de la página: el suyo, no el que le haya puesto quien la esté enseñando (en el
   // laboratorio, el <title> del <head> es el suyo, no el de la web; el de la web, si está copiada,
