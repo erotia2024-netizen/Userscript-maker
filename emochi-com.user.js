@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.55
+// @version      0.9.56
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -797,6 +797,7 @@
   var CLAVE_LOCAL = "__local__";          // la ficha de cuando todavía no sé con qué bot juegas
   var LIMITE_MEM = 300;                   // lo que deja SU servidor en la memoria del bot
   var LIMITE_CHAT = 2000;                 // el tope que me pongo para el texto que va con ✍
+  var LIMITE_ORDEN = 220;                 // lo que puede medir la orden que va pegada a tus mensajes
   var TICK = 1500;                        // cada cuánto se recoloca la ficha (es barato)
   var DECAIMIENTO = 0.5;                  // la tensión se enfría sola si no la alimentas
   var TOPE_MOV = 10;                      // ningún mensaje mueve una barra más de esto
@@ -890,7 +891,8 @@
     autoenviar: true,  // (✍) pulsa enviar por ti
     aceroReinicia: false, // (💗 A cero) reiniciar también el chat, con su botón «Reiniciar»
     retrato: true,     // 👤 el retrato del bot con el gesto puesto (rubor, corazones…)
-    retratoGrande: true // 🖼 el mismo gesto encima de su foto grande de la web
+    retratoGrande: true, // 🖼 el mismo gesto encima de su foto grande de la web
+    orden: true        // 📌 pegar tu orden (en paréntesis) al final de los mensajes que envías
   };
 
   // --- estado -----------------------------------------------------------------------------------
@@ -917,6 +919,8 @@
     pidiendoRetrato: false,
     retratoPedido: {},  // a quién se le ha preguntado ya por el retrato, y cuándo
     retratoUrl: "",     // lo que el jugador está pegando a mano
+    ultimaOrden: 0,     // cuándo se pegó la orden por última vez (evita pegarla dos veces)
+    edicionOrden: null, // el borrador de la orden mientras la escribes
     raw: ""            // lo último que contestó su API
   };
   var cola = false;
