@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.53
+// @version      0.9.54
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1624,17 +1624,8 @@
     return !/\/client-model-assets\/|\/icon\/|\/avatars\/|\/tts-preview\/|\/model-assets\//i.test(url);
   }
   function retratoDeLaPantalla() {
-    var imgs = document.querySelectorAll("img");
-    var mejor = "", area = 0;
-    Array.prototype.forEach.call(imgs, function (n) {
-      if (n.closest && n.closest("#em-root")) return;
-      var u = urlDeImagen(n.currentSrc || n.getAttribute("src") || "");
-      if (!valeDeRetrato(u)) return;
-      var r = n.getBoundingClientRect();
-      var a = Math.max(0, r.width) * Math.max(0, r.height);
-      if (a > area) { area = a; mejor = u; }
-    });
-    return mejor;
+    var n = retratoNodoDeLaPantalla();
+    return n ? urlDeImagen(n.currentSrc || n.getAttribute("src") || "") : "";
   }
   // De su ficha, la primera URL de retrato por orden de preferencia. Se saltan a propósito `image` y
   // `avatar`: los del objeto `User` son el avatar de quien creó el bot, no el personaje.
@@ -1809,11 +1800,13 @@
 
   function retratoNodoDeLaPantalla() {
     var imgs = document.querySelectorAll("img");
+    var s = ficha();
+    var apuntado = (s && s.retrato) || "";   // si él ha pegado la dirección, esa manda
     var visible = null, areaVisible = 0, otro = null, areaOtro = 0;
     Array.prototype.forEach.call(imgs, function (n) {
       if (n.closest && n.closest("#em-root")) return;
       var u = urlDeImagen(n.currentSrc || n.getAttribute("src") || "");
-      if (!valeDeRetrato(u)) return;
+      if (!valeDeRetrato(u) && !(apuntado && u === apuntado)) return;
       var r = n.getBoundingClientRect();
       var a = Math.max(0, r.width) * Math.max(0, r.height);
       if (a > areaOtro) { areaOtro = a; otro = n; }
