@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.81
+// @version      0.9.82
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1847,6 +1847,13 @@
     // imágenes y su CSS.
     base.setAttribute("href", origenDeLaPagina() + "/");
     head.insertBefore(base, head.firstChild);
+    // Con qué versión se hizo esta copia: así el laboratorio (y quien la mire luego) sabe si la hizo
+    // un userscript viejo, sin tener que adivinarlo. El laboratorio lo lee y lo quita al guardarla.
+    var ver = document.createElement("meta");
+    ver.id = "r34g-lab-userscript";
+    ver.setAttribute("name", "r34g-lab-userscript");
+    ver.setAttribute("content", versionInstalada() || "sin versión");
+    head.insertBefore(ver, head.firstChild);
     var titulo = tituloDeLaPagina();
     if (titulo) {
       var t = doc.querySelector("title");
