@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.76
+// @version      0.9.77
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -1560,19 +1560,31 @@
   // --- el enganche con la caja del chat -----------------------------------------------------------
   // La caja del chat no lleva id ni clase estable, así que se busca por forma: el campo de texto
   // visible más grande que esté más abajo de la pantalla (su chat la tiene abajo).
-  function cajaDeTexto() {
+  // Los campos de texto que hay en pantalla, con su nota. Se devuelven TODOS (también los que no
+  // valen) porque esto mismo es lo que necesita el informe 🩺 para poder decir por qué eligió uno.
+  function candidatosDeTexto() {
     var cands = [];
     var nodos = document.querySelectorAll("textarea, input[type=text], [contenteditable='true']");
     var alto = window.innerHeight || 0;
     Array.prototype.forEach.call(nodos, function (n) {
       if (n.closest && n.closest("#em-root")) return;
-      if (n.disabled || n.readOnly) return;
       var r = n.getBoundingClientRect();
-      if (r.width < 70 || r.height < 14) return;
       var st = getComputedStyle(n);
-      if (st.visibility === "hidden" || st.display === "none" || st.opacity === "0") return;
-      cands.push({ n: n, area: r.width * r.height, abajo: r.bottom > alto * 0.55 ? 1 : 0, bottom: r.bottom });
+      var vis = !(st.visibility === "hidden" || st.display === "none" || st.opacity === "0");
+      var c = { n: n, r: r, vis: vis, usables: false };
+      cands.push(c);
+      if (n.disabled || n.readOnly) return;
+      if (r.width < 70 || r.height < 14) return;
+      if (!vis) return;
+      c.usables = true;
+      c.area = r.width * r.height;
+      c.abajo = r.bottom > alto * 0.55 ? 1 : 0;
+      c.bottom = r.bottom;
     });
+    return cands;
+  }
+  function cajaDeTexto() {
+    var cands = candidatosDeTexto().filter(function (c) { return c.usables; });
     if (!cands.length) return null;
     cands.sort(function (a, b) {
       return (b.abajo - a.abajo) || (b.area - a.area) || (b.bottom - a.bottom);
@@ -1768,6 +1780,7 @@
   //   · en una pestaña normal: se copia al portapapeles (o se descarga el .html) y se pega allí en
   //     «📄 Pegar / editar el HTML» / «📄 Abrir archivo .html…».
   var TIPO_PINTADA = "r34g-lab-pagina-pintada";
+  var TIPO_ACUSE = "r34g-lab-recibida";
   function limpiarCopia(nodo) {
     Array.prototype.forEach.call(nodo.querySelectorAll("script,noscript"), function (n) { n.remove(); });
     ["#r34g-styles", "#em-root", ".em-live", "#em-dock", "#em-fab", "#em-panel"].forEach(function (sel) {
@@ -1863,7 +1876,7 @@
       var acuse = false;
       function oye(ev) {
         var d = ev && ev.data;
-        if (!d || d.tipo !== "r34g-lab-recibida") return;
+        if (!d || d.tipo !== TIPO_ACUSE) return;
         acuse = true;
         fin(true);
       }
@@ -1895,6 +1908,287 @@
     }
   }
   function kbDe(n) { return Math.max(1, Math.round((Number(n) || 0) / 1024)) + " KB"; }
+
+  // --- 🩺 el informe para el laboratorio ----------------------------------------------------------
+  // El laboratorio y esta web viven en orígenes distintos, así que desde el laboratorio NO se puede
+  // mirar dentro del marco: ni el DOM, ni la consola, ni una captura. Quien mira es este código, que
+  // corre dentro de la web de verdad. Manda tres cosas por `postMessage` a `window.parent`:
+  //   · `r34g-lab-hola`         al arrancar (solo si vamos dentro de un marco): «estoy aquí».
+  //   · `r34g-lab-diagnostico`  el informe de cómo está esta página POR DENTRO. Lo pide el laboratorio
+  //                             con `r34g-lab-pedir-diagnostico`, o el botón «🩺» de la ficha.
+  //   · `r34g-lab-recibida`     el acuse: ese lo manda el laboratorio, no nosotros.
+  // Con esto, lo que hasta ahora se ajustaba «a ojo» (dónde está su caja de texto, dónde acaba su
+  // columna, cuál es su retrato, dónde caen las manchas de rubor) se puede medir en su página real.
+  var TIPO_HOLA = "r34g-lab-hola";
+  var TIPO_DIAG = "r34g-lab-diagnostico";
+  var TIPO_PEDIR = "r34g-lab-pedir-diagnostico";
+
+  function versionInstalada() {
+    try {
+      if (typeof GM_info !== "undefined" && GM_info && GM_info.script) return String(GM_info.script.version || "");
+    } catch (e) {}
+    return "";
+  }
+  function cuadrado(r) {
+    return { x: Math.round(r.left), y: Math.round(r.top), ancho: Math.round(r.width), alto: Math.round(r.height) };
+  }
+  function esDeLaWeb(n) { return !(n && n.closest && n.closest("#em-root")); }
+  // Cómo se llega a ese nodo desde el documento, escrito como un selector de verdad: para poder
+  // copiarlo a una regla nuestra sin tener que adivinarlo.
+  function rutaDe(n, tope) {
+    if (!n || n.nodeType !== 1) return "";
+    tope = tope || 4;
+    var trozos = [];
+    for (var x = n, i = 0; x && x.nodeType === 1 && i < tope; i++, x = x.parentElement) {
+      var t = x.tagName.toLowerCase();
+      if (x.id) t += "#" + x.id;
+      var cls = claseDe(x).trim().split(/\s+/).filter(Boolean).slice(0, 4);
+      if (cls.length) t += "." + cls.join(".");
+      var attrs = [];
+      ["role", "type", "placeholder", "aria-label", "data-scope", "data-part"].forEach(function (a) {
+        var v = x.getAttribute && x.getAttribute(a);
+        if (v) attrs.push(a + '="' + String(v).slice(0, 40) + '"');
+      });
+      if (attrs.length) t += "[" + attrs.join("][") + "]";
+      trozos.unshift(t);
+      if (x === document.body || x === document.documentElement) break;
+    }
+    return trozos.join(" > ");
+  }
+  // Los antepasados de un nodo con su caja y su desbordamiento: es lo que hace falta para saber cuál
+  // es de verdad «la columna del chat» y cuál el que tiene scroll.
+  function antepasados(n, tope) {
+    var out = [];
+    for (var x = n && n.parentElement, i = 0; x && i < (tope || 7); i++, x = x.parentElement) {
+      var r = x.getBoundingClientRect();
+      var st = getComputedStyle(x);
+      out.push({
+        ruta: rutaDe(x, 3),
+        rect: cuadrado(r),
+        scroll: st.overflowY === "auto" || st.overflowY === "scroll" || x.scrollHeight > x.clientHeight + 4,
+        altoScroll: x.scrollHeight,
+        position: st.position,
+        transform: st.transform === "none" ? "" : st.transform.slice(0, 40)
+      });
+      if (x === document.body) break;
+    }
+    return out;
+  }
+  function comoEstaElRetrato(s, img, r) {
+    var ajuste = (s && s.cara) || { y: 42, x: 15 };
+    var capa = vivo && vivo.caja;
+    var mancha = capa ? capa.querySelector(".em-rubor") : null;
+    var rm = mancha ? mancha.getBoundingClientRect() : null;
+    return {
+      url: img ? urlDeImagen(img.currentSrc || img.getAttribute("src") || "") : "",
+      nodo: img ? rutaDe(img, 3) : "",
+      rect: r ? cuadrado(r) : null,
+      esc: r ? Number(escalaDeFoto(r).toFixed(2)) : null,
+      capaPuesta: !!capa,
+      capaRect: capa ? cuadrado(capa.getBoundingClientRect()) : null,
+      ajuste: { y: ajuste.y, x: ajuste.x },
+      // dónde cae de verdad el rubor sobre la foto (en tanto por uno de su caja): así se ve si hay
+      // que mover los botones ⬆⬇⬅➡ o si el ajuste de serie vale para su retrato.
+      rubor: (rm && r && r.width) ? {
+        xIzq: Number(((rm.left - r.left + rm.width / 2) / r.width).toFixed(3)),
+        xDer: Number(((rm.right - r.left - rm.width / 2) / r.width).toFixed(3)),
+        y: Number(((rm.top - r.top + rm.height / 2) / r.height).toFixed(3)),
+        ancho: Number((rm.width / r.width).toFixed(3)),
+        alto: Number((rm.height / r.height).toFixed(3))
+      } : null,
+      apuntadoAMano: (s && s.retrato) || ""
+    };
+  }
+  function informeDeImagen(n) {
+    var r = n.getBoundingClientRect();
+    var u = urlDeImagen(n.currentSrc || n.getAttribute("src") || "");
+    return {
+      rect: cuadrado(r),
+      visible: seVe(n),
+      area: Math.round(Math.max(0, r.width) * Math.max(0, r.height)),
+      vale: valeDeRetrato(u),
+      url: String(u).slice(0, 160),
+      ruta: rutaDe(n, 3)
+    };
+  }
+  // El informe entero. Nada de aquí toca la página: solo la mira.
+  function diagnostico() {
+    var s = ficha();
+    var caja = cajaDeTexto();
+    var col = columnaChat(true);
+    var filas = mensajesDeLaPantalla() || [];
+    var imgs = [];
+    Array.prototype.forEach.call(document.querySelectorAll("img"), function (n) { if (esDeLaWeb(n)) imgs.push(informeDeImagen(n)); });
+    imgs.sort(function (a, b) { return b.area - a.area; });
+    var img = retratoNodoDeLaPantalla();
+    var rImg = img ? img.getBoundingClientRect() : null;
+    var d = state.dock;
+    var rDock = d ? d.getBoundingClientRect() : null;
+    return {
+      cuando: new Date().toISOString(),
+      userscript: { version: versionInstalada(), nucleo: EM.version, ficha: !!raiz() },
+      pagina: {
+        url: location.href,
+        titulo: tituloDeLaPagina(),
+        origen: origenDeLaPagina(),
+        enMarco: enUnMarco(),
+        ventana: { ancho: window.innerWidth, alto: window.innerHeight, dpr: window.devicePixelRatio || 1, scrollY: Math.round(window.scrollY) },
+        cuerpo: (function () {
+          var st = document.body ? getComputedStyle(document.body) : null;
+          return st ? { fondo: st.backgroundColor, color: st.color, fuente: st.fontFamily.slice(0, 60), zoom: st.zoom, transform: document.body.style.transform || "" } : null;
+        })()
+      },
+      bot: { promptId: EM.bot.promptId || "", uri: EM.bot.uri || "", titulo: EM.bot.title || "" },
+      // las cajas de texto que ve, puntuadas igual que las puntúa el código (la elegida va marcada)
+      cajas: candidatosDeTexto().map(function (c) {
+        return {
+          ruta: rutaDe(c.n, 4),
+          etiqueta: c.n.tagName.toLowerCase(),
+          rect: cuadrado(c.r),
+          area: Math.round(c.area || 0),
+          abajo: !!c.abajo,
+          usable: !!c.usables,
+          visible: c.vis,
+          deshabilitada: !!c.n.disabled,
+          soloLectura: !!c.n.readOnly,
+          elegida: c.n === caja,
+          valor: String(valorDe(c.n) || "").slice(0, 40)
+        };
+      }),
+      columna: col ? {
+        rect: { left: Math.round(col.left), right: Math.round(col.right), top: Math.round(col.top), bottom: Math.round(col.bottom) },
+        caja: col.caja ? rutaDe(col.caja, 4) : "",
+        hecha: caja && col.caja === caja ? "subiendo desde la caja de texto" : "sin columna clara (se sube un trecho desde la caja)",
+        antepasados: col.caja ? antepasados(col.caja, 8) : []
+      } : null,
+      barraIzquierda: col ? Math.round(barraIzquierda(col.left)) : 0,
+      anclasDeMenu: document.querySelectorAll("button[data-part='trigger'], button[data-scope='menu']").length,
+      mensajes: filas.map(function (f) {
+        var r = f.fila.getBoundingClientRect();
+        return { yo: !!f.yo, largo: f.txt.length, muestra: f.txt.slice(0, 80), rect: cuadrado(r), ruta: rutaDe(f.fila, 3) };
+      }),
+      imagenes: imgs.slice(0, 14),
+      retrato: comoEstaElRetrato(s, img, rImg),
+      ficha: d ? {
+        rect: cuadrado(rDock),
+        colapsada: !!state.colapsado,
+        anchoPuesto: state.anchoPuesto,
+        visible: !d.hidden,
+        desborde: rDock.width ? Math.round(d.scrollWidth - rDock.width) : 0,
+        class: d.className
+      } : null,
+      ajustes: {
+        medir: !!s.flags.medir,
+        retrato: !!s.flags.retrato,
+        retratoGrande: !!s.flags.retratoGrande,
+        orden: !!s.flags.orden,
+        ordenCada: s.ordenCada,
+        ordenN: s.ordenN,
+        escenaAuto: !!s.flags.escenaAuto,
+        explicito: !!s.flags.explicito,
+        memAut: !!s.flags.memAut,
+        larga: !!s.flags.larga,
+        autoenviar: !!s.flags.autoenviar
+      },
+      motor: {
+        animo: animo(s),
+        etapa: ETAPAS[s.etapa],
+        stats: s.stats,
+        palabras: tabla().length,
+        escenaPalabras: escenaTabla().length,
+        escena: s.escena,
+        memoria: { tope: s.memoria.tope, largo: (s.memoria.texto || "").length, campo: s.memoria.campo }
+      },
+      registro: (s.log || []).slice(0, 8).map(function (e) { return e.text; }),
+      avisos: (s.log || []).filter(function (e) { return e.extra; }).slice(0, 4)
+    };
+  }
+  function informeComoTexto(rep) {
+    try { return JSON.stringify(rep, null, 2); } catch (e) { return "{}"; }
+  }
+  // Mandar cualquier cosa al laboratorio y saber si la ha recibido: no se da por enviado hasta que
+  // contesta el acuse. Si no contesta (no estamos dentro del laboratorio), devuelve `false`.
+  function mandarAlLaboratorio(msj, espera) {
+    if (!enUnMarco() || !window.parent || window.parent === window.self) return Promise.resolve(false);
+    return new Promise(function (resolve) {
+      var entregado = false;
+      function oye(ev) {
+        var d = ev && ev.data;
+        if (!d || d.tipo !== TIPO_ACUSE) return;
+        entregado = true;
+        fin();
+      }
+      function fin() {
+        window.removeEventListener("message", oye);
+        clearTimeout(reloj);
+        resolve(entregado);
+      }
+      var reloj = setTimeout(fin, espera || 1500);
+      window.addEventListener("message", oye);
+      try { window.parent.postMessage(msj, "*"); } catch (e) { fin(); }
+    });
+  }
+  // El saludo del arranque: sirve para saber si el userscript está de verdad dentro de un marco (si
+  // esta web se ve en el «🌐 marco real» del laboratorio) y con qué versión.
+  function saludar() {
+    if (!enUnMarco()) return Promise.resolve(false);
+    return mandarAlLaboratorio({
+      tipo: TIPO_HOLA,
+      version: versionInstalada(),
+      url: location.href,
+      titulo: tituloDeLaPagina(),
+      ficha: !!raiz(),
+      bot: EM.bot.promptId || ""
+    }, 1200);
+  }
+  function mandarInforme(decir) {
+    var rep;
+    try { rep = diagnostico(); } catch (e) { rep = { error: String((e && e.message) || e) }; }
+    var txt = informeComoTexto(rep);
+    return mandarAlLaboratorio({
+      tipo: TIPO_DIAG,
+      informe: rep,
+      version: versionInstalada(),
+      url: location.href,
+      titulo: tituloDeLaPagina()
+    }, 2000).then(function (entregado) {
+      if (entregado) {
+        if (decir) aviso("🩺 Informe enviado al laboratorio (" + kbDe(txt.length) + ").", false);
+      } else {
+        var copiado = false;
+        try { copiado = alPortapapeles(txt); } catch (e) {}
+        if (decir) aviso(copiado
+          ? "🩺 Copiado el informe (" + kbDe(txt.length) + "): pégalo en el laboratorio, en «🩺 Informe de la web»."
+          : "🩺 No se pudo enviar ni copiar: usa «⬇ Guardar el informe» y pásame el archivo.", true);
+      }
+      if (decir) render();
+      return entregado;
+    });
+  }
+  function descargarInforme() {
+    try {
+      var rep;
+      try { rep = diagnostico(); } catch (e) { rep = { error: String((e && e.message) || e) }; }
+      var txt = informeComoTexto(rep);
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([txt], { type: "application/json" }));
+      a.download = "emochi-informe-" + String(EM.bot.uri || "bot").replace(/[^\w.-]+/g, "_") + ".json";
+      (document.body || document.documentElement).appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 20000);
+      return txt.length;
+    } catch (e) {
+      return 0;
+    }
+  }
+  // El laboratorio pide el informe cuando quiere (y solo si él nos contiene: nadie más manda aquí).
+  window.addEventListener("message", function (ev) {
+    var d = ev && ev.data;
+    if (!d || d.tipo !== TIPO_PEDIR) return;
+    if (ev.source !== window.parent) return;
+    mandarInforme(false);
+  });
 
   // Al enviar, se mide lo que iba en la caja. Se engancha UNA vez a la página entera (en captura,
   // así da igual cómo sea su formulario) y se compara el objetivo con la caja del chat.
@@ -3326,6 +3620,21 @@
         render();
       }, { title: "Se guarda como archivo .html, para importarlo en el laboratorio con «📄 Abrir archivo .html…»" })
     ]));
+    // El informe: lo que el laboratorio no puede ver por su cuenta (está en otro origen y no puede
+    // mirar dentro de este marco). Con esto se ajusta lo que hasta ahora se ponía «a ojo».
+    lab.appendChild(el("div", { class: "em-hint", text: "Y si la web se ve dentro del laboratorio, «🩺 Mandar el informe» le cuenta cómo está esta página por dentro (dónde está su caja de texto, cuál es su columna, cuál su retrato, dónde caen las manchas del rubor). Es lo que permite ajustar sin adivinar." }));
+    lab.appendChild(el("div", { class: "em-acts" }, [
+      btn("🩺 Mandar el informe", "em-btn em-btn-mini", function () {
+        aviso("🩺 Mirando la página…", false);
+        render();
+        mandarInforme(true);
+      }, { title: "Manda al laboratorio lo que este código ve en esta página (solo medidas y selectores; tu conversación no va ahí)" }),
+      btn("⬇ Guardar el informe", "em-btn em-btn-mini", function () {
+        var n = descargarInforme();
+        aviso(n ? "⬇ Informe guardado (" + kbDe(n) + ")." : "No se pudo guardar.", !n);
+        render();
+      }, { title: "Lo guarda como .json, para pasarlo a mano si el laboratorio no está escuchando" })
+    ]));
     cuerpo.appendChild(lab);
 
     // el registro
@@ -3504,6 +3813,17 @@
     descargarPintada: descargarPintada,
     limpiarCopia: limpiarCopia,
     TIPO_PINTADA: TIPO_PINTADA,
+    // el informe 🩺, para el laboratorio (que no puede mirar dentro del marco)
+    diagnostico: diagnostico,
+    informeComoTexto: informeComoTexto,
+    mandarInforme: mandarInforme,
+    descargarInforme: descargarInforme,
+    saludar: saludar,
+    candidatosDeTexto: candidatosDeTexto,
+    rutaDe: rutaDe,
+    TIPO_HOLA: TIPO_HOLA,
+    TIPO_DIAG: TIPO_DIAG,
+    TIPO_PEDIR: TIPO_PEDIR,
     botonesReiniciar: botonesReiniciar,
     botonReiniciar: botonReiniciar,
     esBotonReiniciar: esBotonReiniciar,
@@ -4409,6 +4729,10 @@
     } else {
       EM.log("apagado por ajuste");
     }
+    // Si esta web se está viendo dentro del laboratorio (su «🌐 marco real»), se le dice que estamos
+    // aquí: así el laboratorio sabe que su userscript entra en marcos y con qué versión. Sin ruido si
+    // no hay nadie escuchando (en una pestaña normal esto no manda nada).
+    if (EM.rpg && EM.rpg.saludar) EM.rpg.saludar();
   }
 
   // Su web (una SPA de React) al terminar de arrancar repinta el documento: mientras carga conviene
