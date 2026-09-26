@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         emochi.com
-// @version      0.9.77
+// @version      0.9.78
 // @description  Escrito en el laboratorio de Userscript Maker.
 // @author       Userscript Maker
 // @namespace    https://github.com/erotia2024-netizen/Userscript-maker
@@ -3628,7 +3628,7 @@
         aviso("🩺 Mirando la página…", false);
         render();
         mandarInforme(true);
-      }, { title: "Manda al laboratorio lo que este código ve en esta página (solo medidas y selectores; tu conversación no va ahí)" }),
+      }, { title: "Manda al laboratorio lo que este código ve en esta página: medidas, selectores y estado (de los mensajes que hay en pantalla van solo las primeras palabras, para poder ajustar la lectura). Se queda en tu navegador" }),
       btn("⬇ Guardar el informe", "em-btn em-btn-mini", function () {
         var n = descargarInforme();
         aviso(n ? "⬇ Informe guardado (" + kbDe(n) + ")." : "No se pudo guardar.", !n);
